@@ -1,0 +1,5 @@
+jonathan_voice_id=PIGsltMj3gFMR34aFDI3
+
+arabella_voice_id=Z3R5wn05IrDiVCyEkUrK
+
+michael_voice_id=n1PvBOwxb8X6m7tahp2h
