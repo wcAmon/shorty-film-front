@@ -1,38 +1,41 @@
 import * as fs from "node:fs";
-import * as path from "node:path";
 import { fal } from "@fal-ai/client";
 import ffmpegInstaller from "@ffmpeg-installer/ffmpeg";
+import ffprobeInstaller from "@ffprobe-installer/ffprobe";
 import { createFileRoute } from "@tanstack/react-router";
 import ffmpeg from "fluent-ffmpeg";
+import {
+	deleteSceneVideoRaw,
+	ensureStoryDir,
+	getSceneAudioPath,
+	getSceneVideoPath,
+	getSceneVideoRawPath,
+	getSceneVideoUrl,
+	readSceneVideoBase64,
+	sceneAudioExists,
+} from "@/lib/cache";
 
-// Configure FFmpeg path
+// Configure FFmpeg and FFprobe paths
 ffmpeg.setFfmpegPath(ffmpegInstaller.path);
-
-// Video cache directory - use public/video_cache for frontend accessibility
-const VIDEO_CACHE_DIR = path.join(process.cwd(), "public", "video_cache");
+ffmpeg.setFfprobePath(ffprobeInstaller.path);
 
 // Default video engine
 const DEFAULT_VIDEO_ENGINE = "fal-ai/kling-video/v2.6/pro/image-to-video";
 
-// In-memory store for pending video jobs (sceneId -> job info)
+// In-memory store for pending video jobs (storyId-sceneIndex -> job info)
 const pendingJobs = new Map<
 	string,
 	{
 		requestId: string;
+		storyId: string;
+		sceneIndex: number;
 		audioDuration: number;
 		videoEngine: string;
 		status: "pending" | "processing" | "completed" | "failed";
-		videoBase64?: string;
+		videoUrl?: string;
 		error?: string;
 	}
 >();
-
-// Ensure cache directory exists
-function ensureCacheDir(): void {
-	if (!fs.existsSync(VIDEO_CACHE_DIR)) {
-		fs.mkdirSync(VIDEO_CACHE_DIR, { recursive: true });
-	}
-}
 
 // Download video from URL to local file
 async function downloadVideo(url: string, outputPath: string): Promise<void> {
@@ -41,31 +44,97 @@ async function downloadVideo(url: string, outputPath: string): Promise<void> {
 	fs.writeFileSync(outputPath, Buffer.from(arrayBuffer));
 }
 
-// Trim video to exact duration using FFmpeg
-function trimVideo(
-	inputPath: string,
-	outputPath: string,
-	duration: number,
-): Promise<void> {
+// Check if video has an audio track using ffprobe
+function checkVideoHasAudio(videoPath: string): Promise<boolean> {
 	return new Promise((resolve, reject) => {
-		ffmpeg(inputPath)
-			.setDuration(duration)
+		ffmpeg.ffprobe(videoPath, (err, metadata) => {
+			if (err) {
+				reject(err);
+				return;
+			}
+			const hasAudio = metadata.streams.some(
+				(stream) => stream.codec_type === "audio",
+			);
+			resolve(hasAudio);
+		});
+	});
+}
+
+// Trim video and merge with narration audio
+async function trimAndMergeAudio(
+	rawVideoPath: string,
+	audioPath: string,
+	outputPath: string,
+	audioDuration: number,
+): Promise<void> {
+	const hasVideoAudio = await checkVideoHasAudio(rawVideoPath);
+
+	console.log(
+		`[generate-scene-video] Trimming to ${audioDuration}s and merging audio (video has audio: ${hasVideoAudio})`,
+	);
+
+	return new Promise((resolve, reject) => {
+		const command = ffmpeg().input(rawVideoPath).input(audioPath);
+
+		if (hasVideoAudio) {
+			// Mix video audio (30% volume) with narration (100% volume)
+			command
+				.complexFilter([
+					"[0:a]volume=0.3[va]",
+					"[1:a]volume=1.0[na]",
+					"[va][na]amix=inputs=2:duration=first:dropout_transition=0[aout]",
+				])
+				.outputOptions([
+					"-map 0:v",
+					"-map [aout]",
+					"-t",
+					String(audioDuration),
+					"-c:v libx264",
+					"-c:a aac",
+					"-ar 44100",
+					"-ac 2",
+					"-b:a 128k",
+					"-pix_fmt yuv420p",
+					"-movflags +faststart",
+				]);
+		} else {
+			// No video audio, just add narration
+			command.outputOptions([
+				"-map 0:v",
+				"-map 1:a",
+				"-t",
+				String(audioDuration),
+				"-c:v libx264",
+				"-c:a aac",
+				"-ar 44100",
+				"-ac 2",
+				"-b:a 128k",
+				"-pix_fmt yuv420p",
+				"-movflags +faststart",
+			]);
+		}
+
+		command
 			.output(outputPath)
-			.on("end", () => resolve())
-			.on("error", (err) => reject(err))
+			.on("start", (cmd) => {
+				console.log(`[generate-scene-video] FFmpeg command: ${cmd}`);
+			})
+			.on("end", () => {
+				console.log(`[generate-scene-video] Merge complete: ${outputPath}`);
+				resolve();
+			})
+			.on("error", (err) => {
+				console.error(`[generate-scene-video] Merge error:`, err);
+				reject(err);
+			})
 			.run();
 	});
 }
 
-// Convert video file to base64
-function videoToBase64(filePath: string): string {
-	const buffer = fs.readFileSync(filePath);
-	return buffer.toString("base64");
-}
-
 // Request/Response interfaces
 interface SubmitVideoRequest {
-	sceneId: string;
+	storyId: string;
+	sceneIndex: number;
 	videoPrompt: string;
 	imageBase64: string;
 	audioDuration: number;
@@ -79,24 +148,24 @@ interface SubmitVideoResponse {
 }
 
 interface CheckStatusRequest {
-	sceneId: string;
+	storyId: string;
+	sceneIndex: number;
 }
 
 interface CheckStatusResponse {
 	success: boolean;
 	status: "pending" | "processing" | "completed" | "failed";
+	videoUrl?: string;
 	videoBase64?: string;
 	videoDuration?: number;
 	error?: string;
 }
 
 // FAL-AI queue.result response type
-// The result structure can vary - video may be at top level or nested
 interface FalVideoResult {
 	video?: {
 		url?: string;
 	};
-	// Alternative structure (wrapped in data)
 	data?: {
 		video?: {
 			url?: string;
@@ -110,6 +179,11 @@ interface FalQueueStatus {
 	response_url?: string;
 }
 
+// Generate job key from storyId and sceneIndex
+function getJobKey(storyId: string, sceneIndex: number): string {
+	return `${storyId}-${sceneIndex}`;
+}
+
 export const Route = createFileRoute("/api/generate-scene-video")({
 	server: {
 		handlers: {
@@ -117,9 +191,10 @@ export const Route = createFileRoute("/api/generate-scene-video")({
 			POST: async ({ request }) => {
 				try {
 					const body = (await request.json()) as SubmitVideoRequest;
-					const { sceneId, videoPrompt, imageBase64, audioDuration } = body;
-					// Use provided video engine or default
-					// Handle :no-audio suffix - parse and store actual engine name
+					const { storyId, sceneIndex, videoPrompt, imageBase64, audioDuration } =
+						body;
+
+					// Handle :no-audio suffix
 					const rawVideoEngine = body.videoEngine || DEFAULT_VIDEO_ENGINE;
 					const isNoAudio = rawVideoEngine.endsWith(":no-audio");
 					const videoEngine = isNoAudio
@@ -127,9 +202,15 @@ export const Route = createFileRoute("/api/generate-scene-video")({
 						: rawVideoEngine;
 
 					// Validation
-					if (!sceneId?.trim()) {
+					if (!storyId?.trim()) {
 						return Response.json(
-							{ success: false, error: "Scene ID is required" },
+							{ success: false, error: "Story ID is required" },
+							{ status: 400 },
+						);
+					}
+					if (typeof sceneIndex !== "number" || sceneIndex < 0) {
+						return Response.json(
+							{ success: false, error: "Valid scene index is required" },
 							{ status: 400 },
 						);
 					}
@@ -152,8 +233,21 @@ export const Route = createFileRoute("/api/generate-scene-video")({
 						);
 					}
 
-					// Check if job already exists for this scene
-					const existingJob = pendingJobs.get(sceneId);
+					// Check if audio file exists in cache
+					if (!sceneAudioExists(storyId, sceneIndex)) {
+						return Response.json(
+							{
+								success: false,
+								error: "Scene audio not found in cache. Generate audio first.",
+							},
+							{ status: 400 },
+						);
+					}
+
+					const jobKey = getJobKey(storyId, sceneIndex);
+
+					// Check if job already exists
+					const existingJob = pendingJobs.get(jobKey);
 					if (existingJob && existingJob.status === "processing") {
 						return Response.json({
 							success: true,
@@ -161,7 +255,7 @@ export const Route = createFileRoute("/api/generate-scene-video")({
 						} as SubmitVideoResponse);
 					}
 
-					// Configure FAL client with API key
+					// Configure FAL client
 					fal.config({
 						credentials: process.env.FAL_API_KEY,
 					});
@@ -169,16 +263,16 @@ export const Route = createFileRoute("/api/generate-scene-video")({
 					// Determine FAL video duration: only "5" or "10" allowed
 					const falDuration = audioDuration <= 5 ? "5" : "10";
 
-					// Ensure cache directory exists
-					ensureCacheDir();
+					// Ensure story directory exists
+					ensureStoryDir(storyId);
 
-					// Upload image to FAL storage first
+					// Upload image to FAL storage
 					const imageBuffer = Buffer.from(imageBase64, "base64");
 					const imageBlob = new Blob([imageBuffer], { type: "image/jpeg" });
 					const imageUrl = await fal.storage.upload(imageBlob);
 
 					console.log(
-						`[generate-scene-video] Submitting FAL job for scene ${sceneId}`,
+						`[generate-scene-video] Submitting FAL job for ${jobKey}`,
 					);
 					console.log(
 						`[generate-scene-video] Video engine: ${videoEngine}${isNoAudio ? " (no-audio mode)" : ""}`,
@@ -187,34 +281,28 @@ export const Route = createFileRoute("/api/generate-scene-video")({
 						`[generate-scene-video] Audio duration: ${audioDuration}s, FAL duration: ${falDuration}s`,
 					);
 
-					// Build FAL input based on video engine
-					// v2.6 Pro Image-to-Video uses: image_url (single string)
-					// LTX-2-19B Image-to-Video uses: image_url (single string)
-					// O1 Reference-to-Video uses: image_urls (array)
+					// Build FAL input
 					const isImageToVideo =
 						videoEngine.includes("image-to-video") ||
 						videoEngine.includes("ltx-2-19b");
-
-					// Check if this is Kling v2.6 Pro (supports generate_audio option)
 					const isKlingV26Pro = videoEngine.includes("v2.6/pro");
 
 					const falInput = isImageToVideo
 						? {
 								prompt: videoPrompt,
-								image_url: imageUrl, // Single URL for v2.6 pro
+								image_url: imageUrl,
 								duration: falDuration,
 								aspect_ratio: "9:16",
-								// Only Kling v2.6 Pro supports generate_audio option
 								...(isKlingV26Pro && { generate_audio: !isNoAudio }),
 							}
 						: {
 								prompt: videoPrompt,
-								image_urls: [imageUrl], // Array for o1 reference-to-video
+								image_urls: [imageUrl],
 								duration: falDuration,
 								aspect_ratio: "9:16",
 							};
 
-					// Submit to FAL queue (non-blocking)
+					// Submit to FAL queue
 					const { request_id } = await fal.queue.submit(videoEngine, {
 						input: falInput,
 					});
@@ -224,8 +312,10 @@ export const Route = createFileRoute("/api/generate-scene-video")({
 					);
 
 					// Store job info
-					pendingJobs.set(sceneId, {
+					pendingJobs.set(jobKey, {
 						requestId: request_id,
+						storyId,
+						sceneIndex,
 						audioDuration,
 						videoEngine,
 						status: "processing",
@@ -255,16 +345,24 @@ export const Route = createFileRoute("/api/generate-scene-video")({
 			PUT: async ({ request }) => {
 				try {
 					const body = (await request.json()) as CheckStatusRequest;
-					const { sceneId } = body;
+					const { storyId, sceneIndex } = body;
 
-					if (!sceneId?.trim()) {
+					if (!storyId?.trim()) {
 						return Response.json(
-							{ success: false, error: "Scene ID is required" },
+							{ success: false, error: "Story ID is required" },
+							{ status: 400 },
+						);
+					}
+					if (typeof sceneIndex !== "number" || sceneIndex < 0) {
+						return Response.json(
+							{ success: false, error: "Valid scene index is required" },
 							{ status: 400 },
 						);
 					}
 
-					const job = pendingJobs.get(sceneId);
+					const jobKey = getJobKey(storyId, sceneIndex);
+					const job = pendingJobs.get(jobKey);
+
 					if (!job) {
 						return Response.json(
 							{ success: false, error: "No pending job for this scene" },
@@ -272,12 +370,15 @@ export const Route = createFileRoute("/api/generate-scene-video")({
 						);
 					}
 
-					// If already completed or failed, return cached result
+					// If already completed, return cached result
 					if (job.status === "completed") {
+						const videoUrl = getSceneVideoUrl(storyId, sceneIndex);
+						const videoBase64 = readSceneVideoBase64(storyId, sceneIndex);
 						return Response.json({
 							success: true,
 							status: "completed",
-							videoBase64: job.videoBase64,
+							videoUrl,
+							videoBase64,
 							videoDuration: job.audioDuration,
 						} as CheckStatusResponse);
 					}
@@ -295,17 +396,14 @@ export const Route = createFileRoute("/api/generate-scene-video")({
 						credentials: process.env.FAL_API_KEY,
 					});
 
-					// Use the video engine stored with the job
-					const videoEngine = job.videoEngine;
-
 					// Check FAL queue status
-					const status = (await fal.queue.status(videoEngine, {
+					const status = (await fal.queue.status(job.videoEngine, {
 						requestId: job.requestId,
 						logs: false,
 					})) as FalQueueStatus;
 
 					console.log(
-						`[generate-scene-video] Status for ${sceneId}: ${status.status}`,
+						`[generate-scene-video] Status for ${jobKey}: ${status.status}`,
 					);
 
 					if (status.status === "IN_QUEUE" || status.status === "IN_PROGRESS") {
@@ -316,7 +414,7 @@ export const Route = createFileRoute("/api/generate-scene-video")({
 					}
 
 					if (status.status === "FAILED") {
-						pendingJobs.set(sceneId, {
+						pendingJobs.set(jobKey, {
 							...job,
 							status: "failed",
 							error: "Video generation failed",
@@ -329,24 +427,22 @@ export const Route = createFileRoute("/api/generate-scene-video")({
 					}
 
 					// COMPLETED - get the result
-					const result = (await fal.queue.result(videoEngine, {
+					const result = (await fal.queue.result(job.videoEngine, {
 						requestId: job.requestId,
 					})) as FalVideoResult;
 
-					// Debug: log the actual result structure
 					console.log(
 						`[generate-scene-video] FAL result structure:`,
 						JSON.stringify(result, null, 2),
 					);
 
-					// Try both possible structures: top-level video or nested in data
 					const videoUrl = result.video?.url || result.data?.video?.url;
 					if (!videoUrl) {
 						console.error(
 							`[generate-scene-video] No video URL found in result:`,
 							result,
 						);
-						pendingJobs.set(sceneId, {
+						pendingJobs.set(jobKey, {
 							...job,
 							status: "failed",
 							error: "No video URL in result",
@@ -359,38 +455,48 @@ export const Route = createFileRoute("/api/generate-scene-video")({
 					}
 
 					console.log(
-						`[generate-scene-video] Video ready, downloading and trimming...`,
+						`[generate-scene-video] Video ready, downloading and merging with audio...`,
 					);
 
+					// Get paths
+					const rawVideoPath = getSceneVideoRawPath(storyId, sceneIndex);
+					const audioPath = getSceneAudioPath(storyId, sceneIndex);
+					const finalVideoPath = getSceneVideoPath(storyId, sceneIndex);
+
 					// Download the generated video
-					ensureCacheDir();
-					const rawVideoPath = path.join(VIDEO_CACHE_DIR, `${sceneId}_raw.mp4`);
 					await downloadVideo(videoUrl, rawVideoPath);
+					console.log(`[generate-scene-video] Downloaded raw video: ${rawVideoPath}`);
 
-					// Trim video to exact audioDuration
-					const trimmedVideoPath = path.join(VIDEO_CACHE_DIR, `${sceneId}.mp4`);
-					await trimVideo(rawVideoPath, trimmedVideoPath, job.audioDuration);
-
-					// Convert trimmed video to base64
-					const videoBase64 = videoToBase64(trimmedVideoPath);
+					// Trim and merge with narration audio
+					await trimAndMergeAudio(
+						rawVideoPath,
+						audioPath,
+						finalVideoPath,
+						job.audioDuration,
+					);
 
 					// Clean up raw video file
-					fs.unlinkSync(rawVideoPath);
+					deleteSceneVideoRaw(storyId, sceneIndex);
 
 					// Update job status
-					pendingJobs.set(sceneId, {
+					const finalVideoUrl = getSceneVideoUrl(storyId, sceneIndex);
+					pendingJobs.set(jobKey, {
 						...job,
 						status: "completed",
-						videoBase64,
+						videoUrl: finalVideoUrl,
 					});
 
 					console.log(
-						`[generate-scene-video] Video processing complete for scene ${sceneId}`,
+						`[generate-scene-video] Video processing complete for ${jobKey}`,
 					);
+
+					// Read video as base64 for frontend display
+					const videoBase64 = readSceneVideoBase64(storyId, sceneIndex);
 
 					return Response.json({
 						success: true,
 						status: "completed",
+						videoUrl: finalVideoUrl,
 						videoBase64,
 						videoDuration: job.audioDuration,
 					} as CheckStatusResponse);

@@ -4,6 +4,8 @@ import { useMutation } from "@tanstack/react-query";
 // Type Definitions
 // ============================================================================
 
+export type ImageStyle = "cinematic" | "comic" | "low-poly" | "japanese-anime" | "clay";
+
 export interface Scene {
 	id: string;
 	title: string;
@@ -22,6 +24,7 @@ export interface WordTimestamp {
 // API Response types
 interface GeneratePromptsResponse {
 	success: boolean;
+	storyId?: string;
 	characterPrompt?: string;
 	scenes?: Scene[];
 	error?: string;
@@ -82,19 +85,22 @@ interface ExportVideoResponse {
 // ============================================================================
 
 async function generatePromptsApi(
-	script: string,
+	params: { script: string; imageStyle?: ImageStyle; testMode?: boolean },
 ): Promise<GeneratePromptsResponse> {
+	const { script, imageStyle, testMode } = params;
 	const response = await fetch("/api/generate-prompts", {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({ script }),
+		body: JSON.stringify({ script, imageStyle, testMode }),
 	});
 	return response.json();
 }
 
 async function generateCharacterApi(params: {
 	prompt: string;
+	storyId: string;
 	imageEngine?: "gpt-image" | "flux-pro";
+	imageStyle?: ImageStyle;
 }): Promise<GenerateCharacterResponse> {
 	const response = await fetch("/api/generate-character", {
 		method: "POST",
@@ -117,6 +123,8 @@ async function uploadCharacterApi(
 
 async function generateSceneImageApi(params: {
 	prompt: string;
+	storyId: string;
+	sceneIndex: number;
 	isCharacter: boolean;
 	characterFileId?: string; // OpenAI file_id (for GPT Image)
 	characterImageUrl?: string; // FAL storage URL (for Flux Pro)
@@ -132,6 +140,8 @@ async function generateSceneImageApi(params: {
 
 async function generateSceneAudioApi(params: {
 	caption: string;
+	storyId: string;
+	sceneIndex: number;
 	voiceId?: string;
 }): Promise<GenerateSceneAudioResponse> {
 	const response = await fetch("/api/generate-scene-audio", {
@@ -144,7 +154,8 @@ async function generateSceneAudioApi(params: {
 
 // Submit a video generation job (non-blocking)
 async function submitVideoJobApi(params: {
-	sceneId: string;
+	storyId: string;
+	sceneIndex: number;
 	videoPrompt: string;
 	imageBase64: string;
 	audioDuration: number;
@@ -159,20 +170,22 @@ async function submitVideoJobApi(params: {
 }
 
 // Check video generation status
-async function checkVideoStatusApi(
-	sceneId: string,
-): Promise<CheckVideoStatusResponse> {
+async function checkVideoStatusApi(params: {
+	storyId: string;
+	sceneIndex: number;
+}): Promise<CheckVideoStatusResponse> {
 	const response = await fetch("/api/generate-scene-video", {
 		method: "PUT",
 		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({ sceneId }),
+		body: JSON.stringify(params),
 	});
 	return response.json();
 }
 
 // Poll for video completion with configurable interval
 async function generateSceneVideoWithPolling(params: {
-	sceneId: string;
+	storyId: string;
+	sceneIndex: number;
 	videoPrompt: string;
 	imageBase64: string;
 	audioDuration: number;
@@ -184,7 +197,8 @@ async function generateSceneVideoWithPolling(params: {
 	maxAttempts?: number;
 }): Promise<CheckVideoStatusResponse> {
 	const {
-		sceneId,
+		storyId,
+		sceneIndex,
 		videoPrompt,
 		imageBase64,
 		audioDuration,
@@ -196,7 +210,8 @@ async function generateSceneVideoWithPolling(params: {
 
 	// Submit the job
 	const submitResult = await submitVideoJobApi({
-		sceneId,
+		storyId,
+		sceneIndex,
 		videoPrompt,
 		imageBase64,
 		audioDuration,
@@ -217,7 +232,7 @@ async function generateSceneVideoWithPolling(params: {
 		await new Promise((resolve) => setTimeout(resolve, pollInterval));
 		attempts++;
 
-		const statusResult = await checkVideoStatusApi(sceneId);
+		const statusResult = await checkVideoStatusApi({ storyId, sceneIndex });
 
 		if (onStatusUpdate) {
 			onStatusUpdate(statusResult.status);
@@ -267,7 +282,9 @@ export function useGenerateCharacter() {
 	return useMutation({
 		mutationFn: (params: {
 			prompt: string;
+			storyId: string;
 			imageEngine?: "gpt-image" | "flux-pro";
+			imageStyle?: ImageStyle;
 		}) => generateCharacterApi(params),
 	});
 }
@@ -289,6 +306,8 @@ export function useGenerateSceneImage() {
 	return useMutation({
 		mutationFn: (params: {
 			prompt: string;
+			storyId: string;
+			sceneIndex: number;
 			isCharacter: boolean;
 			characterFileId?: string; // OpenAI file_id (for GPT Image)
 			characterImageUrl?: string; // FAL storage URL (for Flux Pro)
@@ -303,8 +322,12 @@ export function useGenerateSceneImage() {
  */
 export function useGenerateSceneAudio() {
 	return useMutation({
-		mutationFn: (params: { caption: string; voiceId?: string }) =>
-			generateSceneAudioApi(params),
+		mutationFn: (params: {
+			caption: string;
+			storyId: string;
+			sceneIndex: number;
+			voiceId?: string;
+		}) => generateSceneAudioApi(params),
 	});
 }
 
@@ -315,7 +338,8 @@ export function useGenerateSceneAudio() {
 export function useGenerateSceneVideo() {
 	return useMutation({
 		mutationFn: (params: {
-			sceneId: string;
+			storyId: string;
+			sceneIndex: number;
 			videoPrompt: string;
 			imageBase64: string;
 			audioDuration: number;
@@ -329,11 +353,8 @@ export function useGenerateSceneVideo() {
 
 // Export video API function
 async function exportVideoApi(params: {
-	scenes: Array<{
-		videoBase64: string;
-		audioBase64: string;
-		audioDuration: number;
-	}>;
+	storyId: string;
+	sceneCount: number;
 }): Promise<ExportVideoResponse> {
 	const response = await fetch("/api/export-video", {
 		method: "POST",
@@ -345,9 +366,11 @@ async function exportVideoApi(params: {
 
 /**
  * Hook to export final video with all scenes combined
+ * Now uses server-side cache, only needs storyId and sceneCount
  */
 export function useExportVideo() {
 	return useMutation({
-		mutationFn: exportVideoApi,
+		mutationFn: (params: { storyId: string; sceneCount: number }) =>
+			exportVideoApi(params),
 	});
 }

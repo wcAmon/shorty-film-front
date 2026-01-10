@@ -1,5 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import OpenAI from "openai";
+import { generateStoryId } from "@/lib/cache";
+import {
+	type ImageStyle,
+	getGptStyleBlock,
+} from "@/lib/style-prompts";
 
 // Initialize OpenAI client with API key from environment variables
 const openai = new OpenAI({
@@ -21,8 +26,30 @@ export const Route = createFileRoute("/api/generate-prompts")({
 		handlers: {
 			POST: async ({ request }) => {
 				try {
-					const body = (await request.json()) as { script: string };
-					const { script } = body;
+					const body = (await request.json()) as {
+						script: string;
+						imageStyle?: ImageStyle;
+						testMode?: boolean;
+					};
+					const { script, testMode = false } = body;
+
+					// Validate and normalize imageStyle
+					const imageStyle: ImageStyle =
+						body.imageStyle === "comic"
+							? "comic"
+							: body.imageStyle === "low-poly"
+								? "low-poly"
+								: body.imageStyle === "japanese-anime"
+									? "japanese-anime"
+									: body.imageStyle === "clay"
+										? "clay"
+										: "cinematic";
+
+					// Get style block from shared style definitions
+					const styleBlock = getGptStyleBlock(imageStyle);
+
+					// Scene count based on test mode
+					const sceneCount = testMode ? "exactly 2" : "8-12";
 
 					// Validate input is not empty
 					if (!script?.trim()) {
@@ -44,17 +71,19 @@ Return ONLY a valid JSON object with exactly two top-level keys: "characterPromp
 
 Language rule: Write captions in the same language as the input script.
 
+${styleBlock}
+
 ## characterPrompt (string)
 A detailed image prompt for the main character portrait (for consistent face across scenes). Include:
 - age, gender presentation, ethnicity/skin tone, build, facial features, hair style/color, eye color
 - wardrobe + accessories matching the era/setting
 - defining traits/expression/personality shown visually
-- realistic cinematic style, consistent lighting direction
+- style matching the selected image style, consistent lighting direction
 - 9:16 vertical, upper body + face clearly visible
 - simple non-distracting background, no on-screen text/subtitles/watermark
 
 ## scenes (array)
-Create exactly 8–12 scenes. Each scene is ONE vertical 9:16 "film still" shot.
+Create ${sceneCount} scenes. Each scene is ONE vertical 9:16 "film still" shot.
 
 ### Story structure (short-form retention)
 1) Scene 1 = THE HOOK (0–2s): pattern interrupt, shocking reveal, provocative question, or high-stakes moment.
@@ -73,7 +102,7 @@ Across all scenes, deliberately mix GRAND wide visuals and INTIMATE close-ups:
 2) prompt: 1–2 sentences, must start with a shot label: "EWS:", "WS:", "MS:", "CU:", or "ECU:" (optionally add lens like 24mm/50mm/85mm).
    - Include: subject + action, setting, time/weather, mood, lighting, cinematic composition
    - Make it phone-readable: one clear focal point, strong silhouette, minimal clutter
-   - Style: realistic, cinematic, high quality, consistent with the era
+   - Style: match the selected image style, high quality, consistent with the era
    - Always include: "9:16 vertical" and "no on-screen text, no subtitles, no watermark"
 3) video_prompt: 1–2 sentences describing how this still image should be animated into a short image-to-video shot (about 3–5 seconds).
    - This is NOT text-to-video from scratch: assume the model is given the generated scene image as reference/first frame.
@@ -87,9 +116,9 @@ Across all scenes, deliberately mix GRAND wide visuals and INTIMATE close-ups:
 5) caption: A spoken VO line that also works as an on-screen subtitle.
    - 1 short sentence (or 2 short clauses). Aim for ~2–4 seconds spoken.
    - POV rule (IMPORTANT): captions are NARRATOR voiceover in third-person. Do NOT write in first-person from the character's perspective.
-     * Never use first-person pronouns (I/me/my/we/our; 我/我們/我的/咱們). If the script is written in first-person, rewrite it into third-person narration.
-     * Prefer the main character's name/role + third-person pronouns (he/she/they; 他/她/他們) for clarity.
-     * Prefer narration/旁白 over character dialogue; avoid quoted first-person speech.
+     * Never use first-person pronouns (I/me/my/we/our). If the script is written in first-person, rewrite it into third-person narration.
+     * Prefer the main character's name/role + third-person pronouns (he/she/they) for clarity.
+     * Prefer narration over character dialogue; avoid quoted first-person speech.
    - Continuity: keep consistent POV/tense, keep names/roles consistent, avoid unclear pronouns.
    - Linking: each caption should either (a) clearly follow from the previous beat OR (b) set up the next beat with a mini cliffhanger.
    - No hashtags, no emojis, no stage directions; use punctuation to control pauses.
@@ -139,7 +168,7 @@ Output must be ONLY valid JSON.`,
 					};
 
 					// Add unique ID to each scene
-					const scenes: Scene[] = parsed.scenes.map((scene, index) => ({
+					let scenes: Scene[] = parsed.scenes.map((scene, index) => ({
 						id: `scene-${index}-${Date.now()}`,
 						title: scene.title,
 						prompt: scene.prompt,
@@ -148,8 +177,17 @@ Output must be ONLY valid JSON.`,
 						caption: scene.caption,
 					}));
 
+					// Limit to 2 scenes in test mode
+					if (testMode && scenes.length > 2) {
+						scenes = scenes.slice(0, 2);
+					}
+
+					// Generate a unique story ID for this generation session
+					const storyId = generateStoryId();
+
 					return Response.json({
 						success: true,
+						storyId,
 						characterPrompt: parsed.characterPrompt,
 						scenes,
 					});

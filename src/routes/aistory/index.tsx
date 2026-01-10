@@ -7,9 +7,39 @@ import {
 	aistoryActions,
 	aistoryStore,
 	type ImageEngine,
+	type ImageStyle,
 	type VideoEngine,
 	type VoiceId,
 } from "@/stores/aistory.store";
+
+// Image style options for selection
+const IMAGE_STYLES: { id: ImageStyle; label: string; description: string }[] = [
+	{
+		id: "cinematic",
+		label: "Cinematic",
+		description: "Realistic film still look with natural lighting",
+	},
+	{
+		id: "comic",
+		label: "Comic",
+		description: "1950s American comic style (pulp print)",
+	},
+	{
+		id: "low-poly",
+		label: "Low-Poly",
+		description: "Oil-paint diorama with low-poly statues",
+	},
+	{
+		id: "japanese-anime",
+		label: "Japanese Anime",
+		description: "Cel-shaded anime style with expressive character design",
+	},
+	{
+		id: "clay",
+		label: "Clay",
+		description: "Claymation style with handcrafted miniature diorama feel",
+	},
+];
 
 // Image engine options for selection
 const IMAGE_ENGINES: { id: ImageEngine; label: string; description: string }[] =
@@ -93,8 +123,10 @@ function PromptsPage() {
 		(state) => state.isGeneratingPrompts,
 	);
 	const imageEngine = useStore(aistoryStore, (state) => state.imageEngine);
+	const imageStyle = useStore(aistoryStore, (state) => state.imageStyle);
 	const videoEngine = useStore(aistoryStore, (state) => state.videoEngine);
 	const voiceId = useStore(aistoryStore, (state) => state.voiceId);
+	const testMode = useStore(aistoryStore, (state) => state.testMode);
 	const error = useStore(aistoryStore, (state) => state.error);
 
 	// Generate unique ID for form elements
@@ -108,9 +140,10 @@ function PromptsPage() {
 		aistoryActions.setError(null);
 		aistoryActions.resetPrompts();
 
-		generatePromptsMutation.mutate(script, {
+		generatePromptsMutation.mutate({ script, imageStyle, testMode }, {
 			onSuccess: (result) => {
-				if (result.success && result.characterPrompt && result.scenes) {
+				if (result.success && result.storyId && result.characterPrompt && result.scenes) {
+					aistoryActions.setStoryId(result.storyId);
 					aistoryActions.setCharacterPrompt(result.characterPrompt);
 					aistoryActions.setScenes(result.scenes);
 					aistoryActions.setPromptsGenerated(true);
@@ -151,6 +184,58 @@ function PromptsPage() {
 					className="w-full h-48 px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-colors resize-none"
 					disabled={isGeneratingPrompts || promptsGenerated}
 				/>
+			</div>
+
+			{/* Test Mode Toggle */}
+			<div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700">
+				<label className="flex items-center gap-3 cursor-pointer">
+					<input
+						type="checkbox"
+						checked={testMode}
+						onChange={(e) => aistoryActions.setTestMode(e.target.checked)}
+						className="w-5 h-5 accent-yellow-500"
+						disabled={promptsGenerated}
+					/>
+					<div>
+						<div className="text-white font-medium">Test Mode</div>
+						<div className="text-sm text-slate-400">
+							Generate only 2 scenes for faster testing
+						</div>
+					</div>
+				</label>
+			</div>
+
+			{/* Image Style Selection */}
+			<div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700">
+				<h2 className="text-xl font-semibold text-white mb-4">Image Style</h2>
+				<div className="space-y-3">
+					{IMAGE_STYLES.map((style) => (
+						<label
+							key={style.id}
+							className={`flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-all ${
+								imageStyle === style.id
+									? "border-amber-500 bg-amber-500/10"
+									: "border-slate-600 hover:border-slate-500"
+							} ${promptsGenerated ? "opacity-50 pointer-events-none" : ""}`}
+						>
+							<input
+								type="radio"
+								name="imageStyle"
+								value={style.id}
+								checked={imageStyle === style.id}
+								onChange={() => aistoryActions.setImageStyle(style.id)}
+								className="mt-1 accent-amber-500"
+								disabled={promptsGenerated}
+							/>
+							<div>
+								<div className="text-white font-medium">{style.label}</div>
+								<div className="text-sm text-slate-400">
+									{style.description}
+								</div>
+							</div>
+						</label>
+					))}
+				</div>
 			</div>
 
 			{/* Image Engine Selection */}

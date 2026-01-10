@@ -4,6 +4,9 @@ import type { Scene, WordTimestamp } from "@/hooks/use-aistory-api";
 // Image engine options for generation
 export type ImageEngine = "gpt-image" | "flux-pro";
 
+// Image style options for prompt + image generation
+export type ImageStyle = "cinematic" | "comic" | "low-poly" | "japanese-anime" | "clay";
+
 // Voice options for ElevenLabs narration
 export type VoiceId =
 	| "PIGsltMj3gFMR34aFDI3" // Jonathan
@@ -73,9 +76,13 @@ export interface AIStoryState {
 	// Engine selections
 	imageEngine: ImageEngine;
 	videoEngine: VideoEngine;
+	imageStyle: ImageStyle;
 
 	// Voice selection
 	voiceId: VoiceId;
+
+	// Test mode for faster testing (generates only 2 scenes)
+	testMode: boolean;
 }
 
 // Initial state
@@ -99,7 +106,9 @@ const initialState: AIStoryState = {
 	exportError: null,
 	imageEngine: "flux-pro",
 	videoEngine: "fal-ai/kling-video/v2.6/pro/image-to-video",
+	imageStyle: "cinematic",
 	voiceId: "PIGsltMj3gFMR34aFDI3", // Default: Jonathan
+	testMode: false,
 };
 
 // Create the store
@@ -200,8 +209,16 @@ export const aistoryActions = {
 		aistoryStore.setState((state) => ({ ...state, videoEngine }));
 	},
 
+	setImageStyle: (imageStyle: ImageStyle) => {
+		aistoryStore.setState((state) => ({ ...state, imageStyle }));
+	},
+
 	setVoiceId: (voiceId: VoiceId) => {
 		aistoryStore.setState((state) => ({ ...state, voiceId }));
+	},
+
+	setTestMode: (testMode: boolean) => {
+		aistoryStore.setState((state) => ({ ...state, testMode }));
 	},
 
 	// Reset all state except script

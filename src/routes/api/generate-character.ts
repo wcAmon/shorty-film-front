@@ -2,6 +2,11 @@ import { fal } from "@fal-ai/client";
 import { createFileRoute } from "@tanstack/react-router";
 import OpenAI, { toFile } from "openai";
 import sharp from "sharp";
+import { saveCharacterImage } from "@/lib/cache";
+import {
+	type ImageStyle,
+	getCharacterStyleBlock,
+} from "@/lib/style-prompts";
 
 // Initialize OpenAI client with API key from environment variables
 const openai = new OpenAI({
@@ -31,9 +36,31 @@ export const Route = createFileRoute("/api/generate-character")({
 				try {
 					const body = (await request.json()) as {
 						prompt: string;
+						storyId: string;
 						imageEngine?: ImageEngine;
+						imageStyle?: ImageStyle;
 					};
-					const { prompt, imageEngine = "gpt-image" } = body;
+					const { prompt, storyId, imageEngine = "gpt-image" } = body;
+
+					// Validate storyId
+					if (!storyId?.trim()) {
+						return Response.json(
+							{ success: false, error: "Story ID is required" },
+							{ status: 400 },
+						);
+					}
+
+					// Validate and normalize imageStyle
+					const imageStyle: ImageStyle =
+						body.imageStyle === "comic"
+							? "comic"
+							: body.imageStyle === "low-poly"
+								? "low-poly"
+								: body.imageStyle === "japanese-anime"
+									? "japanese-anime"
+									: body.imageStyle === "clay"
+										? "clay"
+										: "cinematic";
 
 					// Validate input is not empty
 					if (!prompt?.trim()) {
@@ -43,14 +70,16 @@ export const Route = createFileRoute("/api/generate-character")({
 						);
 					}
 
+					// Get style block from shared style definitions
+					const styleBlock = getCharacterStyleBlock(imageStyle);
+
 					// Construct AI image generation prompt with additional requirements
 					const enhancedPrompt = `${prompt}
 
 Additional requirements:
-1. Generate a clear, high-quality frontal face and upper body portrait
-2. The background should be simple and not distract from the character
-3. The art style should be realistic and cinematic
-4. 9:16 vertical format, suitable for video content`;
+- Generate a clear, high-quality frontal face and upper body portrait
+- The background should be simple and not distract from the character
+${styleBlock}- 9:16 vertical format, suitable for video content`;
 
 					// ============================================================================
 					// FLUX PRO PATH
@@ -72,6 +101,7 @@ Additional requirements:
 								input: {
 									prompt: enhancedPrompt,
 									aspect_ratio: "9:16",
+									safety_tolerance: "5",
 								},
 							},
 						);
@@ -156,6 +186,10 @@ Additional requirements:
 									`[generate-character] Flux Pro completed. FAL storage URL: ${characterImageUrl}`,
 								);
 
+								// Save to cache with storyId
+								const cachedUrl = saveCharacterImage(storyId, jpegBuffer);
+								console.log(`[generate-character] Saved to cache: ${cachedUrl}`);
+
 								return Response.json({
 									success: true,
 									imageBase64: jpegBase64,
@@ -227,6 +261,10 @@ Additional requirements:
 							file: imageFile,
 							purpose: "vision",
 						});
+
+						// Save to cache with storyId
+						const cachedUrl = saveCharacterImage(storyId, jpegBuffer);
+						console.log(`[generate-character] Saved to cache: ${cachedUrl}`);
 
 						// Return compressed JPEG to client, but use PNG for OpenAI
 						return Response.json({

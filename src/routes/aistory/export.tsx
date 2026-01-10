@@ -25,6 +25,7 @@ function ExportPage() {
 
 	// Subscribe to store state
 	const scenes = useStore(aistoryStore, (state) => state.scenes);
+	const storyId = useStore(aistoryStore, (state) => state.storyId);
 	const isExportingVideo = useStore(
 		aistoryStore,
 		(state) => state.isExportingVideo,
@@ -37,17 +38,16 @@ function ExportPage() {
 
 	// Handle export video
 	const handleExportVideo = () => {
+		if (!storyId) return;
+
 		aistoryActions.setIsExportingVideo(true);
 		aistoryActions.setExportError(null);
 		aistoryActions.setExportedVideoUrl(null);
 
 		exportVideoMutation.mutate(
 			{
-				scenes: scenes.map((scene) => ({
-					videoBase64: scene.videoBase64 ?? "",
-					audioBase64: scene.audioBase64 ?? "",
-					audioDuration: scene.audioDuration ?? 0,
-				})),
+				storyId,
+				sceneCount: scenes.length,
 			},
 			{
 				onSuccess: (result) => {

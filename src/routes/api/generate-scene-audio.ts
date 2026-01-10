@@ -1,5 +1,6 @@
 import { ElevenLabsClient } from "@elevenlabs/elevenlabs-js";
 import { createFileRoute } from "@tanstack/react-router";
+import { saveSceneAudio } from "@/lib/cache";
 
 // Initialize ElevenLabs client for voice generation with timestamps
 const elevenlabs = new ElevenLabsClient({
@@ -66,9 +67,25 @@ export const Route = createFileRoute("/api/generate-scene-audio")({
 				try {
 					const body = (await request.json()) as {
 						caption: string;
+						storyId: string;
+						sceneIndex: number;
 						voiceId?: string;
 					};
-					const { caption, voiceId: requestVoiceId } = body;
+					const { caption, storyId, sceneIndex, voiceId: requestVoiceId } = body;
+
+					// Validate storyId and sceneIndex
+					if (!storyId?.trim()) {
+						return Response.json(
+							{ success: false, error: "Story ID is required" },
+							{ status: 400 },
+						);
+					}
+					if (typeof sceneIndex !== "number" || sceneIndex < 0) {
+						return Response.json(
+							{ success: false, error: "Valid scene index is required" },
+							{ status: 400 },
+						);
+					}
 
 					// Validate input is not empty
 					if (!caption?.trim()) {
@@ -121,6 +138,16 @@ export const Route = createFileRoute("/api/generate-scene-audio")({
 					// Calculate total duration from last character end time
 					const endTimes = response.alignment.characterEndTimesSeconds;
 					const audioDuration = endTimes[endTimes.length - 1] || 0;
+
+					// Save to cache with storyId and sceneIndex
+					if (response.audioBase64) {
+						const cachedUrl = saveSceneAudio(
+							storyId,
+							sceneIndex,
+							Buffer.from(response.audioBase64, "base64"),
+						);
+						console.log(`[generate-scene-audio] Saved to cache: ${cachedUrl}`);
+					}
 
 					return Response.json({
 						success: true,

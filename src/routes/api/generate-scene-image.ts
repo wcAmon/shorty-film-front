@@ -2,6 +2,7 @@ import { fal } from "@fal-ai/client";
 import { createFileRoute } from "@tanstack/react-router";
 import OpenAI from "openai";
 import sharp from "sharp";
+import { saveSceneImage } from "@/lib/cache";
 
 // Initialize OpenAI client with API key from environment variables
 const openai = new OpenAI({
@@ -31,6 +32,8 @@ export const Route = createFileRoute("/api/generate-scene-image")({
 				try {
 					const body = (await request.json()) as {
 						prompt: string;
+						storyId: string;
+						sceneIndex: number;
 						isCharacter: boolean;
 						characterFileId?: string;
 						characterImageUrl?: string; // FAL storage URL for Flux Pro
@@ -38,11 +41,27 @@ export const Route = createFileRoute("/api/generate-scene-image")({
 					};
 					const {
 						prompt,
+						storyId,
+						sceneIndex,
 						isCharacter,
 						characterFileId,
 						characterImageUrl,
 						imageEngine = "gpt-image",
 					} = body;
+
+					// Validate storyId and sceneIndex
+					if (!storyId?.trim()) {
+						return Response.json(
+							{ success: false, error: "Story ID is required" },
+							{ status: 400 },
+						);
+					}
+					if (typeof sceneIndex !== "number" || sceneIndex < 0) {
+						return Response.json(
+							{ success: false, error: "Valid scene index is required" },
+							{ status: 400 },
+						);
+					}
 
 					console.log(
 						"[generateSceneImage] Starting with isCharacter:",
@@ -53,6 +72,10 @@ export const Route = createFileRoute("/api/generate-scene-image")({
 						!!characterImageUrl,
 						"imageEngine:",
 						imageEngine,
+						"storyId:",
+						storyId,
+						"sceneIndex:",
+						sceneIndex,
 					);
 
 					// Validate input is not empty
@@ -97,10 +120,12 @@ export const Route = createFileRoute("/api/generate-scene-image")({
 							? {
 									prompt: enhancedPrompt,
 									image_url: characterImageUrl, // Reference image for character consistency
+									safety_tolerance: "5",
 								}
 							: {
 									prompt: enhancedPrompt,
 									aspect_ratio: "9:16",
+									safety_tolerance: "5",
 								};
 
 						// Submit to FAL queue
@@ -178,6 +203,10 @@ export const Route = createFileRoute("/api/generate-scene-image")({
 								console.log(
 									"[generateSceneImage] Flux Pro scene image completed",
 								);
+
+								// Save to cache with storyId and sceneIndex
+								const cachedUrl = saveSceneImage(storyId, sceneIndex, jpegBuffer);
+								console.log(`[generateSceneImage] Saved to cache: ${cachedUrl}`);
 
 								return Response.json({
 									success: true,
@@ -324,6 +353,10 @@ The character in this scene must be EXACTLY the same person as shown in the refe
 						}
 
 						if (imageBase64) {
+							// Save to cache with storyId and sceneIndex
+							const cachedUrl = saveSceneImage(storyId, sceneIndex, Buffer.from(imageBase64, "base64"));
+							console.log(`[generateSceneImage] Saved to cache: ${cachedUrl}`);
+
 							return Response.json({
 								success: true,
 								imageBase64,
@@ -380,6 +413,10 @@ The character in this scene must be EXACTLY the same person as shown in the refe
 							.toBuffer();
 						const jpegBase64 = jpegBuffer.toString("base64");
 
+						// Save to cache with storyId and sceneIndex
+						const cachedUrl = saveSceneImage(storyId, sceneIndex, jpegBuffer);
+						console.log(`[generateSceneImage] Saved to cache: ${cachedUrl}`);
+
 						return Response.json({
 							success: true,
 							imageBase64: jpegBase64,
@@ -394,6 +431,10 @@ The character in this scene must be EXACTLY the same person as shown in the refe
 							.jpeg({ quality: 85 })
 							.toBuffer();
 						const jpegBase64 = jpegBuffer.toString("base64");
+
+						// Save to cache with storyId and sceneIndex
+						const cachedUrl = saveSceneImage(storyId, sceneIndex, jpegBuffer);
+						console.log(`[generateSceneImage] Saved to cache: ${cachedUrl}`);
 
 						return Response.json({
 							success: true,

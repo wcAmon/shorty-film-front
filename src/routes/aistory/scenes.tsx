@@ -68,11 +68,13 @@ function ScenesPage() {
 	const sceneError = useStore(aistoryStore, (state) => state.sceneError);
 	const videoEngine = useStore(aistoryStore, (state) => state.videoEngine);
 	const imageEngine = useStore(aistoryStore, (state) => state.imageEngine);
+	const imageStyle = useStore(aistoryStore, (state) => state.imageStyle);
 	const characterImageUrl = useStore(
 		aistoryStore,
 		(state) => state.characterImageUrl,
 	);
 	const voiceId = useStore(aistoryStore, (state) => state.voiceId);
+	const storyId = useStore(aistoryStore, (state) => state.storyId);
 
 	// State for word-by-word caption display during audio playback
 	const [currentWordIndex, setCurrentWordIndex] = useState<number | null>(null);
@@ -171,13 +173,13 @@ function ScenesPage() {
 
 	// Handle character generation from prompt
 	const handleGenerateCharacter = () => {
-		if (!characterPrompt?.trim()) return;
+		if (!characterPrompt?.trim() || !storyId) return;
 
 		aistoryActions.setIsGeneratingCharacter(true);
 		aistoryActions.setError(null);
 
 		generateCharacterMutation.mutate(
-			{ prompt: characterPrompt, imageEngine },
+			{ prompt: characterPrompt, storyId, imageEngine, imageStyle },
 			{
 				onSuccess: (result) => {
 					if (result.success && result.imageBase64) {
@@ -228,13 +230,16 @@ function ScenesPage() {
 	// Handle single scene image generation
 	const handleGenerateSceneImage = (sceneId: string) => {
 		const scene = scenes.find((s) => s.id === sceneId);
-		if (!scene) return;
+		const sceneIndex = scenes.findIndex((s) => s.id === sceneId);
+		if (!scene || sceneIndex === -1 || !storyId) return;
 
 		aistoryActions.updateScene(sceneId, { isLoading: true });
 
 		generateSceneImageMutation.mutate(
 			{
 				prompt: scene.prompt,
+				storyId,
+				sceneIndex,
 				isCharacter: scene.isCharacter,
 				// GPT Image uses characterFileId (OpenAI file_id)
 				characterFileId:
@@ -275,12 +280,13 @@ function ScenesPage() {
 	// Handle single scene audio generation using ElevenLabs with word timestamps
 	const handleGenerateSceneAudio = (sceneId: string) => {
 		const scene = scenes.find((s) => s.id === sceneId);
-		if (!scene) return;
+		const sceneIndex = scenes.findIndex((s) => s.id === sceneId);
+		if (!scene || sceneIndex === -1 || !storyId) return;
 
 		aistoryActions.updateScene(sceneId, { isGeneratingAudio: true });
 
 		generateSceneAudioMutation.mutate(
-			{ caption: scene.caption, voiceId },
+			{ caption: scene.caption, storyId, sceneIndex, voiceId },
 			{
 				onSuccess: (result) => {
 					if (result.success && result.audioBase64) {
@@ -310,7 +316,8 @@ function ScenesPage() {
 	// Handle single scene video generation using FAL-AI Kling video model (with polling)
 	const handleGenerateSceneVideo = (sceneId: string) => {
 		const scene = scenes.find((s) => s.id === sceneId);
-		if (!scene || !scene.imageBase64 || !scene.audioDuration) return;
+		const sceneIndex = scenes.findIndex((s) => s.id === sceneId);
+		if (!scene || sceneIndex === -1 || !storyId || !scene.imageBase64 || !scene.audioDuration) return;
 
 		aistoryActions.updateScene(sceneId, {
 			isGeneratingVideo: true,
@@ -319,7 +326,8 @@ function ScenesPage() {
 
 		generateSceneVideoMutation.mutate(
 			{
-				sceneId: scene.id,
+				storyId,
+				sceneIndex,
 				videoPrompt: scene.video_prompt,
 				imageBase64: scene.imageBase64,
 				audioDuration: scene.audioDuration,
