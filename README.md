@@ -1,4 +1,4 @@
-# Shorty Film
+# AI story generator (Semi-Automatic)
 
 **AI-Powered Story-to-Video Generation Tool**
 
