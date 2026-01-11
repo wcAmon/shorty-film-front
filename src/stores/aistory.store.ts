@@ -11,7 +11,8 @@ export type ImageStyle = "cinematic" | "comic" | "low-poly" | "japanese-anime" |
 export type VoiceId =
 	| "PIGsltMj3gFMR34aFDI3" // Jonathan
 	| "Z3R5wn05IrDiVCyEkUrK" // Arabella
-	| "n1PvBOwxb8X6m7tahp2h"; // Michael
+	| "n1PvBOwxb8X6m7tahp2h" // Michael
+	| "ZF6FPAbjXT4488VcRRnw"; // Amelia
 
 // Video engine options for FAL-AI
 export type VideoEngine =

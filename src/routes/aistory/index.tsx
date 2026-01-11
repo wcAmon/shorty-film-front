@@ -32,7 +32,7 @@ const IMAGE_STYLES: { id: ImageStyle; label: string; description: string }[] = [
 	{
 		id: "japanese-anime",
 		label: "Japanese Anime",
-		description: "Cel-shaded anime style with expressive character design",
+		description: "Classic 90s hand-drawn anime/manga look (cel animation)",
 	},
 	{
 		id: "clay",
@@ -72,6 +72,11 @@ const VOICE_OPTIONS: { id: VoiceId; label: string; description: string }[] = [
 		id: "n1PvBOwxb8X6m7tahp2h",
 		label: "Michael",
 		description: "Male, deep and authoritative voice",
+	},
+	{
+		id: "ZF6FPAbjXT4488VcRRnw",
+		label: "Amelia",
+		description: "Female, friendly and natural conversational tone",
 	},
 ];
 

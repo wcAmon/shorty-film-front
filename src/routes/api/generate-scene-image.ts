@@ -4,6 +4,19 @@ import OpenAI from "openai";
 import sharp from "sharp";
 import { saveSceneImage } from "@/lib/cache";
 
+function isOpenAISafetyRejection(
+	err: InstanceType<typeof OpenAI.APIError>,
+): boolean {
+	const message = err.message?.toLowerCase() ?? "";
+	const code = (err as unknown as { error?: { code?: string } }).error?.code;
+	return (
+		code === "content_policy_violation" ||
+		message.includes("rejected by the safety system") ||
+		message.includes("safety system") ||
+		message.includes("content policy")
+	);
+}
+
 // Initialize OpenAI client with API key from environment variables
 const openai = new OpenAI({
 	apiKey: process.env.OPENAI_API_KEY,
@@ -450,6 +463,17 @@ The character in this scene must be EXACTLY the same person as shown in the refe
 					console.error("OpenAI API error:", err);
 
 					if (err instanceof OpenAI.APIError) {
+						if (isOpenAISafetyRejection(err)) {
+							return Response.json(
+								{
+									success: false,
+									error:
+										"OpenAI rejected this image prompt due to safety/policy filters. Remove references to specific artists/franchises/brands, real people, minors, or sexual content and try again.",
+								},
+								{ status: 400 },
+							);
+						}
+
 						return Response.json(
 							{ success: false, error: `OpenAI API error: ${err.message}` },
 							{ status: 500 },

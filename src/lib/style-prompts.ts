@@ -19,13 +19,13 @@ export const STYLE_PROMPTS = {
 	},
 	"japanese-anime": {
 		prompt:
-			"Japanese anime art style, cel shading, vibrant colors, expressive large eyes, detailed hair with highlights, clean line art, soft gradients, anime character design, Studio Ghibli inspired backgrounds, high quality anime illustration",
+			"Classic 1990s Japanese anime/manga style, traditional hand-drawn cel animation, bold black ink outlines, dramatic screentone shading, intense expressive eyes, dynamic action framing, athletic anatomy, serious mature tone, muted earth tones with selective vibrant accents, hand-painted backgrounds, vintage shonen anime aesthetic",
 		negativePrompt:
-			"photorealistic, 3D render, western cartoon, comic book style, oil painting, watercolor, blurry, low quality, extra fingers, deformed face, ugly, bad anatomy, text, watermark, logo",
+			"modern mobile game style, gacha game, chibi, cute moe style, overly shiny, glossy skin, sparkles, pastel colors, soft kawaii aesthetic, 3D render, photorealistic, western cartoon, blurry, low quality, extra fingers, deformed face, text, watermark, logo",
 	},
 	clay: {
 		prompt:
-			"Clay animation style, claymation, stop-motion miniature diorama, handcrafted clay figurines, soft diffused lighting, tilt-shift photography effect, miniature world, polymer clay texture, Aardman animations inspired, Wallace and Gromit style, warm cozy atmosphere, shallow depth of field",
+			"Clay animation style, claymation, stop-motion miniature diorama, handcrafted clay figurines, visible polymer clay texture, subtle handmade imperfections, soft diffused lighting, tilt-shift miniature photography, warm cozy atmosphere, shallow depth of field",
 		negativePrompt:
 			"photorealistic, 2D flat, anime, cartoon, digital art, sharp edges, glossy, plastic, low quality, blurry, text, watermark, logo",
 	},
