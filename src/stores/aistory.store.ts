@@ -12,7 +12,10 @@ export type VoiceId =
 	| "PIGsltMj3gFMR34aFDI3" // Jonathan
 	| "Z3R5wn05IrDiVCyEkUrK" // Arabella
 	| "n1PvBOwxb8X6m7tahp2h" // Michael
-	| "ZF6FPAbjXT4488VcRRnw"; // Amelia
+	| "ZF6FPAbjXT4488VcRRnw" // Amelia
+	| "ICwKbPHDHAM3eal5tHEZ" // Tony
+	| "cgLpYGyXZhkyalKZ0xeZ" // Knox
+	| "YKrm0N1EAM9Bw27j8kuD"; // Leonidas
 
 // Video engine options for FAL-AI
 export type VideoEngine =
@@ -166,6 +169,45 @@ export const aistoryActions = {
 				scene.id === sceneId ? { ...scene, ...updates } : scene,
 			),
 		}));
+	},
+
+	// Add a new scene after the specified scene (or at the end if no sceneId provided)
+	addScene: (afterSceneId?: string) => {
+		aistoryStore.setState((state) => {
+			const newScene: SceneState = {
+				id: `scene-new-${Date.now()}`,
+				title: "New Scene",
+				prompt: "",
+				video_prompt: "",
+				isCharacter: true,
+				caption: "",
+			};
+			if (!afterSceneId) {
+				return { ...state, scenes: [...state.scenes, newScene] };
+			}
+			const index = state.scenes.findIndex((s) => s.id === afterSceneId);
+			const newScenes = [...state.scenes];
+			newScenes.splice(index + 1, 0, newScene);
+			return { ...state, scenes: newScenes };
+		});
+	},
+
+	// Delete a scene by ID
+	deleteScene: (sceneId: string) => {
+		aistoryStore.setState((state) => ({
+			...state,
+			scenes: state.scenes.filter((s) => s.id !== sceneId),
+		}));
+	},
+
+	// Reorder scenes by moving from one index to another
+	reorderScenes: (fromIndex: number, toIndex: number) => {
+		aistoryStore.setState((state) => {
+			const newScenes = [...state.scenes];
+			const [moved] = newScenes.splice(fromIndex, 1);
+			newScenes.splice(toIndex, 0, moved);
+			return { ...state, scenes: newScenes };
+		});
 	},
 
 	setIsGeneratingPrompts: (isGeneratingPrompts: boolean) => {

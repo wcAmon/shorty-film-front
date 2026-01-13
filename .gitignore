@@ -17,3 +17,9 @@ count.txt
 todos.json
 public/video_cache/
 CLAUDE.md
+
+# Database
+data/
+*.db
+*.db-wal
+*.db-shm

@@ -2,7 +2,13 @@ import { fal } from "@fal-ai/client";
 import { createFileRoute } from "@tanstack/react-router";
 import OpenAI, { toFile } from "openai";
 import sharp from "sharp";
-import { saveCharacterImage } from "@/lib/cache";
+import {
+	saveCharacterImage,
+	savePerson1Image,
+	savePerson2Image,
+	loadStoryMetadata,
+	saveStoryMetadata,
+} from "@/lib/cache";
 import {
 	type ImageStyle,
 	getCharacterStyleBlock,
@@ -52,8 +58,12 @@ export const Route = createFileRoute("/api/generate-character")({
 						storyId: string;
 						imageEngine?: ImageEngine;
 						imageStyle?: ImageStyle;
+						aspectRatio?: "9:16" | "16:9";
+						person?: "person1" | "person2"; // For podcast42
 					};
-					const { prompt, storyId, imageEngine = "gpt-image" } = body;
+					const { prompt, storyId, imageEngine = "gpt-image", aspectRatio = "9:16", person } = body;
+
+					console.log(`[generate-character] Received request: storyId=${storyId}, imageEngine=${imageEngine}, aspectRatio=${aspectRatio}, person=${person}`);
 
 					// Validate storyId
 					if (!storyId?.trim()) {
@@ -87,19 +97,25 @@ export const Route = createFileRoute("/api/generate-character")({
 					const styleBlock = getCharacterStyleBlock(imageStyle);
 
 					// Construct AI image generation prompt with additional requirements
+					const formatDescription = aspectRatio === "16:9"
+						? "16:9 horizontal landscape format, 720p resolution"
+						: "9:16 vertical format";
 					const enhancedPrompt = `${prompt}
 
 Additional requirements:
 - Generate a clear, high-quality frontal face and upper body portrait
 - The background should be simple and not distract from the character
-${styleBlock}- 9:16 vertical format, suitable for video content`;
+${styleBlock}- ${formatDescription}, suitable for video content`;
 
 					// ============================================================================
-					// FLUX PRO PATH
+					// FLUX PRO PATH (text-to-image uses v1.1)
 					// ============================================================================
 					if (imageEngine === "flux-pro") {
+						// Character generation always uses text-to-image (flux-pro/v1.1)
+						const fluxEndpoint = "fal-ai/flux-pro/v1.1";
+
 						console.log(
-							"[generate-character] Using Flux Pro text-to-image engine",
+							`[generate-character] Using Flux Pro v1.1 (${fluxEndpoint})`,
 						);
 
 						// Configure FAL client
@@ -107,20 +123,17 @@ ${styleBlock}- 9:16 vertical format, suitable for video content`;
 							credentials: process.env.FAL_API_KEY,
 						});
 
-						// Submit to FAL queue (Flux Pro Kontext Text-to-Image)
-						const { request_id } = await fal.queue.submit(
-							"fal-ai/flux-pro/kontext/text-to-image",
-							{
-								input: {
-									prompt: enhancedPrompt,
-									aspect_ratio: "9:16",
-									safety_tolerance: "5",
-								},
+						// Submit to FAL queue
+						const { request_id } = await fal.queue.submit(fluxEndpoint, {
+							input: {
+								prompt: enhancedPrompt,
+								aspect_ratio: aspectRatio,
+								safety_tolerance: "5",
 							},
-						);
+						});
 
 						console.log(
-							`[generate-character] Flux Pro job submitted with request_id: ${request_id}`,
+							`[generate-character] ${imageEngine} job submitted with request_id: ${request_id}`,
 						);
 
 						// Poll for completion
@@ -132,33 +145,30 @@ ${styleBlock}- 9:16 vertical format, suitable for video content`;
 							await new Promise((resolve) => setTimeout(resolve, pollInterval));
 							attempts++;
 
-							const status = (await fal.queue.status(
-								"fal-ai/flux-pro/kontext/text-to-image",
-								{
-									requestId: request_id,
-									logs: false,
-								},
-							)) as FalQueueStatus;
+							const status = (await fal.queue.status(fluxEndpoint, {
+								requestId: request_id,
+								logs: false,
+							})) as FalQueueStatus;
 
 							console.log(
-								`[generate-character] Flux Pro status: ${status.status}`,
+								`[generate-character] ${imageEngine} status: ${status.status}`,
 							);
 
 							if (status.status === "FAILED") {
 								return Response.json(
-									{ success: false, error: "Flux Pro image generation failed" },
+									{
+										success: false,
+										error: `${imageEngine} image generation failed`,
+									},
 									{ status: 500 },
 								);
 							}
 
 							if (status.status === "COMPLETED") {
 								// Get the result
-								const result = (await fal.queue.result(
-									"fal-ai/flux-pro/kontext/text-to-image",
-									{
-										requestId: request_id,
-									},
-								)) as FalImageResult;
+								const result = (await fal.queue.result(fluxEndpoint, {
+									requestId: request_id,
+								})) as FalImageResult;
 
 								// Extract image URL from result
 								const imageUrl =
@@ -166,13 +176,13 @@ ${styleBlock}- 9:16 vertical format, suitable for video content`;
 
 								if (!imageUrl) {
 									console.error(
-										"[generate-character] No image URL in Flux Pro result:",
+										`[generate-character] No image URL in ${imageEngine} result:`,
 										result,
 									);
 									return Response.json(
 										{
 											success: false,
-											error: "No image URL returned from Flux Pro",
+											error: `No image URL returned from ${imageEngine}`,
 										},
 										{ status: 500 },
 									);
@@ -183,25 +193,58 @@ ${styleBlock}- 9:16 vertical format, suitable for video content`;
 								const arrayBuffer = await imageResponse.arrayBuffer();
 								const imageBuffer = Buffer.from(arrayBuffer);
 
-								// Convert to JPEG for smaller payload
-								const jpegBuffer = await sharp(imageBuffer)
-									.jpeg({ quality: 85 })
-									.toBuffer();
-								const jpegBase64 = jpegBuffer.toString("base64");
+								// For 16:9 (podcast42), resize to exactly 1280x720
+								// FAL returns ~1024x768, so we use cover to crop and scale
+								let processedBuffer: Buffer;
+								if (aspectRatio === "16:9") {
+									processedBuffer = await sharp(imageBuffer)
+										.resize(1280, 720, { fit: "cover" })
+										.jpeg({ quality: 85 })
+										.toBuffer();
+									console.log(`[generate-character] Resized to 1280x720 for podcast42`);
+								} else {
+									processedBuffer = await sharp(imageBuffer)
+										.jpeg({ quality: 85 })
+										.toBuffer();
+								}
+								const jpegBase64 = processedBuffer.toString("base64");
 
-								// Upload to FAL storage for character reference in scene generation
-								const imageBlob = new Blob([imageBuffer], {
-									type: "image/png",
+								// Upload resized image to FAL storage for character reference in scene generation
+								const imageBlob = new Blob([processedBuffer], {
+									type: "image/jpeg",
 								});
 								const characterImageUrl = await fal.storage.upload(imageBlob);
 
 								console.log(
-									`[generate-character] Flux Pro completed. FAL storage URL: ${characterImageUrl}`,
+									`[generate-character] ${imageEngine} completed. FAL storage URL: ${characterImageUrl}`,
 								);
 
-								// Save to cache with storyId
-								const cachedUrl = saveCharacterImage(storyId, jpegBuffer);
-								console.log(`[generate-character] Saved to cache: ${cachedUrl}`);
+								// Save to cache with storyId (use person-specific path for podcast42)
+								if (person === "person1") {
+									savePerson1Image(storyId, processedBuffer);
+								} else if (person === "person2") {
+									savePerson2Image(storyId, processedBuffer);
+								} else {
+									saveCharacterImage(storyId, processedBuffer);
+								}
+								console.log(`[generate-character] Saved to cache for ${person || "character"}`);
+
+								// Update metadata if it exists
+								const existingMetadata = loadStoryMetadata(storyId);
+								if (existingMetadata) {
+									if (person === "person1") {
+										existingMetadata.person1ImageUrl = characterImageUrl;
+										existingMetadata.hasPerson1Image = true;
+									} else if (person === "person2") {
+										existingMetadata.person2ImageUrl = characterImageUrl;
+										existingMetadata.hasPerson2Image = true;
+									} else {
+										existingMetadata.characterImageUrl = characterImageUrl;
+										existingMetadata.hasCharacterImage = true;
+									}
+									existingMetadata.imageEngine = imageEngine;
+									saveStoryMetadata(existingMetadata);
+								}
 
 								return Response.json({
 									success: true,
@@ -215,7 +258,10 @@ ${styleBlock}- 9:16 vertical format, suitable for video content`;
 
 						// Timeout
 						return Response.json(
-							{ success: false, error: "Flux Pro image generation timed out" },
+							{
+								success: false,
+								error: `${imageEngine} image generation timed out`,
+							},
 							{ status: 500 },
 						);
 					}
@@ -225,12 +271,16 @@ ${styleBlock}- 9:16 vertical format, suitable for video content`;
 					// ============================================================================
 					console.log("[generate-character] Using GPT Image engine");
 
+					// Determine image size based on aspect ratio
+					// 9:16 = 1024x1536 (portrait), 16:9 = 1536x1024 (landscape)
+					const imageSize = aspectRatio === "16:9" ? "1536x1024" : "1024x1536";
+
 					// Call OpenAI image generation API
 					const response = await openai.images.generate({
 						model: "gpt-image-1.5",
 						prompt: enhancedPrompt,
 						n: 1,
-						size: "1024x1536",
+						size: imageSize as "1024x1536" | "1536x1024",
 						quality: "low",
 					});
 
@@ -275,9 +325,30 @@ ${styleBlock}- 9:16 vertical format, suitable for video content`;
 							purpose: "vision",
 						});
 
-						// Save to cache with storyId
-						const cachedUrl = saveCharacterImage(storyId, jpegBuffer);
-						console.log(`[generate-character] Saved to cache: ${cachedUrl}`);
+						// Save to cache with storyId (use person-specific path for podcast42)
+						if (person === "person1") {
+							savePerson1Image(storyId, jpegBuffer);
+						} else if (person === "person2") {
+							savePerson2Image(storyId, jpegBuffer);
+						} else {
+							saveCharacterImage(storyId, jpegBuffer);
+						}
+						console.log(`[generate-character] Saved to cache for ${person || "character"}`);
+
+						// Update metadata if it exists
+						const existingMetadata = loadStoryMetadata(storyId);
+						if (existingMetadata) {
+							if (person === "person1") {
+								existingMetadata.hasPerson1Image = true;
+							} else if (person === "person2") {
+								existingMetadata.hasPerson2Image = true;
+							} else {
+								existingMetadata.characterFileId = uploadedFile.id;
+								existingMetadata.hasCharacterImage = true;
+							}
+							existingMetadata.imageEngine = imageEngine;
+							saveStoryMetadata(existingMetadata);
+						}
 
 						// Return compressed JPEG to client, but use PNG for OpenAI
 						return Response.json({

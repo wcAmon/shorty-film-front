@@ -1,12 +1,16 @@
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { useStore } from "@tanstack/react-store";
 import {
+	ChevronDown,
+	ChevronUp,
 	Clapperboard,
 	Download,
 	Film,
 	ImageIcon,
 	Loader2,
 	Play,
+	Plus,
+	Trash2,
 	Upload,
 	User,
 	Volume2,
@@ -219,6 +223,11 @@ function ScenesPage() {
 		aistoryActions.updateScene(sceneId, { prompt: newPrompt });
 	};
 
+	// Update scene caption (editable)
+	const handleUpdateSceneCaption = (sceneId: string, newCaption: string) => {
+		aistoryActions.updateScene(sceneId, { caption: newCaption });
+	};
+
 	// Update scene video instruction (editable)
 	const handleUpdateSceneVideoPrompt = (
 		sceneId: string,
@@ -246,7 +255,7 @@ function ScenesPage() {
 					imageEngine === "gpt-image" && scene.isCharacter
 						? (characterFileId ?? undefined)
 						: undefined,
-				// Flux Pro uses characterImageUrl (FAL storage URL)
+				// Flux Pro uses characterImageUrl (FAL storage URL) for image-to-image with kontext/max
 				characterImageUrl:
 					imageEngine === "flux-pro" && scene.isCharacter
 						? (characterImageUrl ?? undefined)
@@ -540,16 +549,65 @@ function ScenesPage() {
 								scenesDisabled ? "opacity-50 pointer-events-none" : ""
 							}`}
 						>
-							{/* Scene title */}
-							<h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-								<Clapperboard className="w-5 h-5 text-purple-400" />
-								Scene {index + 1}: {scene.title}
-								{scene.isCharacter && (
-									<span className="ml-2 px-2 py-0.5 text-xs bg-cyan-500/20 text-cyan-300 rounded-full">
-										Character
-									</span>
-								)}
-							</h3>
+							{/* Scene header with controls */}
+							<div className="flex items-center justify-between mb-4">
+								<h3 className="text-lg font-semibold text-white flex items-center gap-2">
+									<Clapperboard className="w-5 h-5 text-purple-400" />
+									Scene {index + 1}: {scene.title}
+								</h3>
+								<div className="flex items-center gap-3">
+									{/* isCharacter toggle */}
+									<label className="flex items-center gap-2 cursor-pointer">
+										<input
+											type="checkbox"
+											checked={scene.isCharacter}
+											onChange={() =>
+												aistoryActions.updateScene(scene.id, {
+													isCharacter: !scene.isCharacter,
+												})
+											}
+											className="w-4 h-4 accent-cyan-500"
+											disabled={scene.isLoading || scenesDisabled}
+										/>
+										<span className="text-sm text-slate-300">Character</span>
+									</label>
+									{/* Reorder buttons */}
+									<div className="flex items-center gap-1">
+										<button
+											type="button"
+											onClick={() =>
+												aistoryActions.reorderScenes(index, index - 1)
+											}
+											disabled={index === 0 || scenesDisabled}
+											className="p-1 text-slate-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+											title="Move up"
+										>
+											<ChevronUp className="w-4 h-4" />
+										</button>
+										<button
+											type="button"
+											onClick={() =>
+												aistoryActions.reorderScenes(index, index + 1)
+											}
+											disabled={index === scenes.length - 1 || scenesDisabled}
+											className="p-1 text-slate-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+											title="Move down"
+										>
+											<ChevronDown className="w-4 h-4" />
+										</button>
+									</div>
+									{/* Delete button */}
+									<button
+										type="button"
+										onClick={() => aistoryActions.deleteScene(scene.id)}
+										disabled={scenes.length <= 1 || scenesDisabled}
+										className="p-1 text-red-400 hover:text-red-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+										title="Delete scene"
+									>
+										<Trash2 className="w-4 h-4" />
+									</button>
+								</div>
+							</div>
 
 							{/* Two-column layout: left textarea + buttons, right image */}
 							<div className="flex gap-6">
@@ -589,14 +647,20 @@ function ScenesPage() {
 											</>
 										)}
 									</button>
-									{/* Caption display area (read-only) */}
-									<div className="mt-3 p-3 bg-slate-900/30 border border-slate-700 rounded-lg">
+									{/* Caption editor */}
+									<div className="mt-3">
 										<span className="text-xs text-slate-400 font-medium uppercase tracking-wide">
 											Caption
 										</span>
-										<p className="mt-1 text-sm text-gray-300 italic">
-											"{scene.caption}"
-										</p>
+										<textarea
+											value={scene.caption}
+											onChange={(e) =>
+												handleUpdateSceneCaption(scene.id, e.target.value)
+											}
+											className="mt-1 w-full h-20 px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors resize-none"
+											disabled={scene.isGeneratingAudio || scenesDisabled}
+											placeholder="Enter caption text..."
+										/>
 									</div>
 									{/* Audio generation button */}
 									<div className="mt-3">
@@ -801,6 +865,17 @@ function ScenesPage() {
 							</div>
 						</div>
 					))}
+
+					{/* Add Scene Button */}
+					<button
+						type="button"
+						onClick={() => aistoryActions.addScene()}
+						disabled={scenesDisabled}
+						className="w-full py-4 border-2 border-dashed border-slate-600 hover:border-purple-500 rounded-xl text-slate-400 hover:text-purple-400 transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+					>
+						<Plus className="w-5 h-5" />
+						Add New Scene
+					</button>
 				</div>
 			)}
 

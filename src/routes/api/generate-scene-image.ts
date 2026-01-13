@@ -101,6 +101,8 @@ export const Route = createFileRoute("/api/generate-scene-image")({
 
 					// ============================================================================
 					// FLUX PRO PATH
+					// - Text-to-image: uses flux-pro/v1.1
+					// - Image-to-image (with character): uses flux-pro/kontext/max
 					// ============================================================================
 					if (imageEngine === "flux-pro") {
 						console.log("[generateSceneImage] Using Flux Pro engine");
@@ -111,15 +113,15 @@ export const Route = createFileRoute("/api/generate-scene-image")({
 						});
 
 						// Determine which Flux endpoint to use:
-						// - Image-to-Image (kontext): if scene has character AND we have characterImageUrl
-						// - Text-to-Image (kontext/text-to-image): otherwise
+						// - Image-to-image (kontext/max): if scene has character AND we have characterImageUrl
+						// - Text-to-image (v1.1): otherwise
 						const useImageToImage = isCharacter && characterImageUrl;
 						const fluxEndpoint = useImageToImage
-							? "fal-ai/flux-pro/kontext"
-							: "fal-ai/flux-pro/kontext/text-to-image";
+							? "fal-ai/flux-pro/kontext/max"
+							: "fal-ai/flux-pro/v1.1";
 
 						console.log(
-							`[generateSceneImage] Flux Pro mode: ${useImageToImage ? "image-to-image" : "text-to-image"}`,
+							`[generateSceneImage] Flux Pro mode: ${useImageToImage ? "image-to-image (kontext/max)" : "text-to-image (v1.1)"}, endpoint: ${fluxEndpoint}`,
 						);
 
 						// Enhanced prompt for scene generation
@@ -147,7 +149,7 @@ export const Route = createFileRoute("/api/generate-scene-image")({
 						});
 
 						console.log(
-							`[generateSceneImage] Flux Pro job submitted with request_id: ${request_id}`,
+							`[generateSceneImage] ${imageEngine} job submitted with request_id: ${request_id}`,
 						);
 
 						// Poll for completion
@@ -165,14 +167,14 @@ export const Route = createFileRoute("/api/generate-scene-image")({
 							})) as FalQueueStatus;
 
 							console.log(
-								`[generateSceneImage] Flux Pro status: ${status.status}`,
+								`[generateSceneImage] ${imageEngine} status: ${status.status}`,
 							);
 
 							if (status.status === "FAILED") {
 								return Response.json(
 									{
 										success: false,
-										error: "Flux Pro scene image generation failed",
+										error: `${imageEngine} scene image generation failed`,
 									},
 									{ status: 500 },
 								);
@@ -190,13 +192,13 @@ export const Route = createFileRoute("/api/generate-scene-image")({
 
 								if (!imageUrl) {
 									console.error(
-										"[generateSceneImage] No image URL in Flux Pro result:",
+										`[generateSceneImage] No image URL in ${imageEngine} result:`,
 										result,
 									);
 									return Response.json(
 										{
 											success: false,
-											error: "No image URL returned from Flux Pro",
+											error: `No image URL returned from ${imageEngine}`,
 										},
 										{ status: 500 },
 									);
@@ -214,7 +216,7 @@ export const Route = createFileRoute("/api/generate-scene-image")({
 								const jpegBase64 = jpegBuffer.toString("base64");
 
 								console.log(
-									"[generateSceneImage] Flux Pro scene image completed",
+									`[generateSceneImage] ${imageEngine} scene image completed`,
 								);
 
 								// Save to cache with storyId and sceneIndex
@@ -234,7 +236,7 @@ export const Route = createFileRoute("/api/generate-scene-image")({
 						return Response.json(
 							{
 								success: false,
-								error: "Flux Pro scene image generation timed out",
+								error: `${imageEngine} scene image generation timed out`,
 							},
 							{ status: 500 },
 						);

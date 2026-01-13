@@ -1,16 +1,13 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useStore } from "@tanstack/react-store";
-import { ArrowRight, Film, Loader2 } from "lucide-react";
+import { ArrowRight, Loader2, Mic } from "lucide-react";
 import { useId } from "react";
-import { useGeneratePrompts } from "@/hooks/use-aistory-api";
+import { useGeneratePodcast42Prompts } from "@/hooks/use-podcast42-api";
 import {
-	aistoryActions,
-	aistoryStore,
-	type ImageEngine,
-	type ImageStyle,
-	type VideoEngine,
-	type VoiceId,
-} from "@/stores/aistory.store";
+	podcast42Actions,
+	podcast42Store,
+} from "@/stores/podcast42.store";
+import type { ImageEngine, ImageStyle, VoiceId } from "@/stores/aistory.store";
 
 // Image style options for selection
 const IMAGE_STYLES: { id: ImageStyle; label: string; description: string }[] = [
@@ -56,7 +53,7 @@ const IMAGE_ENGINES: { id: ImageEngine; label: string; description: string }[] =
 		},
 	];
 
-// Voice options for narration
+// Voice options for person selections
 const VOICE_OPTIONS: { id: VoiceId; label: string; description: string }[] = [
 	{
 		id: "PIGsltMj3gFMR34aFDI3",
@@ -95,115 +92,120 @@ const VOICE_OPTIONS: { id: VoiceId; label: string; description: string }[] = [
 	},
 ];
 
-// Video engine options for selection
-const VIDEO_ENGINES: { id: VideoEngine; label: string; description: string }[] =
-	[
-		{
-			id: "fal-ai/kling-video/v2.6/pro/image-to-video",
-			label: "Kling v2.6 Pro Image-to-Video",
-			description:
-				"Direct image animation, better quality, generates audio (recommended)",
-		},
-		{
-			id: "fal-ai/kling-video/v2.6/pro/image-to-video:no-audio",
-			label: "Kling v2.6 Pro Image-to-Video (No Audio)",
-			description: "Same quality, no audio generation, 50% cheaper",
-		},
-		{
-			id: "fal-ai/kling-video/o1/reference-to-video",
-			label: "Kling Reference-to-Video",
-			description: "Uses character reference for consistency",
-		},
-		{
-			id: "fal-ai/ltx-2-19b/image-to-video",
-			label: "LTX-2 19B Image-to-Video",
-			description: "Fast generation with good motion quality",
-		},
-	];
+// Placeholder for play script format
+const PLAY_SCRIPT_PLACEHOLDER = `---
+background: A cozy podcast studio with warm lighting and vintage microphones
+person1: A young tech entrepreneur in his 30s, casual hoodie, modern glasses
+person2: A seasoned journalist in her 50s, professional blazer, silver hair
+---
+[person1]: Welcome to the show! Today we're discussing the future of AI.
+[person2]: Thanks for having me. I've been following this space for decades.
+[person1]: What surprises you most about recent developments?
+[person2]: The speed of change. What used to take years now happens in months.`;
 
-export const Route = createFileRoute("/aistory/")({
-	component: PromptsPage,
+export const Route = createFileRoute("/podcast42/")({
+	component: Podcast42InputPage,
 });
 
-// Prompts Page: Script input + Video engine selection + Generate prompts
-function PromptsPage() {
+function Podcast42InputPage() {
 	const navigate = useNavigate();
 
 	// React Query mutation
-	const generatePromptsMutation = useGeneratePrompts();
+	const generatePromptsMutation = useGeneratePodcast42Prompts();
 
 	// Subscribe to store state
-	const script = useStore(aistoryStore, (state) => state.script);
+	const playScript = useStore(podcast42Store, (state) => state.playScript);
 	const promptsGenerated = useStore(
-		aistoryStore,
+		podcast42Store,
 		(state) => state.promptsGenerated,
 	);
 	const isGeneratingPrompts = useStore(
-		aistoryStore,
+		podcast42Store,
 		(state) => state.isGeneratingPrompts,
 	);
-	const imageEngine = useStore(aistoryStore, (state) => state.imageEngine);
-	const imageStyle = useStore(aistoryStore, (state) => state.imageStyle);
-	const videoEngine = useStore(aistoryStore, (state) => state.videoEngine);
-	const voiceId = useStore(aistoryStore, (state) => state.voiceId);
-	const testMode = useStore(aistoryStore, (state) => state.testMode);
-	const error = useStore(aistoryStore, (state) => state.error);
+	const imageEngine = useStore(podcast42Store, (state) => state.imageEngine);
+	const imageStyle = useStore(podcast42Store, (state) => state.imageStyle);
+	const person1VoiceId = useStore(podcast42Store, (state) => state.person1VoiceId);
+	const person2VoiceId = useStore(podcast42Store, (state) => state.person2VoiceId);
+	const testMode = useStore(podcast42Store, (state) => state.testMode);
+	const error = useStore(podcast42Store, (state) => state.error);
 
 	// Generate unique ID for form elements
 	const scriptTextareaId = useId();
 
-	// Handle prompts generation (character prompt + scenes)
+	// Handle prompts generation
 	const handleGeneratePrompts = () => {
-		if (!script.trim()) return;
+		if (!playScript.trim()) return;
 
-		aistoryActions.setIsGeneratingPrompts(true);
-		aistoryActions.setError(null);
-		aistoryActions.resetPrompts();
+		podcast42Actions.setIsGeneratingPrompts(true);
+		podcast42Actions.setError(null);
+		podcast42Actions.resetPrompts();
 
-		generatePromptsMutation.mutate({ script, imageStyle, testMode }, {
-			onSuccess: (result) => {
-				if (result.success && result.storyId && result.characterPrompt && result.scenes) {
-					aistoryActions.setStoryId(result.storyId);
-					aistoryActions.setCharacterPrompt(result.characterPrompt);
-					aistoryActions.setScenes(result.scenes);
-					aistoryActions.setPromptsGenerated(true);
-				} else {
-					aistoryActions.setError(result.error || "Failed to generate prompts");
-				}
-				aistoryActions.setIsGeneratingPrompts(false);
+		generatePromptsMutation.mutate(
+			{ playScript, imageStyle, testMode },
+			{
+				onSuccess: (result) => {
+					if (
+						result.success &&
+						result.storyId &&
+						result.person1Prompt &&
+						result.person2Prompt &&
+						result.scenes
+					) {
+						podcast42Actions.setStoryId(result.storyId);
+						podcast42Actions.setPerson1Prompt(result.person1Prompt);
+						podcast42Actions.setPerson2Prompt(result.person2Prompt);
+						podcast42Actions.setScenes(
+							result.scenes.map((scene: { speaker: string; caption: string }, index: number) => ({
+								id: `scene-${index}`,
+								speaker: scene.speaker as "person1" | "person2",
+								caption: scene.caption,
+							})),
+						);
+						podcast42Actions.setPromptsGenerated(true);
+					} else {
+						podcast42Actions.setError(
+							result.error || "Failed to generate prompts",
+						);
+					}
+					podcast42Actions.setIsGeneratingPrompts(false);
+				},
+				onError: (err) => {
+					podcast42Actions.setError(
+						err instanceof Error ? err.message : "An unexpected error occurred",
+					);
+					podcast42Actions.setIsGeneratingPrompts(false);
+				},
 			},
-			onError: (err) => {
-				aistoryActions.setError(
-					err instanceof Error ? err.message : "An unexpected error occurred",
-				);
-				aistoryActions.setIsGeneratingPrompts(false);
-			},
-		});
+		);
 	};
 
 	// Navigate to scenes page
 	const handleContinueToScenes = () => {
-		navigate({ to: "/aistory/scenes" });
+		navigate({ to: "/podcast42/scenes" });
 	};
 
 	return (
 		<div className="space-y-8">
-			{/* Script Input Section */}
+			{/* Play Script Input Section */}
 			<div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700">
 				<label
 					htmlFor={scriptTextareaId}
 					className="block text-xl font-semibold text-white mb-4"
 				>
-					Your Story Script
+					Play Script
 				</label>
 				<textarea
 					id={scriptTextareaId}
-					value={script}
-					onChange={(e) => aistoryActions.setScript(e.target.value)}
-					placeholder="Describe your story here... Include details about the time period, setting, character appearance, personality, and the narrative flow."
-					className="w-full h-48 px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-colors resize-none"
+					value={playScript}
+					onChange={(e) => podcast42Actions.setPlayScript(e.target.value)}
+					placeholder={PLAY_SCRIPT_PLACEHOLDER}
+					className="w-full h-64 px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-colors resize-none font-mono text-sm"
 					disabled={isGeneratingPrompts || promptsGenerated}
 				/>
+				<p className="mt-2 text-sm text-slate-400">
+					Define background, person1/person2 descriptions, then dialogue with [person1]/[person2] tags
+				</p>
 			</div>
 
 			{/* Test Mode Toggle */}
@@ -212,7 +214,7 @@ function PromptsPage() {
 					<input
 						type="checkbox"
 						checked={testMode}
-						onChange={(e) => aistoryActions.setTestMode(e.target.checked)}
+						onChange={(e) => podcast42Actions.setTestMode(e.target.checked)}
 						className="w-5 h-5 accent-yellow-500"
 						disabled={promptsGenerated}
 					/>
@@ -243,15 +245,13 @@ function PromptsPage() {
 								name="imageStyle"
 								value={style.id}
 								checked={imageStyle === style.id}
-								onChange={() => aistoryActions.setImageStyle(style.id)}
+								onChange={() => podcast42Actions.setImageStyle(style.id)}
 								className="mt-1 accent-amber-500"
 								disabled={promptsGenerated}
 							/>
 							<div>
 								<div className="text-white font-medium">{style.label}</div>
-								<div className="text-sm text-slate-400">
-									{style.description}
-								</div>
+								<div className="text-sm text-slate-400">{style.description}</div>
 							</div>
 						</label>
 					))}
@@ -278,85 +278,92 @@ function PromptsPage() {
 								name="imageEngine"
 								value={engine.id}
 								checked={imageEngine === engine.id}
-								onChange={() => aistoryActions.setImageEngine(engine.id)}
+								onChange={() => podcast42Actions.setImageEngine(engine.id)}
 								className="mt-1 accent-cyan-500"
 								disabled={promptsGenerated}
 							/>
 							<div>
 								<div className="text-white font-medium">{engine.label}</div>
-								<div className="text-sm text-slate-400">
-									{engine.description}
-								</div>
+								<div className="text-sm text-slate-400">{engine.description}</div>
 							</div>
 						</label>
 					))}
 				</div>
 			</div>
 
-			{/* Video Engine Selection */}
+			{/* Video Engine Info (Fixed) */}
 			<div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700">
 				<h2 className="text-xl font-semibold text-white mb-4">
 					Video Generation Engine
 				</h2>
-				<div className="space-y-3">
-					{VIDEO_ENGINES.map((engine) => (
-						<label
-							key={engine.id}
-							className={`flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-all ${
-								videoEngine === engine.id
-									? "border-purple-500 bg-purple-500/10"
-									: "border-slate-600 hover:border-slate-500"
-							} ${promptsGenerated ? "opacity-50 pointer-events-none" : ""}`}
-						>
-							<input
-								type="radio"
-								name="videoEngine"
-								value={engine.id}
-								checked={videoEngine === engine.id}
-								onChange={() => aistoryActions.setVideoEngine(engine.id)}
-								className="mt-1 accent-purple-500"
-								disabled={promptsGenerated}
-							/>
-							<div>
-								<div className="text-white font-medium">{engine.label}</div>
-								<div className="text-sm text-slate-400">
-									{engine.description}
-								</div>
-							</div>
-						</label>
-					))}
+				<div className="p-4 rounded-lg border border-purple-500 bg-purple-500/10">
+					<div className="text-white font-medium">OmniHuman v1.5</div>
+					<div className="text-sm text-slate-400">
+						Talking-head video generation from image + audio (fixed engine for podcast)
+					</div>
 				</div>
 			</div>
 
-			{/* Voice Selection */}
+			{/* Person 1 Voice Selection */}
 			<div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700">
 				<h2 className="text-xl font-semibold text-white mb-4">
-					Narration Voice
+					Person 1 Voice
 				</h2>
 				<div className="space-y-3">
 					{VOICE_OPTIONS.map((voice) => (
 						<label
 							key={voice.id}
 							className={`flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-all ${
-								voiceId === voice.id
+								person1VoiceId === voice.id
 									? "border-emerald-500 bg-emerald-500/10"
 									: "border-slate-600 hover:border-slate-500"
 							} ${promptsGenerated ? "opacity-50 pointer-events-none" : ""}`}
 						>
 							<input
 								type="radio"
-								name="voiceId"
+								name="person1VoiceId"
 								value={voice.id}
-								checked={voiceId === voice.id}
-								onChange={() => aistoryActions.setVoiceId(voice.id)}
+								checked={person1VoiceId === voice.id}
+								onChange={() => podcast42Actions.setPerson1VoiceId(voice.id)}
 								className="mt-1 accent-emerald-500"
 								disabled={promptsGenerated}
 							/>
 							<div>
 								<div className="text-white font-medium">{voice.label}</div>
-								<div className="text-sm text-slate-400">
-									{voice.description}
-								</div>
+								<div className="text-sm text-slate-400">{voice.description}</div>
+							</div>
+						</label>
+					))}
+				</div>
+			</div>
+
+			{/* Person 2 Voice Selection */}
+			<div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700">
+				<h2 className="text-xl font-semibold text-white mb-4">
+					Person 2 Voice
+				</h2>
+				<div className="space-y-3">
+					{VOICE_OPTIONS.map((voice) => (
+						<label
+							key={voice.id}
+							className={`flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-all ${
+								person2VoiceId === voice.id
+									? "border-rose-500 bg-rose-500/10"
+									: "border-slate-600 hover:border-slate-500"
+							} ${promptsGenerated ? "opacity-50 pointer-events-none" : ""}`}
+						>
+							<input
+								type="radio"
+								name="person2VoiceId"
+								value={voice.id}
+								checked={person2VoiceId === voice.id}
+								onChange={() => podcast42Actions.setPerson2VoiceId(voice.id)}
+								className="mt-1 accent-rose-500"
+								disabled={promptsGenerated}
+							/>
+							<div>
+								<div className="text-white font-medium">{voice.label}</div>
+								<div className="text-sm text-slate-400">{voice.description}</div>
 							</div>
 						</label>
 					))}
@@ -376,8 +383,8 @@ function PromptsPage() {
 					<button
 						type="button"
 						onClick={handleGeneratePrompts}
-						disabled={!script.trim() || isGeneratingPrompts}
-						className="flex-1 py-4 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-400 hover:to-pink-400 disabled:from-slate-600 disabled:to-slate-600 disabled:cursor-not-allowed text-white text-lg font-bold rounded-xl transition-all duration-300 shadow-lg shadow-purple-500/30 hover:shadow-purple-500/50 disabled:shadow-none flex items-center justify-center gap-3"
+						disabled={!playScript.trim() || isGeneratingPrompts}
+						className="flex-1 py-4 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 disabled:from-slate-600 disabled:to-slate-600 disabled:cursor-not-allowed text-white text-lg font-bold rounded-xl transition-all duration-300 shadow-lg shadow-amber-500/30 hover:shadow-amber-500/50 disabled:shadow-none flex items-center justify-center gap-3"
 					>
 						{isGeneratingPrompts ? (
 							<>
@@ -386,7 +393,7 @@ function PromptsPage() {
 							</>
 						) : (
 							<>
-								<Film className="w-6 h-6" />
+								<Mic className="w-6 h-6" />
 								GENERATE PROMPTS
 							</>
 						)}

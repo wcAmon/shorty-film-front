@@ -9,10 +9,19 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as Podcast42RouteImport } from './routes/podcast42'
+import { Route as HistoryRouteImport } from './routes/history'
 import { Route as AistoryRouteImport } from './routes/aistory'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as Podcast42IndexRouteImport } from './routes/podcast42/index'
 import { Route as AistoryIndexRouteImport } from './routes/aistory/index'
+import { Route as Podcast42ScenesRouteImport } from './routes/podcast42/scenes'
+import { Route as Podcast42ExportRouteImport } from './routes/podcast42/export'
+import { Route as ApiUploadPodcast42CharacterRouteImport } from './routes/api/upload-podcast42-character'
 import { Route as ApiUploadCharacterRouteImport } from './routes/api/upload-character'
+import { Route as ApiStoryMetadataRouteImport } from './routes/api/story-metadata'
+import { Route as ApiPodcast42GenerateVideoRouteImport } from './routes/api/podcast42-generate-video'
+import { Route as ApiPodcast42GeneratePromptsRouteImport } from './routes/api/podcast42-generate-prompts'
 import { Route as ApiGenerateSceneVideoRouteImport } from './routes/api/generate-scene-video'
 import { Route as ApiGenerateSceneImageRouteImport } from './routes/api/generate-scene-image'
 import { Route as ApiGenerateSceneAudioRouteImport } from './routes/api/generate-scene-audio'
@@ -22,6 +31,16 @@ import { Route as ApiExportVideoRouteImport } from './routes/api/export-video'
 import { Route as AistoryScenesRouteImport } from './routes/aistory/scenes'
 import { Route as AistoryExportRouteImport } from './routes/aistory/export'
 
+const Podcast42Route = Podcast42RouteImport.update({
+  id: '/podcast42',
+  path: '/podcast42',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HistoryRoute = HistoryRouteImport.update({
+  id: '/history',
+  path: '/history',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AistoryRoute = AistoryRouteImport.update({
   id: '/aistory',
   path: '/aistory',
@@ -32,16 +51,54 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const Podcast42IndexRoute = Podcast42IndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => Podcast42Route,
+} as any)
 const AistoryIndexRoute = AistoryIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AistoryRoute,
 } as any)
+const Podcast42ScenesRoute = Podcast42ScenesRouteImport.update({
+  id: '/scenes',
+  path: '/scenes',
+  getParentRoute: () => Podcast42Route,
+} as any)
+const Podcast42ExportRoute = Podcast42ExportRouteImport.update({
+  id: '/export',
+  path: '/export',
+  getParentRoute: () => Podcast42Route,
+} as any)
+const ApiUploadPodcast42CharacterRoute =
+  ApiUploadPodcast42CharacterRouteImport.update({
+    id: '/api/upload-podcast42-character',
+    path: '/api/upload-podcast42-character',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiUploadCharacterRoute = ApiUploadCharacterRouteImport.update({
   id: '/api/upload-character',
   path: '/api/upload-character',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiStoryMetadataRoute = ApiStoryMetadataRouteImport.update({
+  id: '/api/story-metadata',
+  path: '/api/story-metadata',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPodcast42GenerateVideoRoute =
+  ApiPodcast42GenerateVideoRouteImport.update({
+    id: '/api/podcast42-generate-video',
+    path: '/api/podcast42-generate-video',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPodcast42GeneratePromptsRoute =
+  ApiPodcast42GeneratePromptsRouteImport.update({
+    id: '/api/podcast42-generate-prompts',
+    path: '/api/podcast42-generate-prompts',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiGenerateSceneVideoRoute = ApiGenerateSceneVideoRouteImport.update({
   id: '/api/generate-scene-video',
   path: '/api/generate-scene-video',
@@ -86,6 +143,8 @@ const AistoryExportRoute = AistoryExportRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/aistory': typeof AistoryRouteWithChildren
+  '/history': typeof HistoryRoute
+  '/podcast42': typeof Podcast42RouteWithChildren
   '/aistory/export': typeof AistoryExportRoute
   '/aistory/scenes': typeof AistoryScenesRoute
   '/api/export-video': typeof ApiExportVideoRoute
@@ -94,11 +153,19 @@ export interface FileRoutesByFullPath {
   '/api/generate-scene-audio': typeof ApiGenerateSceneAudioRoute
   '/api/generate-scene-image': typeof ApiGenerateSceneImageRoute
   '/api/generate-scene-video': typeof ApiGenerateSceneVideoRoute
+  '/api/podcast42-generate-prompts': typeof ApiPodcast42GeneratePromptsRoute
+  '/api/podcast42-generate-video': typeof ApiPodcast42GenerateVideoRoute
+  '/api/story-metadata': typeof ApiStoryMetadataRoute
   '/api/upload-character': typeof ApiUploadCharacterRoute
+  '/api/upload-podcast42-character': typeof ApiUploadPodcast42CharacterRoute
+  '/podcast42/export': typeof Podcast42ExportRoute
+  '/podcast42/scenes': typeof Podcast42ScenesRoute
   '/aistory/': typeof AistoryIndexRoute
+  '/podcast42/': typeof Podcast42IndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/history': typeof HistoryRoute
   '/aistory/export': typeof AistoryExportRoute
   '/aistory/scenes': typeof AistoryScenesRoute
   '/api/export-video': typeof ApiExportVideoRoute
@@ -107,13 +174,22 @@ export interface FileRoutesByTo {
   '/api/generate-scene-audio': typeof ApiGenerateSceneAudioRoute
   '/api/generate-scene-image': typeof ApiGenerateSceneImageRoute
   '/api/generate-scene-video': typeof ApiGenerateSceneVideoRoute
+  '/api/podcast42-generate-prompts': typeof ApiPodcast42GeneratePromptsRoute
+  '/api/podcast42-generate-video': typeof ApiPodcast42GenerateVideoRoute
+  '/api/story-metadata': typeof ApiStoryMetadataRoute
   '/api/upload-character': typeof ApiUploadCharacterRoute
+  '/api/upload-podcast42-character': typeof ApiUploadPodcast42CharacterRoute
+  '/podcast42/export': typeof Podcast42ExportRoute
+  '/podcast42/scenes': typeof Podcast42ScenesRoute
   '/aistory': typeof AistoryIndexRoute
+  '/podcast42': typeof Podcast42IndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/aistory': typeof AistoryRouteWithChildren
+  '/history': typeof HistoryRoute
+  '/podcast42': typeof Podcast42RouteWithChildren
   '/aistory/export': typeof AistoryExportRoute
   '/aistory/scenes': typeof AistoryScenesRoute
   '/api/export-video': typeof ApiExportVideoRoute
@@ -122,14 +198,23 @@ export interface FileRoutesById {
   '/api/generate-scene-audio': typeof ApiGenerateSceneAudioRoute
   '/api/generate-scene-image': typeof ApiGenerateSceneImageRoute
   '/api/generate-scene-video': typeof ApiGenerateSceneVideoRoute
+  '/api/podcast42-generate-prompts': typeof ApiPodcast42GeneratePromptsRoute
+  '/api/podcast42-generate-video': typeof ApiPodcast42GenerateVideoRoute
+  '/api/story-metadata': typeof ApiStoryMetadataRoute
   '/api/upload-character': typeof ApiUploadCharacterRoute
+  '/api/upload-podcast42-character': typeof ApiUploadPodcast42CharacterRoute
+  '/podcast42/export': typeof Podcast42ExportRoute
+  '/podcast42/scenes': typeof Podcast42ScenesRoute
   '/aistory/': typeof AistoryIndexRoute
+  '/podcast42/': typeof Podcast42IndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/aistory'
+    | '/history'
+    | '/podcast42'
     | '/aistory/export'
     | '/aistory/scenes'
     | '/api/export-video'
@@ -138,11 +223,19 @@ export interface FileRouteTypes {
     | '/api/generate-scene-audio'
     | '/api/generate-scene-image'
     | '/api/generate-scene-video'
+    | '/api/podcast42-generate-prompts'
+    | '/api/podcast42-generate-video'
+    | '/api/story-metadata'
     | '/api/upload-character'
+    | '/api/upload-podcast42-character'
+    | '/podcast42/export'
+    | '/podcast42/scenes'
     | '/aistory/'
+    | '/podcast42/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/history'
     | '/aistory/export'
     | '/aistory/scenes'
     | '/api/export-video'
@@ -151,12 +244,21 @@ export interface FileRouteTypes {
     | '/api/generate-scene-audio'
     | '/api/generate-scene-image'
     | '/api/generate-scene-video'
+    | '/api/podcast42-generate-prompts'
+    | '/api/podcast42-generate-video'
+    | '/api/story-metadata'
     | '/api/upload-character'
+    | '/api/upload-podcast42-character'
+    | '/podcast42/export'
+    | '/podcast42/scenes'
     | '/aistory'
+    | '/podcast42'
   id:
     | '__root__'
     | '/'
     | '/aistory'
+    | '/history'
+    | '/podcast42'
     | '/aistory/export'
     | '/aistory/scenes'
     | '/api/export-video'
@@ -165,24 +267,51 @@ export interface FileRouteTypes {
     | '/api/generate-scene-audio'
     | '/api/generate-scene-image'
     | '/api/generate-scene-video'
+    | '/api/podcast42-generate-prompts'
+    | '/api/podcast42-generate-video'
+    | '/api/story-metadata'
     | '/api/upload-character'
+    | '/api/upload-podcast42-character'
+    | '/podcast42/export'
+    | '/podcast42/scenes'
     | '/aistory/'
+    | '/podcast42/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AistoryRoute: typeof AistoryRouteWithChildren
+  HistoryRoute: typeof HistoryRoute
+  Podcast42Route: typeof Podcast42RouteWithChildren
   ApiExportVideoRoute: typeof ApiExportVideoRoute
   ApiGenerateCharacterRoute: typeof ApiGenerateCharacterRoute
   ApiGeneratePromptsRoute: typeof ApiGeneratePromptsRoute
   ApiGenerateSceneAudioRoute: typeof ApiGenerateSceneAudioRoute
   ApiGenerateSceneImageRoute: typeof ApiGenerateSceneImageRoute
   ApiGenerateSceneVideoRoute: typeof ApiGenerateSceneVideoRoute
+  ApiPodcast42GeneratePromptsRoute: typeof ApiPodcast42GeneratePromptsRoute
+  ApiPodcast42GenerateVideoRoute: typeof ApiPodcast42GenerateVideoRoute
+  ApiStoryMetadataRoute: typeof ApiStoryMetadataRoute
   ApiUploadCharacterRoute: typeof ApiUploadCharacterRoute
+  ApiUploadPodcast42CharacterRoute: typeof ApiUploadPodcast42CharacterRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/podcast42': {
+      id: '/podcast42'
+      path: '/podcast42'
+      fullPath: '/podcast42'
+      preLoaderRoute: typeof Podcast42RouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/history': {
+      id: '/history'
+      path: '/history'
+      fullPath: '/history'
+      preLoaderRoute: typeof HistoryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/aistory': {
       id: '/aistory'
       path: '/aistory'
@@ -197,6 +326,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/podcast42/': {
+      id: '/podcast42/'
+      path: '/'
+      fullPath: '/podcast42/'
+      preLoaderRoute: typeof Podcast42IndexRouteImport
+      parentRoute: typeof Podcast42Route
+    }
     '/aistory/': {
       id: '/aistory/'
       path: '/'
@@ -204,11 +340,53 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AistoryIndexRouteImport
       parentRoute: typeof AistoryRoute
     }
+    '/podcast42/scenes': {
+      id: '/podcast42/scenes'
+      path: '/scenes'
+      fullPath: '/podcast42/scenes'
+      preLoaderRoute: typeof Podcast42ScenesRouteImport
+      parentRoute: typeof Podcast42Route
+    }
+    '/podcast42/export': {
+      id: '/podcast42/export'
+      path: '/export'
+      fullPath: '/podcast42/export'
+      preLoaderRoute: typeof Podcast42ExportRouteImport
+      parentRoute: typeof Podcast42Route
+    }
+    '/api/upload-podcast42-character': {
+      id: '/api/upload-podcast42-character'
+      path: '/api/upload-podcast42-character'
+      fullPath: '/api/upload-podcast42-character'
+      preLoaderRoute: typeof ApiUploadPodcast42CharacterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/upload-character': {
       id: '/api/upload-character'
       path: '/api/upload-character'
       fullPath: '/api/upload-character'
       preLoaderRoute: typeof ApiUploadCharacterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/story-metadata': {
+      id: '/api/story-metadata'
+      path: '/api/story-metadata'
+      fullPath: '/api/story-metadata'
+      preLoaderRoute: typeof ApiStoryMetadataRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/podcast42-generate-video': {
+      id: '/api/podcast42-generate-video'
+      path: '/api/podcast42-generate-video'
+      fullPath: '/api/podcast42-generate-video'
+      preLoaderRoute: typeof ApiPodcast42GenerateVideoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/podcast42-generate-prompts': {
+      id: '/api/podcast42-generate-prompts'
+      path: '/api/podcast42-generate-prompts'
+      fullPath: '/api/podcast42-generate-prompts'
+      preLoaderRoute: typeof ApiPodcast42GeneratePromptsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/generate-scene-video': {
@@ -285,16 +463,38 @@ const AistoryRouteChildren: AistoryRouteChildren = {
 const AistoryRouteWithChildren =
   AistoryRoute._addFileChildren(AistoryRouteChildren)
 
+interface Podcast42RouteChildren {
+  Podcast42ExportRoute: typeof Podcast42ExportRoute
+  Podcast42ScenesRoute: typeof Podcast42ScenesRoute
+  Podcast42IndexRoute: typeof Podcast42IndexRoute
+}
+
+const Podcast42RouteChildren: Podcast42RouteChildren = {
+  Podcast42ExportRoute: Podcast42ExportRoute,
+  Podcast42ScenesRoute: Podcast42ScenesRoute,
+  Podcast42IndexRoute: Podcast42IndexRoute,
+}
+
+const Podcast42RouteWithChildren = Podcast42Route._addFileChildren(
+  Podcast42RouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AistoryRoute: AistoryRouteWithChildren,
+  HistoryRoute: HistoryRoute,
+  Podcast42Route: Podcast42RouteWithChildren,
   ApiExportVideoRoute: ApiExportVideoRoute,
   ApiGenerateCharacterRoute: ApiGenerateCharacterRoute,
   ApiGeneratePromptsRoute: ApiGeneratePromptsRoute,
   ApiGenerateSceneAudioRoute: ApiGenerateSceneAudioRoute,
   ApiGenerateSceneImageRoute: ApiGenerateSceneImageRoute,
   ApiGenerateSceneVideoRoute: ApiGenerateSceneVideoRoute,
+  ApiPodcast42GeneratePromptsRoute: ApiPodcast42GeneratePromptsRoute,
+  ApiPodcast42GenerateVideoRoute: ApiPodcast42GenerateVideoRoute,
+  ApiStoryMetadataRoute: ApiStoryMetadataRoute,
   ApiUploadCharacterRoute: ApiUploadCharacterRoute,
+  ApiUploadPodcast42CharacterRoute: ApiUploadPodcast42CharacterRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

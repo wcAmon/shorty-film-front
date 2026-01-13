@@ -1,6 +1,10 @@
 import { ElevenLabsClient } from "@elevenlabs/elevenlabs-js";
 import { createFileRoute } from "@tanstack/react-router";
-import { saveSceneAudio } from "@/lib/cache";
+import {
+	saveSceneAudio,
+	loadStoryMetadata,
+	saveStoryMetadata,
+} from "@/lib/cache";
 
 // Initialize ElevenLabs client for voice generation with timestamps
 const elevenlabs = new ElevenLabsClient({
@@ -147,6 +151,19 @@ export const Route = createFileRoute("/api/generate-scene-audio")({
 							Buffer.from(response.audioBase64, "base64"),
 						);
 						console.log(`[generate-scene-audio] Saved to cache: ${cachedUrl}`);
+
+						// Update metadata if it exists
+						const existingMetadata = loadStoryMetadata(storyId);
+						if (existingMetadata && existingMetadata.scenes[sceneIndex]) {
+							existingMetadata.scenes[sceneIndex].hasAudio = true;
+							existingMetadata.scenes[sceneIndex].audioDuration = audioDuration;
+							existingMetadata.scenes[sceneIndex].wordTimestamps = wordTimestamps.map((wt) => ({
+								word: wt.word,
+								start: wt.startTime,
+								end: wt.endTime,
+							}));
+							saveStoryMetadata(existingMetadata);
+						}
 					}
 
 					return Response.json({

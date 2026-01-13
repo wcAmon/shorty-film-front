@@ -1,11 +1,85 @@
 // Cache utility for saving generated assets with storyId-based naming
 // All assets are stored server-side to avoid base64 encoding/decoding issues
+// Metadata is stored in SQLite database, media files remain in filesystem
 
 import fs from "node:fs";
 import path from "node:path";
+import {
+	saveStoryMetadataDb,
+	loadStoryMetadataDb,
+	storyExistsDb,
+	listAllStoriesAsMetadata,
+	listStoriesByTypeAsMetadata,
+	deleteStoryDb,
+} from "@/db/queries";
 
 // Base directory for all story assets
 const CACHE_BASE_DIR = path.join(process.cwd(), "public/video_cache/stories");
+
+// ============================================================================
+// Story Metadata Types (for JSON persistence)
+// ============================================================================
+
+export interface StorySceneMetadata {
+	id: string;
+	caption: string;
+	// For aistory
+	title?: string;
+	prompt?: string;
+	video_prompt?: string;
+	isCharacter?: boolean;
+	// For podcast42
+	speaker?: "person1" | "person2";
+	// Media URLs (public URLs for frontend access)
+	imageUrl?: string; // e.g., /video_cache/stories/{storyId}/scene-{index}-image.jpg
+	audioUrl?: string; // e.g., /video_cache/stories/{storyId}/scene-{index}-audio.mp3
+	videoUrl?: string; // e.g., /video_cache/stories/{storyId}/scene-{index}-video.mp4
+	// Word timestamps for caption sync
+	wordTimestamps?: Array<{ word: string; start: number; end: number }>;
+	audioDuration?: number;
+	videoDuration?: number;
+}
+
+export interface StoryMetadata {
+	// Common fields
+	storyId: string;
+	type: "aistory" | "podcast42";
+	createdAt: string;
+	updatedAt: string;
+
+	// Input
+	script?: string; // for aistory
+	playScript?: string; // for podcast42
+
+	// Engine settings
+	imageEngine: "gpt-image" | "flux-pro";
+	imageStyle: "cinematic" | "comic" | "low-poly" | "japanese-anime" | "clay";
+	voiceId?: string; // for aistory
+	person1VoiceId?: string; // for podcast42
+	person2VoiceId?: string; // for podcast42
+	videoEngine?: string; // for aistory
+	podcast42VideoEngine?: "omnihuman" | "aurora"; // for podcast42
+
+	// Character data
+	characterPrompt?: string; // for aistory
+	characterFileId?: string; // OpenAI file ID
+	characterImageUrl?: string; // FAL storage URL
+	hasCharacterImage?: boolean;
+
+	// Podcast42 specific
+	person1Prompt?: string;
+	person1ImageUrl?: string;
+	hasPerson1Image?: boolean;
+	person2Prompt?: string;
+	person2ImageUrl?: string;
+	hasPerson2Image?: boolean;
+
+	// Scenes
+	scenes: StorySceneMetadata[];
+
+	// Export
+	hasExportedVideo?: boolean;
+}
 
 /**
  * Ensure story directory exists
@@ -286,12 +360,159 @@ export function deleteSceneVideoRaw(
 }
 
 /**
- * Delete entire story directory
+ * Delete entire story (database record + media files directory)
  */
 export function deleteStory(storyId: string): void {
+	// Delete from database
+	deleteStoryDb(storyId);
+	console.log(`[cache] Deleted story from DB: ${storyId}`);
+
+	// Delete media files directory
 	const dir = path.join(CACHE_BASE_DIR, storyId);
 	if (fs.existsSync(dir)) {
 		fs.rmSync(dir, { recursive: true, force: true });
-		console.log(`[cache] Deleted story: ${dir}`);
+		console.log(`[cache] Deleted story files: ${dir}`);
 	}
+}
+
+// ============================================================================
+// Database Metadata functions (SQLite with Drizzle ORM)
+// ============================================================================
+
+/**
+ * Save story metadata to database
+ */
+export function saveStoryMetadata(metadata: StoryMetadata): void {
+	// Also ensure story directory exists for media files
+	ensureStoryDir(metadata.storyId);
+	saveStoryMetadataDb(metadata);
+	console.log(`[cache] Saved story metadata to DB: ${metadata.storyId}`);
+}
+
+/**
+ * Load story metadata from database
+ */
+export function loadStoryMetadata(storyId: string): StoryMetadata | null {
+	return loadStoryMetadataDb(storyId);
+}
+
+/**
+ * Check if story metadata exists in database
+ */
+export function storyMetadataExists(storyId: string): boolean {
+	return storyExistsDb(storyId);
+}
+
+/**
+ * List all stories with metadata from database
+ */
+export function listAllStories(): StoryMetadata[] {
+	return listAllStoriesAsMetadata();
+}
+
+/**
+ * List stories by type from database
+ */
+export function listStoriesByType(
+	type: "aistory" | "podcast42",
+): StoryMetadata[] {
+	return listStoriesByTypeAsMetadata(type);
+}
+
+// ============================================================================
+// Podcast42-specific path/URL getters
+// ============================================================================
+
+/**
+ * Get the absolute file path for person1 image (podcast42)
+ */
+export function getPerson1ImagePath(storyId: string): string {
+	return path.join(CACHE_BASE_DIR, storyId, "person1.jpg");
+}
+
+/**
+ * Get the absolute file path for person2 image (podcast42)
+ */
+export function getPerson2ImagePath(storyId: string): string {
+	return path.join(CACHE_BASE_DIR, storyId, "person2.jpg");
+}
+
+/**
+ * Get the public URL for person1 image (podcast42)
+ */
+export function getPerson1ImageUrl(storyId: string): string {
+	return `/video_cache/stories/${storyId}/person1.jpg`;
+}
+
+/**
+ * Get the public URL for person2 image (podcast42)
+ */
+export function getPerson2ImageUrl(storyId: string): string {
+	return `/video_cache/stories/${storyId}/person2.jpg`;
+}
+
+/**
+ * Save person1 image (podcast42)
+ */
+export function savePerson1Image(storyId: string, imageBuffer: Buffer): string {
+	ensureStoryDir(storyId);
+	const filePath = getPerson1ImagePath(storyId);
+	fs.writeFileSync(filePath, imageBuffer);
+	console.log(`[cache] Saved person1 image: ${filePath}`);
+	return getPerson1ImageUrl(storyId);
+}
+
+/**
+ * Save person2 image (podcast42)
+ */
+export function savePerson2Image(storyId: string, imageBuffer: Buffer): string {
+	ensureStoryDir(storyId);
+	const filePath = getPerson2ImagePath(storyId);
+	fs.writeFileSync(filePath, imageBuffer);
+	console.log(`[cache] Saved person2 image: ${filePath}`);
+	return getPerson2ImageUrl(storyId);
+}
+
+/**
+ * Check if person1 image exists
+ */
+export function person1ImageExists(storyId: string): boolean {
+	return fs.existsSync(getPerson1ImagePath(storyId));
+}
+
+/**
+ * Check if person2 image exists
+ */
+export function person2ImageExists(storyId: string): boolean {
+	return fs.existsSync(getPerson2ImagePath(storyId));
+}
+
+/**
+ * Read person1 image as base64
+ */
+export function readPerson1ImageBase64(storyId: string): string | null {
+	const filePath = getPerson1ImagePath(storyId);
+	if (!fs.existsSync(filePath)) return null;
+	return fs.readFileSync(filePath).toString("base64");
+}
+
+/**
+ * Read person2 image as base64
+ */
+export function readPerson2ImageBase64(storyId: string): string | null {
+	const filePath = getPerson2ImagePath(storyId);
+	if (!fs.existsSync(filePath)) return null;
+	return fs.readFileSync(filePath).toString("base64");
+}
+
+/**
+ * Read scene audio as base64
+ */
+export function readSceneAudioBase64(
+	storyId: string,
+	sceneIndex: number,
+): string | null {
+	const filePath = getSceneAudioPath(storyId, sceneIndex);
+	if (!fs.existsSync(filePath)) return null;
+	return fs.readFileSync(filePath).toString("base64");
 }
