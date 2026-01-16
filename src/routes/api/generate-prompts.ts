@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import OpenAI from "openai";
-import { generateStoryId } from "@/lib/cache";
+import { generateStoryId } from "@/db";
+import { createStory, createScenes } from "@/db/queries";
 import {
 	type ImageStyle,
 	getGptStyleBlock,
@@ -29,9 +30,18 @@ export const Route = createFileRoute("/api/generate-prompts")({
 					const body = (await request.json()) as {
 						script: string;
 						imageStyle?: ImageStyle;
+						imageEngine?: "gpt-image" | "flux-pro";
+						voiceId?: string;
+						videoEngine?: string;
 						testMode?: boolean;
 					};
-					const { script, testMode = false } = body;
+					const {
+						script,
+						imageEngine = "gpt-image",
+						voiceId,
+						videoEngine,
+						testMode = false,
+					} = body;
 
 					// Validate and normalize imageStyle
 					const imageStyle: ImageStyle =
@@ -185,11 +195,43 @@ Output must be ONLY valid JSON.`,
 					// Generate a unique story ID for this generation session
 					const storyId = generateStoryId();
 
+					// Create story in database
+					await createStory({
+						id: storyId,
+						type: "aistory",
+						script,
+						imageEngine,
+						imageStyle,
+						voiceId,
+						videoEngine,
+						characterPrompt: parsed.characterPrompt,
+					});
+
+					// Create scenes in database
+					const sceneData = scenes.map((scene, index) => ({
+						id: scene.id,
+						storyId,
+						orderIndex: index,
+						title: scene.title,
+						caption: scene.caption,
+						prompt: scene.prompt,
+						videoPrompt: scene.video_prompt,
+						isCharacter: scene.isCharacter,
+					}));
+					const createdScenes = await createScenes(sceneData);
+
 					return Response.json({
 						success: true,
 						storyId,
 						characterPrompt: parsed.characterPrompt,
-						scenes,
+						scenes: createdScenes.map((scene) => ({
+							id: scene.id,
+							title: scene.title,
+							prompt: scene.prompt,
+							video_prompt: scene.videoPrompt,
+							isCharacter: scene.isCharacter,
+							caption: scene.caption,
+						})),
 					});
 				} catch (err) {
 					console.error("GPT-4.1 API error:", err);

@@ -21,6 +21,12 @@ export interface WordTimestamp {
 	endTime: number;
 }
 
+// Image engine type
+export type ImageEngine = "gpt-image" | "flux-pro";
+
+// Voice ID type
+export type VoiceId = string;
+
 // API Response types
 interface GeneratePromptsResponse {
 	success: boolean;
@@ -32,9 +38,10 @@ interface GeneratePromptsResponse {
 
 interface GenerateCharacterResponse {
 	success: boolean;
-	imageBase64?: string;
+	imageId?: string; // Database image ID
+	imageUrl?: string; // Supabase Storage URL
 	fileId?: string; // OpenAI file_id (for GPT Image)
-	imageUrl?: string; // FAL storage URL (for Flux Pro)
+	falImageUrl?: string; // FAL storage URL (for Flux Pro)
 	error?: string;
 }
 
@@ -46,13 +53,15 @@ interface UploadCharacterResponse {
 
 interface GenerateSceneImageResponse {
 	success: boolean;
-	imageBase64?: string;
+	imageId?: string; // Database image ID
+	imageUrl?: string; // Supabase Storage URL
 	error?: string;
 }
 
 interface GenerateSceneAudioResponse {
 	success: boolean;
-	audioBase64?: string;
+	audioId?: string; // Database audio ID
+	audioUrl?: string; // Supabase Storage URL
 	wordTimestamps?: WordTimestamp[];
 	audioDuration?: number;
 	error?: string;
@@ -62,13 +71,15 @@ interface GenerateSceneAudioResponse {
 interface SubmitVideoJobResponse {
 	success: boolean;
 	requestId?: string;
+	videoId?: string; // Database video ID
 	error?: string;
 }
 
 interface CheckVideoStatusResponse {
 	success: boolean;
 	status: "pending" | "processing" | "completed" | "failed";
-	videoBase64?: string;
+	videoId?: string; // Database video ID
+	videoUrl?: string; // Supabase Storage URL
 	videoDuration?: number;
 	error?: string;
 }
@@ -124,11 +135,11 @@ async function uploadCharacterApi(
 async function generateSceneImageApi(params: {
 	prompt: string;
 	storyId: string;
-	sceneIndex: number;
+	sceneId: string;
 	isCharacter: boolean;
 	characterFileId?: string; // OpenAI file_id (for GPT Image)
 	characterImageUrl?: string; // FAL storage URL (for Flux Pro)
-	imageEngine?: "gpt-image" | "flux-pro";
+	imageEngine?: ImageEngine;
 }): Promise<GenerateSceneImageResponse> {
 	const response = await fetch("/api/generate-scene-image", {
 		method: "POST",
@@ -141,7 +152,7 @@ async function generateSceneImageApi(params: {
 async function generateSceneAudioApi(params: {
 	caption: string;
 	storyId: string;
-	sceneIndex: number;
+	sceneId: string;
 	voiceId?: string;
 }): Promise<GenerateSceneAudioResponse> {
 	const response = await fetch("/api/generate-scene-audio", {
@@ -155,9 +166,9 @@ async function generateSceneAudioApi(params: {
 // Submit a video generation job (non-blocking)
 async function submitVideoJobApi(params: {
 	storyId: string;
-	sceneIndex: number;
+	sceneId: string;
 	videoPrompt: string;
-	imageBase64: string;
+	imageUrl: string;
 	audioDuration: number;
 	videoEngine?: string;
 }): Promise<SubmitVideoJobResponse> {
@@ -172,7 +183,7 @@ async function submitVideoJobApi(params: {
 // Check video generation status
 async function checkVideoStatusApi(params: {
 	storyId: string;
-	sceneIndex: number;
+	sceneId: string;
 }): Promise<CheckVideoStatusResponse> {
 	const response = await fetch("/api/generate-scene-video", {
 		method: "PUT",
@@ -185,9 +196,9 @@ async function checkVideoStatusApi(params: {
 // Poll for video completion with configurable interval
 async function generateSceneVideoWithPolling(params: {
 	storyId: string;
-	sceneIndex: number;
+	sceneId: string;
 	videoPrompt: string;
-	imageBase64: string;
+	imageUrl: string;
 	audioDuration: number;
 	videoEngine?: string;
 	onStatusUpdate?: (
@@ -198,9 +209,9 @@ async function generateSceneVideoWithPolling(params: {
 }): Promise<CheckVideoStatusResponse> {
 	const {
 		storyId,
-		sceneIndex,
+		sceneId,
 		videoPrompt,
-		imageBase64,
+		imageUrl,
 		audioDuration,
 		videoEngine,
 		onStatusUpdate,
@@ -211,9 +222,9 @@ async function generateSceneVideoWithPolling(params: {
 	// Submit the job
 	const submitResult = await submitVideoJobApi({
 		storyId,
-		sceneIndex,
+		sceneId,
 		videoPrompt,
-		imageBase64,
+		imageUrl,
 		audioDuration,
 		videoEngine,
 	});
@@ -232,7 +243,7 @@ async function generateSceneVideoWithPolling(params: {
 		await new Promise((resolve) => setTimeout(resolve, pollInterval));
 		attempts++;
 
-		const statusResult = await checkVideoStatusApi({ storyId, sceneIndex });
+		const statusResult = await checkVideoStatusApi({ storyId, sceneId });
 
 		if (onStatusUpdate) {
 			onStatusUpdate(statusResult.status);
@@ -301,17 +312,18 @@ export function useUploadCharacter() {
 /**
  * Hook to generate a scene image
  * Supports both GPT Image and Flux Pro engines
+ * Returns imageId and imageUrl (Supabase Storage)
  */
 export function useGenerateSceneImage() {
 	return useMutation({
 		mutationFn: (params: {
 			prompt: string;
 			storyId: string;
-			sceneIndex: number;
+			sceneId: string;
 			isCharacter: boolean;
 			characterFileId?: string; // OpenAI file_id (for GPT Image)
 			characterImageUrl?: string; // FAL storage URL (for Flux Pro)
-			imageEngine?: "gpt-image" | "flux-pro";
+			imageEngine?: ImageEngine;
 		}) => generateSceneImageApi(params),
 	});
 }
@@ -319,13 +331,14 @@ export function useGenerateSceneImage() {
 /**
  * Hook to generate scene audio with ElevenLabs
  * Supports voice selection via voiceId parameter
+ * Returns audioId and audioUrl (Supabase Storage)
  */
 export function useGenerateSceneAudio() {
 	return useMutation({
 		mutationFn: (params: {
 			caption: string;
 			storyId: string;
-			sceneIndex: number;
+			sceneId: string;
 			voiceId?: string;
 		}) => generateSceneAudioApi(params),
 	});
@@ -334,14 +347,15 @@ export function useGenerateSceneAudio() {
 /**
  * Hook to generate scene video from image + prompt (with polling)
  * Uses queue-based API: submits job, then polls for completion
+ * Returns videoId and videoUrl (Supabase Storage)
  */
 export function useGenerateSceneVideo() {
 	return useMutation({
 		mutationFn: (params: {
 			storyId: string;
-			sceneIndex: number;
+			sceneId: string;
 			videoPrompt: string;
-			imageBase64: string;
+			imageUrl: string;
 			audioDuration: number;
 			videoEngine?: string;
 			onStatusUpdate?: (
@@ -351,10 +365,27 @@ export function useGenerateSceneVideo() {
 	});
 }
 
+// Update scene caption API function
+interface UpdateSceneCaptionResponse {
+	success: boolean;
+	error?: string;
+}
+
+async function updateSceneCaptionApi(params: {
+	sceneId: string;
+	caption: string;
+}): Promise<UpdateSceneCaptionResponse> {
+	const response = await fetch("/api/update-scene-caption", {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify(params),
+	});
+	return response.json();
+}
+
 // Export video API function
 async function exportVideoApi(params: {
 	storyId: string;
-	sceneCount: number;
 }): Promise<ExportVideoResponse> {
 	const response = await fetch("/api/export-video", {
 		method: "POST",
@@ -366,11 +397,22 @@ async function exportVideoApi(params: {
 
 /**
  * Hook to export final video with all scenes combined
- * Now uses server-side cache, only needs storyId and sceneCount
+ * Fetches all scenes from database and concatenates their videos
+ * Returns videoUrl (Supabase Storage)
  */
 export function useExportVideo() {
 	return useMutation({
-		mutationFn: (params: { storyId: string; sceneCount: number }) =>
-			exportVideoApi(params),
+		mutationFn: (params: { storyId: string }) => exportVideoApi(params),
+	});
+}
+
+/**
+ * Hook to update scene caption in database
+ * Used when user edits caption and wants to persist changes
+ */
+export function useUpdateSceneCaption() {
+	return useMutation({
+		mutationFn: (params: { sceneId: string; caption: string }) =>
+			updateSceneCaptionApi(params),
 	});
 }

@@ -8,9 +8,14 @@ export const env = createEnv({
 		OPENAI_API_KEY: z.string().min(1),
 		// ElevenLabs API for voice generation with timestamps
 		ELEVEN_API_KEY: z.string().min(1),
-		ELEVEN_VOICE_ID: z.string().min(1),
+		ELEVEN_VOICE_ID: z.string().min(1).optional(),
 		// FAL-AI API key for video generation
 		FAL_API_KEY: z.string().min(1),
+		// Supabase configuration
+		SUPABASE_URL: z.string().url(),
+		SUPABASE_SECRET_KEY: z.string().min(1),
+		SUPABASE_URI: z.string().min(1), // PostgreSQL connection string
+		SUPABASE_SCHEMA: z.string().min(1).default("shorty"),
 	},
 
 	/**
@@ -21,6 +26,8 @@ export const env = createEnv({
 
 	client: {
 		VITE_APP_TITLE: z.string().min(1).optional(),
+		VITE_SUPABASE_URL: z.string().url(),
+		VITE_SUPABASE_PUBLISHABLE_KEY: z.string().min(1),
 	},
 
 	/**

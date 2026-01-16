@@ -1,10 +1,13 @@
 import { ElevenLabsClient } from "@elevenlabs/elevenlabs-js";
 import { createFileRoute } from "@tanstack/react-router";
+import { generateAudioId } from "@/db";
 import {
-	saveSceneAudio,
-	loadStoryMetadata,
-	saveStoryMetadata,
-} from "@/lib/cache";
+	createAudio,
+	updateAudio,
+	getSceneById,
+	replaceSceneAudio,
+} from "@/db/queries";
+import { uploadAudio } from "@/lib/supabase-storage";
 
 // Initialize ElevenLabs client for voice generation with timestamps
 const elevenlabs = new ElevenLabsClient({
@@ -72,22 +75,31 @@ export const Route = createFileRoute("/api/generate-scene-audio")({
 					const body = (await request.json()) as {
 						caption: string;
 						storyId: string;
-						sceneIndex: number;
+						sceneId: string;
 						voiceId?: string;
 					};
-					const { caption, storyId, sceneIndex, voiceId: requestVoiceId } = body;
+					const { caption, storyId, sceneId, voiceId: requestVoiceId } = body;
 
-					// Validate storyId and sceneIndex
+					// Validate storyId and sceneId
 					if (!storyId?.trim()) {
 						return Response.json(
 							{ success: false, error: "Story ID is required" },
 							{ status: 400 },
 						);
 					}
-					if (typeof sceneIndex !== "number" || sceneIndex < 0) {
+					if (!sceneId?.trim()) {
 						return Response.json(
-							{ success: false, error: "Valid scene index is required" },
+							{ success: false, error: "Scene ID is required" },
 							{ status: 400 },
+						);
+					}
+
+					// Verify scene exists
+					const scene = await getSceneById(sceneId);
+					if (!scene) {
+						return Response.json(
+							{ success: false, error: "Scene not found" },
+							{ status: 404 },
 						);
 					}
 
@@ -111,7 +123,22 @@ export const Route = createFileRoute("/api/generate-scene-audio")({
 						);
 					}
 
-					// Call ElevenLabs API with timestamps
+					// Step 1: Create audio record with status "generating"
+					const audioId = generateAudioId();
+					await createAudio({
+						id: audioId,
+						storyId,
+						sceneId,
+						voiceId,
+						prompt: caption,
+						status: "generating",
+					});
+
+					console.log(
+						`[generate-scene-audio] Created audio record: ${audioId}`,
+					);
+
+					// Step 2: Call ElevenLabs API with timestamps
 					const response = await elevenlabs.textToSpeech.convertWithTimestamps(
 						voiceId,
 						{
@@ -123,6 +150,7 @@ export const Route = createFileRoute("/api/generate-scene-audio")({
 
 					// Ensure alignment data is present
 					if (!response.alignment) {
+						await updateAudio(audioId, { status: "ready" }); // Reset to ready on failure
 						return Response.json(
 							{
 								success: false,
@@ -143,33 +171,56 @@ export const Route = createFileRoute("/api/generate-scene-audio")({
 					const endTimes = response.alignment.characterEndTimesSeconds;
 					const audioDuration = endTimes[endTimes.length - 1] || 0;
 
-					// Save to cache with storyId and sceneIndex
-					if (response.audioBase64) {
-						const cachedUrl = saveSceneAudio(
-							storyId,
-							sceneIndex,
-							Buffer.from(response.audioBase64, "base64"),
+					// Step 3: Upload to Supabase Storage
+					if (!response.audioBase64) {
+						await updateAudio(audioId, { status: "ready" });
+						return Response.json(
+							{
+								success: false,
+								error: "No audio data returned from ElevenLabs",
+							},
+							{ status: 500 },
 						);
-						console.log(`[generate-scene-audio] Saved to cache: ${cachedUrl}`);
+					}
 
-						// Update metadata if it exists
-						const existingMetadata = loadStoryMetadata(storyId);
-						if (existingMetadata && existingMetadata.scenes[sceneIndex]) {
-							existingMetadata.scenes[sceneIndex].hasAudio = true;
-							existingMetadata.scenes[sceneIndex].audioDuration = audioDuration;
-							existingMetadata.scenes[sceneIndex].wordTimestamps = wordTimestamps.map((wt) => ({
+					const audioBuffer = Buffer.from(response.audioBase64, "base64");
+					const audioUrl = await uploadAudio(storyId, sceneId, audioBuffer);
+
+					console.log(
+						`[generate-scene-audio] Uploaded to Supabase: ${audioUrl}`,
+					);
+
+					// Step 4: Update audio record with URL and status "completed"
+					await updateAudio(audioId, {
+						audioUrl,
+						status: "completed",
+						duration: audioDuration,
+						wordTimestamps: JSON.stringify(
+							wordTimestamps.map((wt) => ({
 								word: wt.word,
 								start: wt.startTime,
 								end: wt.endTime,
-							}));
-							saveStoryMetadata(existingMetadata);
-						}
-					}
+							})),
+						),
+					});
+
+					// Step 5: Update scene FK reference (deletes old audio record if exists)
+					// Storage file is automatically overwritten due to upsert: true
+					await replaceSceneAudio(sceneId, audioId);
+
+					console.log(
+						`[generate-scene-audio] Audio generation completed: ${audioId}`,
+					);
 
 					return Response.json({
 						success: true,
-						audioBase64: response.audioBase64,
-						wordTimestamps,
+						audioId,
+						audioUrl,
+						wordTimestamps: wordTimestamps.map((wt) => ({
+							word: wt.word,
+							start: wt.startTime,
+							end: wt.endTime,
+						})),
 						audioDuration,
 					});
 				} catch (err) {

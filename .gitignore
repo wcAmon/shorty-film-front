@@ -17,6 +17,8 @@ count.txt
 todos.json
 public/video_cache/
 CLAUDE.md
+dev_md/
+temp/
 
 # Database
 data/

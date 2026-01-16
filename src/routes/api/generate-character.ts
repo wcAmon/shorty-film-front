@@ -1,14 +1,22 @@
 import { fal } from "@fal-ai/client";
 import { createFileRoute } from "@tanstack/react-router";
 import OpenAI, { toFile } from "openai";
-import sharp from "sharp";
+import type Sharp from "sharp";
+import { generateImageId } from "@/db";
+
+// Dynamically import sharp to avoid Vite SSR issues with native modules
+const getSharp = async (): Promise<typeof Sharp> => {
+	const sharpModule = await import("sharp");
+	return sharpModule.default;
+};
 import {
-	saveCharacterImage,
-	savePerson1Image,
-	savePerson2Image,
-	loadStoryMetadata,
-	saveStoryMetadata,
-} from "@/lib/cache";
+	createImage,
+	updateImage,
+	getStoryById,
+	updateStory,
+} from "@/db/queries";
+import { uploadImage } from "@/lib/supabase-storage";
+import type { ImageType } from "@/db/schema";
 import {
 	type ImageStyle,
 	getCharacterStyleBlock,
@@ -73,6 +81,15 @@ export const Route = createFileRoute("/api/generate-character")({
 						);
 					}
 
+					// Verify story exists
+					const story = await getStoryById(storyId);
+					if (!story) {
+						return Response.json(
+							{ success: false, error: "Story not found" },
+							{ status: 404 },
+						);
+					}
+
 					// Validate and normalize imageStyle
 					const imageStyle: ImageStyle =
 						body.imageStyle === "comic"
@@ -92,6 +109,71 @@ export const Route = createFileRoute("/api/generate-character")({
 							{ status: 400 },
 						);
 					}
+
+					// Determine image type
+					const imageType: ImageType = person === "person1"
+						? "person1"
+						: person === "person2"
+							? "person2"
+							: "character";
+
+					// Step 1: Create image record with status "generating"
+					const imageId = generateImageId();
+					await createImage({
+						id: imageId,
+						storyId,
+						sceneId: null, // Character images are not scene-specific
+						prompt,
+						imageType,
+						status: "generating",
+					});
+
+					console.log(`[generate-character] Created image record: ${imageId}`);
+
+					// Helper function to save image and return response
+					const saveImageAndRespond = async (
+						jpegBuffer: Buffer,
+						additionalData: { fileId?: string; falImageUrl?: string } = {},
+					) => {
+						// Upload to Supabase Storage using imageType as sceneId
+						const imageUrl = await uploadImage(storyId, imageType, jpegBuffer, "jpg");
+
+						console.log(`[generate-character] Uploaded to Supabase: ${imageUrl}`);
+
+						// Update image record with URL and status "completed"
+						await updateImage(imageId, {
+							imageUrl,
+							status: "completed",
+						});
+
+						// Update story with the character image ID
+						// For aistory: character image goes to person1ImageId
+						// For podcast42: person1/person2 images go to respective fields
+						if (imageType === "character" || imageType === "person1") {
+							await updateStory(storyId, { person1ImageId: imageId });
+						} else if (imageType === "person2") {
+							await updateStory(storyId, { person2ImageId: imageId });
+						}
+
+						console.log(`[generate-character] Image generation completed: ${imageId}, updated story.${imageType === "person2" ? "person2ImageId" : "person1ImageId"}`);
+
+						return Response.json({
+							success: true,
+							imageId,
+							imageUrl,
+							...(additionalData.fileId && { fileId: additionalData.fileId }),
+							...(additionalData.falImageUrl && { falImageUrl: additionalData.falImageUrl }),
+						});
+					};
+
+					// Helper function to handle errors
+					const handleError = async (error: string, statusCode = 500) => {
+						await updateImage(imageId, { status: "ready" }); // Reset to ready on failure
+						return Response.json(
+							{ success: false, error },
+							{ status: statusCode },
+						);
+					};
 
 					// Get style block from shared style definitions
 					const styleBlock = getCharacterStyleBlock(imageStyle);
@@ -155,13 +237,7 @@ ${styleBlock}- ${formatDescription}, suitable for video content`;
 							);
 
 							if (status.status === "FAILED") {
-								return Response.json(
-									{
-										success: false,
-										error: `${imageEngine} image generation failed`,
-									},
-									{ status: 500 },
-								);
+								return handleError(`${imageEngine} image generation failed`);
 							}
 
 							if (status.status === "COMPLETED") {
@@ -171,30 +247,25 @@ ${styleBlock}- ${formatDescription}, suitable for video content`;
 								})) as FalImageResult;
 
 								// Extract image URL from result
-								const imageUrl =
+								const resultImageUrl =
 									result.images?.[0]?.url || result.data?.images?.[0]?.url;
 
-								if (!imageUrl) {
+								if (!resultImageUrl) {
 									console.error(
 										`[generate-character] No image URL in ${imageEngine} result:`,
 										result,
 									);
-									return Response.json(
-										{
-											success: false,
-											error: `No image URL returned from ${imageEngine}`,
-										},
-										{ status: 500 },
-									);
+									return handleError(`No image URL returned from ${imageEngine}`);
 								}
 
 								// Download image and convert to base64
-								const imageResponse = await fetch(imageUrl);
+								const imageResponse = await fetch(resultImageUrl);
 								const arrayBuffer = await imageResponse.arrayBuffer();
 								const imageBuffer = Buffer.from(arrayBuffer);
 
 								// For 16:9 (podcast42), resize to exactly 1280x720
 								// FAL returns ~1024x768, so we use cover to crop and scale
+								const sharp = await getSharp();
 								let processedBuffer: Buffer;
 								if (aspectRatio === "16:9") {
 									processedBuffer = await sharp(imageBuffer)
@@ -207,63 +278,25 @@ ${styleBlock}- ${formatDescription}, suitable for video content`;
 										.jpeg({ quality: 85 })
 										.toBuffer();
 								}
-								const jpegBase64 = processedBuffer.toString("base64");
 
 								// Upload resized image to FAL storage for character reference in scene generation
 								const imageBlob = new Blob([processedBuffer], {
 									type: "image/jpeg",
 								});
-								const characterImageUrl = await fal.storage.upload(imageBlob);
+								const falImageUrl = await fal.storage.upload(imageBlob);
 
 								console.log(
-									`[generate-character] ${imageEngine} completed. FAL storage URL: ${characterImageUrl}`,
+									`[generate-character] ${imageEngine} completed. FAL storage URL: ${falImageUrl}`,
 								);
 
-								// Save to cache with storyId (use person-specific path for podcast42)
-								if (person === "person1") {
-									savePerson1Image(storyId, processedBuffer);
-								} else if (person === "person2") {
-									savePerson2Image(storyId, processedBuffer);
-								} else {
-									saveCharacterImage(storyId, processedBuffer);
-								}
-								console.log(`[generate-character] Saved to cache for ${person || "character"}`);
-
-								// Update metadata if it exists
-								const existingMetadata = loadStoryMetadata(storyId);
-								if (existingMetadata) {
-									if (person === "person1") {
-										existingMetadata.person1ImageUrl = characterImageUrl;
-										existingMetadata.hasPerson1Image = true;
-									} else if (person === "person2") {
-										existingMetadata.person2ImageUrl = characterImageUrl;
-										existingMetadata.hasPerson2Image = true;
-									} else {
-										existingMetadata.characterImageUrl = characterImageUrl;
-										existingMetadata.hasCharacterImage = true;
-									}
-									existingMetadata.imageEngine = imageEngine;
-									saveStoryMetadata(existingMetadata);
-								}
-
-								return Response.json({
-									success: true,
-									imageBase64: jpegBase64,
-									imageUrl: characterImageUrl, // FAL storage URL for character reference
-								});
+								return saveImageAndRespond(processedBuffer, { falImageUrl });
 							}
 
 							// Continue polling if IN_QUEUE or IN_PROGRESS
 						}
 
 						// Timeout
-						return Response.json(
-							{
-								success: false,
-								error: `${imageEngine} image generation timed out`,
-							},
-							{ status: 500 },
-						);
+						return handleError(`${imageEngine} image generation timed out`);
 					}
 
 					// ============================================================================
@@ -286,10 +319,7 @@ ${styleBlock}- ${formatDescription}, suitable for video content`;
 
 					// Check if response contains image data
 					if (!response.data || response.data.length === 0) {
-						return Response.json(
-							{ success: false, error: "No image data returned from OpenAI" },
-							{ status: 500 },
-						);
+						return handleError("No image data returned from OpenAI");
 					}
 
 					const imageData = response.data[0];
@@ -310,10 +340,10 @@ ${styleBlock}- ${formatDescription}, suitable for video content`;
 					if (base64) {
 						// Convert PNG to JPEG for smaller payload size (PNG 5MB+ -> JPEG ~500KB)
 						const pngBuffer = Buffer.from(base64, "base64");
+						const sharp = await getSharp();
 						const jpegBuffer = await sharp(pngBuffer)
 							.jpeg({ quality: 85 })
 							.toBuffer();
-						const jpegBase64 = jpegBuffer.toString("base64");
 
 						// Upload original PNG to OpenAI Files (better quality for AI reference)
 						const imageFile = await toFile(pngBuffer, "character.png", {
@@ -325,43 +355,12 @@ ${styleBlock}- ${formatDescription}, suitable for video content`;
 							purpose: "vision",
 						});
 
-						// Save to cache with storyId (use person-specific path for podcast42)
-						if (person === "person1") {
-							savePerson1Image(storyId, jpegBuffer);
-						} else if (person === "person2") {
-							savePerson2Image(storyId, jpegBuffer);
-						} else {
-							saveCharacterImage(storyId, jpegBuffer);
-						}
-						console.log(`[generate-character] Saved to cache for ${person || "character"}`);
+						console.log(`[generate-character] Uploaded to OpenAI Files: ${uploadedFile.id}`);
 
-						// Update metadata if it exists
-						const existingMetadata = loadStoryMetadata(storyId);
-						if (existingMetadata) {
-							if (person === "person1") {
-								existingMetadata.hasPerson1Image = true;
-							} else if (person === "person2") {
-								existingMetadata.hasPerson2Image = true;
-							} else {
-								existingMetadata.characterFileId = uploadedFile.id;
-								existingMetadata.hasCharacterImage = true;
-							}
-							existingMetadata.imageEngine = imageEngine;
-							saveStoryMetadata(existingMetadata);
-						}
-
-						// Return compressed JPEG to client, but use PNG for OpenAI
-						return Response.json({
-							success: true,
-							imageBase64: jpegBase64,
-							fileId: uploadedFile.id,
-						});
+						return saveImageAndRespond(jpegBuffer, { fileId: uploadedFile.id });
 					}
 
-					return Response.json(
-						{ success: false, error: "No image data returned from OpenAI" },
-						{ status: 500 },
-					);
+					return handleError("No image data returned from OpenAI");
 				} catch (err) {
 					// Handle OpenAI API errors
 					console.error("OpenAI API error:", err);

@@ -43,10 +43,20 @@ function Podcast42ExportPage() {
 		podcast42Actions.setExportError(null);
 		podcast42Actions.setExportedVideoUrl(null);
 
+		// Extract videoIndices from scenes in their current order
+		// This ensures export follows the user's reordered scene sequence
+		const videoIndices = scenes
+			.map((scene) => scene.videoIndex)
+			.filter((idx): idx is number => idx !== undefined);
+
+		// Only pass videoIndices if all scenes have them (for backwards compatibility)
+		const hasAllVideoIndices = videoIndices.length === scenes.length;
+
 		exportVideoMutation.mutate(
 			{
 				storyId,
 				sceneCount: scenes.length,
+				...(hasAllVideoIndices && { videoIndices }),
 			},
 			{
 				onSuccess: (result) => {

@@ -1,10 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import OpenAI from "openai";
-import {
-	generateStoryId,
-	saveStoryMetadata,
-	type StoryMetadata,
-} from "@/lib/cache";
+import { generateStoryId } from "@/db";
+import { createStory, createScenes } from "@/db/queries";
 import { type ImageStyle, getGptStyleBlock } from "@/lib/style-prompts";
 
 // Initialize OpenAI client with API key from environment variables
@@ -177,12 +174,10 @@ Output must be ONLY valid JSON.`,
 					// Generate a unique story ID for this generation session
 					const storyId = `podcast42-${generateStoryId()}`;
 
-					// Save initial metadata to JSON file for history/persistence
-					const metadata: StoryMetadata = {
-						storyId,
+					// Create story in database
+					await createStory({
+						id: storyId,
 						type: "podcast42",
-						createdAt: new Date().toISOString(),
-						updatedAt: new Date().toISOString(),
 						playScript,
 						imageEngine,
 						imageStyle,
@@ -191,20 +186,29 @@ Output must be ONLY valid JSON.`,
 						podcast42VideoEngine: videoEngine,
 						person1Prompt: parsed.person1Prompt,
 						person2Prompt: parsed.person2Prompt,
-						scenes: scenes.map((scene, index) => ({
-							id: `scene-${index}`,
-							speaker: scene.speaker,
-							caption: scene.caption,
-						})),
-					};
-					saveStoryMetadata(metadata);
+					});
+
+					// Create scenes in database
+					const sceneData = scenes.map((scene, index) => ({
+						id: `${storyId}-scene-${index}`,
+						storyId,
+						orderIndex: index,
+						caption: scene.caption,
+						speaker: scene.speaker,
+						isCharacter: false,
+					}));
+					const createdScenes = await createScenes(sceneData);
 
 					return Response.json({
 						success: true,
 						storyId,
 						person1Prompt: parsed.person1Prompt,
 						person2Prompt: parsed.person2Prompt,
-						scenes,
+						scenes: createdScenes.map((scene) => ({
+							id: scene.id,
+							speaker: scene.speaker as "person1" | "person2",
+							caption: scene.caption,
+						})),
 					});
 				} catch (err) {
 					console.error("GPT-4.1 API error:", err);

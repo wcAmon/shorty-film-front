@@ -26,15 +26,21 @@ export type VideoEngine =
 
 // Extended scene state with UI-related fields
 export interface SceneState extends Scene {
-	imageBase64?: string;
+	// Database media IDs
+	imageId?: string;
+	audioId?: string;
+	videoId?: string;
+	// Supabase Storage URLs
+	imageUrl?: string;
+	audioUrl?: string;
+	videoUrl?: string;
+	// UI state
 	isLoading?: boolean;
-	audioBase64?: string;
 	audioDuration?: number;
 	isGeneratingAudio?: boolean;
 	// Word-level timestamps for synchronized caption display
 	wordTimestamps?: WordTimestamp[];
 	// Video generation fields
-	videoBase64?: string;
 	videoDuration?: number;
 	isGeneratingVideo?: boolean;
 	videoError?: string | null;
@@ -51,9 +57,10 @@ export interface AIStoryState {
 
 	// Character data
 	characterPrompt: string | null;
-	characterImage: string | null; // base64
+	characterImageId: string | null; // Database image ID
+	characterImageUrl: string | null; // Supabase Storage URL
 	characterFileId: string | null; // OpenAI file_id for character reference (for GPT Image)
-	characterImageUrl: string | null; // FAL storage URL for character reference (for Flux Pro)
+	characterFalImageUrl: string | null; // FAL storage URL for character reference (for Flux Pro)
 
 	// Character generation state
 	isGeneratingCharacter: boolean;
@@ -95,9 +102,10 @@ const initialState: AIStoryState = {
 	storyId: null,
 	sceneDbIds: {},
 	characterPrompt: null,
-	characterImage: null,
-	characterFileId: null,
+	characterImageId: null,
 	characterImageUrl: null,
+	characterFileId: null,
+	characterFalImageUrl: null,
 	isGeneratingCharacter: false,
 	scenes: [],
 	isGeneratingPrompts: false,
@@ -142,16 +150,20 @@ export const aistoryActions = {
 		aistoryStore.setState((state) => ({ ...state, characterPrompt }));
 	},
 
-	setCharacterImage: (characterImage: string | null) => {
-		aistoryStore.setState((state) => ({ ...state, characterImage }));
+	setCharacterImageId: (characterImageId: string | null) => {
+		aistoryStore.setState((state) => ({ ...state, characterImageId }));
+	},
+
+	setCharacterImageUrl: (characterImageUrl: string | null) => {
+		aistoryStore.setState((state) => ({ ...state, characterImageUrl }));
 	},
 
 	setCharacterFileId: (characterFileId: string | null) => {
 		aistoryStore.setState((state) => ({ ...state, characterFileId }));
 	},
 
-	setCharacterImageUrl: (characterImageUrl: string | null) => {
-		aistoryStore.setState((state) => ({ ...state, characterImageUrl }));
+	setCharacterFalImageUrl: (characterFalImageUrl: string | null) => {
+		aistoryStore.setState((state) => ({ ...state, characterFalImageUrl }));
 	},
 
 	setIsGeneratingCharacter: (isGeneratingCharacter: boolean) => {
@@ -271,9 +283,10 @@ export const aistoryActions = {
 			storyId: null,
 			sceneDbIds: {},
 			characterPrompt: null,
-			characterImage: null,
-			characterFileId: null,
+			characterImageId: null,
 			characterImageUrl: null,
+			characterFileId: null,
+			characterFalImageUrl: null,
 			scenes: [],
 			promptsGenerated: false,
 			error: null,

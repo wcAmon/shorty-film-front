@@ -13,11 +13,17 @@ export interface Podcast42Scene {
 	id: string;
 	speaker: Podcast42Speaker;
 	caption: string;
-	audioBase64?: string;
+	// Database media IDs
+	audioId?: string;
+	videoId?: string;
+	// Supabase Storage URLs
+	audioUrl?: string;
+	videoUrl?: string;
+	// Media metadata
 	audioDuration?: number;
 	wordTimestamps?: WordTimestamp[];
-	videoBase64?: string;
 	videoDuration?: number;
+	// UI state
 	isGeneratingAudio?: boolean;
 	isGeneratingVideo?: boolean;
 	videoError?: string | null;
@@ -34,14 +40,16 @@ export interface Podcast42State {
 
 	// Person1 character data
 	person1Prompt: string | null;
-	person1Image: string | null; // base64
-	person1ImageUrl: string | null; // FAL storage URL
+	person1ImageId: string | null; // Database image ID
+	person1ImageUrl: string | null; // Supabase Storage URL
+	person1FalImageUrl: string | null; // FAL storage URL for video generation
 	isGeneratingPerson1: boolean;
 
 	// Person2 character data
 	person2Prompt: string | null;
-	person2Image: string | null; // base64
-	person2ImageUrl: string | null; // FAL storage URL
+	person2ImageId: string | null; // Database image ID
+	person2ImageUrl: string | null; // Supabase Storage URL
+	person2FalImageUrl: string | null; // FAL storage URL for video generation
 	isGeneratingPerson2: boolean;
 
 	// Scenes data
@@ -71,6 +79,10 @@ export interface Podcast42State {
 
 	// Test mode for faster testing (generates only 2 scenes)
 	testMode: boolean;
+
+	// Video generation queue
+	videoQueue: string[]; // Scene IDs waiting to be processed
+	currentProcessingSceneId: string | null; // Currently processing scene ID
 }
 
 // Initial state
@@ -79,12 +91,14 @@ const initialState: Podcast42State = {
 	storyId: null,
 	sceneDbIds: {},
 	person1Prompt: null,
-	person1Image: null,
+	person1ImageId: null,
 	person1ImageUrl: null,
+	person1FalImageUrl: null,
 	isGeneratingPerson1: false,
 	person2Prompt: null,
-	person2Image: null,
+	person2ImageId: null,
 	person2ImageUrl: null,
+	person2FalImageUrl: null,
 	isGeneratingPerson2: false,
 	scenes: [],
 	isGeneratingPrompts: false,
@@ -100,6 +114,8 @@ const initialState: Podcast42State = {
 	person1VoiceId: "PIGsltMj3gFMR34aFDI3", // Default: Jonathan
 	person2VoiceId: "Z3R5wn05IrDiVCyEkUrK", // Default: Arabella
 	testMode: false,
+	videoQueue: [],
+	currentProcessingSceneId: null,
 };
 
 // Create the store
@@ -130,12 +146,16 @@ export const podcast42Actions = {
 		podcast42Store.setState((state) => ({ ...state, person1Prompt }));
 	},
 
-	setPerson1Image: (person1Image: string | null) => {
-		podcast42Store.setState((state) => ({ ...state, person1Image }));
+	setPerson1ImageId: (person1ImageId: string | null) => {
+		podcast42Store.setState((state) => ({ ...state, person1ImageId }));
 	},
 
 	setPerson1ImageUrl: (person1ImageUrl: string | null) => {
 		podcast42Store.setState((state) => ({ ...state, person1ImageUrl }));
+	},
+
+	setPerson1FalImageUrl: (person1FalImageUrl: string | null) => {
+		podcast42Store.setState((state) => ({ ...state, person1FalImageUrl }));
 	},
 
 	setIsGeneratingPerson1: (isGeneratingPerson1: boolean) => {
@@ -147,12 +167,16 @@ export const podcast42Actions = {
 		podcast42Store.setState((state) => ({ ...state, person2Prompt }));
 	},
 
-	setPerson2Image: (person2Image: string | null) => {
-		podcast42Store.setState((state) => ({ ...state, person2Image }));
+	setPerson2ImageId: (person2ImageId: string | null) => {
+		podcast42Store.setState((state) => ({ ...state, person2ImageId }));
 	},
 
 	setPerson2ImageUrl: (person2ImageUrl: string | null) => {
 		podcast42Store.setState((state) => ({ ...state, person2ImageUrl }));
+	},
+
+	setPerson2FalImageUrl: (person2FalImageUrl: string | null) => {
+		podcast42Store.setState((state) => ({ ...state, person2FalImageUrl }));
 	},
 
 	setIsGeneratingPerson2: (isGeneratingPerson2: boolean) => {
@@ -263,6 +287,59 @@ export const podcast42Actions = {
 		podcast42Store.setState((state) => ({ ...state, testMode }));
 	},
 
+	// Video queue actions
+	addToVideoQueue: (sceneId: string) => {
+		podcast42Store.setState((state) => {
+			// Don't add if already in queue or currently processing
+			if (
+				state.videoQueue.includes(sceneId) ||
+				state.currentProcessingSceneId === sceneId
+			) {
+				return state;
+			}
+			return { ...state, videoQueue: [...state.videoQueue, sceneId] };
+		});
+	},
+
+	removeFromVideoQueue: (sceneId: string) => {
+		podcast42Store.setState((state) => ({
+			...state,
+			videoQueue: state.videoQueue.filter((id) => id !== sceneId),
+		}));
+	},
+
+	setCurrentProcessingSceneId: (sceneId: string | null) => {
+		podcast42Store.setState((state) => ({
+			...state,
+			currentProcessingSceneId: sceneId,
+		}));
+	},
+
+	// Get queue position (1-based, 0 means not in queue)
+	getQueuePosition: (sceneId: string): number => {
+		const state = podcast42Store.state;
+		const index = state.videoQueue.indexOf(sceneId);
+		return index === -1 ? 0 : index + 1;
+	},
+
+	// Check if scene is in queue or processing
+	isSceneQueued: (sceneId: string): boolean => {
+		const state = podcast42Store.state;
+		return state.videoQueue.includes(sceneId);
+	},
+
+	isSceneProcessing: (sceneId: string): boolean => {
+		return podcast42Store.state.currentProcessingSceneId === sceneId;
+	},
+
+	clearVideoQueue: () => {
+		podcast42Store.setState((state) => ({
+			...state,
+			videoQueue: [],
+			currentProcessingSceneId: null,
+		}));
+	},
+
 	// Reset all state except playScript
 	resetPrompts: () => {
 		podcast42Store.setState((state) => ({
@@ -270,11 +347,13 @@ export const podcast42Actions = {
 			storyId: null,
 			sceneDbIds: {},
 			person1Prompt: null,
-			person1Image: null,
+			person1ImageId: null,
 			person1ImageUrl: null,
+			person1FalImageUrl: null,
 			person2Prompt: null,
-			person2Image: null,
+			person2ImageId: null,
 			person2ImageUrl: null,
+			person2FalImageUrl: null,
 			scenes: [],
 			promptsGenerated: false,
 			error: null,
@@ -282,6 +361,8 @@ export const podcast42Actions = {
 			isExportingVideo: false,
 			exportedVideoUrl: null,
 			exportError: null,
+			videoQueue: [],
+			currentProcessingSceneId: null,
 		}));
 	},
 

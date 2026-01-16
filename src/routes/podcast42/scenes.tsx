@@ -10,6 +10,7 @@ import {
 	Mic,
 	Play,
 	Plus,
+	Save,
 	Settings,
 	Trash2,
 	Upload,
@@ -20,12 +21,15 @@ import {
 import { useRef, useState } from "react";
 import { CountdownProgress } from "@/components/countdown-progress";
 import {
+	useDeletePodcast42Scene,
 	useGeneratePodcast42Character,
 	useGeneratePodcast42SceneAudio,
-	useGeneratePodcast42SceneVideo,
+	useReorderPodcast42Scenes,
+	useUpdatePodcast42Scene,
 	useUpdatePodcast42Settings,
 	useUploadPodcast42Character,
 } from "@/hooks/use-podcast42-api";
+import { useVideoQueueProcessor } from "@/hooks/use-video-queue-processor";
 import {
 	podcast42Actions,
 	podcast42Store,
@@ -71,8 +75,13 @@ function Podcast42ScenesPage() {
 	const generateCharacterMutation = useGeneratePodcast42Character();
 	const uploadCharacterMutation = useUploadPodcast42Character();
 	const generateSceneAudioMutation = useGeneratePodcast42SceneAudio();
-	const generateSceneVideoMutation = useGeneratePodcast42SceneVideo();
 	const updateSettingsMutation = useUpdatePodcast42Settings();
+	const deleteSceneMutation = useDeletePodcast42Scene();
+	const updateSceneMutation = useUpdatePodcast42Scene();
+	const reorderScenesMutation = useReorderPodcast42Scenes();
+
+	// Video queue processor
+	useVideoQueueProcessor();
 
 	// Subscribe to store state
 	const person1Prompt = useStore(podcast42Store, (state) => state.person1Prompt);
@@ -93,6 +102,11 @@ function Podcast42ScenesPage() {
 	const person2VoiceId = useStore(podcast42Store, (state) => state.person2VoiceId);
 	const storyId = useStore(podcast42Store, (state) => state.storyId);
 	const videoEngine = useStore(podcast42Store, (state) => state.videoEngine);
+	const videoQueue = useStore(podcast42Store, (state) => state.videoQueue);
+	const currentProcessingSceneId = useStore(
+		podcast42Store,
+		(state) => state.currentProcessingSceneId,
+	);
 
 	// Audio playback state
 	const [playingSceneId, setPlayingSceneId] = useState<string | null>(null);
@@ -279,12 +293,99 @@ function Podcast42ScenesPage() {
 		podcast42Actions.updateScene(sceneId, { caption: newCaption });
 	};
 
-	// Update scene speaker
+	// Update scene speaker (syncs to database immediately)
 	const handleUpdateSceneSpeaker = (
 		sceneId: string,
 		speaker: Podcast42Speaker,
 	) => {
+		// Update local store immediately
 		podcast42Actions.updateScene(sceneId, { speaker });
+
+		// Sync to database
+		if (storyId) {
+			updateSceneMutation.mutate(
+				{ storyId, sceneId, updates: { speaker } },
+				{
+					onError: (err) => {
+						podcast42Actions.setSceneError(
+							err instanceof Error
+								? err.message
+								: "Failed to update speaker in database",
+						);
+					},
+				},
+			);
+		}
+	};
+
+	// Reorder scenes (syncs to database immediately)
+	const handleReorderScenes = (fromIndex: number, toIndex: number) => {
+		// Update local store immediately
+		podcast42Actions.reorderScenes(fromIndex, toIndex);
+
+		// Sync to database
+		if (storyId) {
+			reorderScenesMutation.mutate(
+				{ storyId, fromIndex, toIndex },
+				{
+					onError: (err) => {
+						podcast42Actions.setSceneError(
+							err instanceof Error
+								? err.message
+								: "Failed to reorder scenes in database",
+						);
+					},
+				},
+			);
+		}
+	};
+
+	// Update scene caption in database (called by UPDATE CAPTION button)
+	const handleSaveCaptionToDb = (sceneId: string) => {
+		const scene = scenes.find((s) => s.id === sceneId);
+		if (!scene || !storyId) return;
+
+		updateSceneMutation.mutate(
+			{ storyId, sceneId, updates: { caption: scene.caption } },
+			{
+				onSuccess: () => {
+					// Could show a success toast here
+				},
+				onError: (err) => {
+					podcast42Actions.setSceneError(
+						err instanceof Error
+							? err.message
+							: "Failed to save caption to database",
+					);
+				},
+			},
+		);
+	};
+
+	// Delete scene (updates both store and database)
+	const handleDeleteScene = (sceneId: string) => {
+		// Get the scene's videoIndex before deleting (needed to delete files)
+		const scene = scenes.find((s) => s.id === sceneId);
+		const videoIndex = scene?.videoIndex;
+
+		// Update local store immediately
+		podcast42Actions.deleteScene(sceneId);
+
+		// Sync to database and delete files
+		if (storyId) {
+			deleteSceneMutation.mutate(
+				{ storyId, sceneId, videoIndex },
+				{
+					onError: (err) => {
+						podcast42Actions.setSceneError(
+							err instanceof Error
+								? err.message
+								: "Failed to delete scene from database",
+						);
+					},
+				},
+			);
+		}
 	};
 
 	// Handle single scene audio generation
@@ -326,11 +427,10 @@ function Podcast42ScenesPage() {
 		);
 	};
 
-	// Handle single scene video generation using OmniHuman or Aurora
+	// Handle single scene video generation - adds to queue
 	const handleGenerateSceneVideo = (sceneId: string) => {
 		const scene = scenes.find((s) => s.id === sceneId);
-		const sceneIndex = scenes.findIndex((s) => s.id === sceneId);
-		if (!scene || sceneIndex === -1 || !storyId || !scene.audioBase64) return;
+		if (!scene || !storyId || !scene.audioBase64) return;
 
 		// Get the appropriate character image URL for this speaker
 		const imageUrl =
@@ -342,49 +442,24 @@ function Podcast42ScenesPage() {
 			return;
 		}
 
-		podcast42Actions.updateScene(sceneId, {
-			isGeneratingVideo: true,
-			videoError: null,
-		});
+		// Add to queue - the queue processor will handle the rest
+		podcast42Actions.addToVideoQueue(sceneId);
+	};
 
-		generateSceneVideoMutation.mutate(
-			{
-				storyId,
-				sceneIndex,
-				imageUrl,
-				audioBase64: scene.audioBase64,
-				videoEngine,
-				onStatusUpdate: (status) => {
-					console.log(`[video] Scene ${sceneId} status: ${status} (engine: ${videoEngine})`);
-				},
-			},
-			{
-				onSuccess: (result) => {
-					if (result.success && result.videoBase64) {
-						podcast42Actions.updateScene(sceneId, {
-							videoBase64: result.videoBase64,
-							videoDuration: result.videoDuration,
-							isGeneratingVideo: false,
-							videoError: null,
-						});
-					} else {
-						podcast42Actions.updateScene(sceneId, {
-							isGeneratingVideo: false,
-							videoError: result.error || "Failed to generate scene video",
-						});
-					}
-				},
-				onError: (err) => {
-					podcast42Actions.updateScene(sceneId, {
-						isGeneratingVideo: false,
-						videoError:
-							err instanceof Error
-								? err.message
-								: "An unexpected error occurred",
-					});
-				},
-			},
-		);
+	// Get queue position for a scene (returns 0 if not in queue)
+	const getSceneQueuePosition = (sceneId: string): number => {
+		const index = videoQueue.indexOf(sceneId);
+		return index === -1 ? 0 : index + 1;
+	};
+
+	// Check if scene is currently being processed
+	const isSceneProcessing = (sceneId: string): boolean => {
+		return currentProcessingSceneId === sceneId;
+	};
+
+	// Check if scene is in queue (waiting)
+	const isSceneInQueue = (sceneId: string): boolean => {
+		return videoQueue.includes(sceneId);
 	};
 
 	// Play scene audio with word-by-word caption synchronization
@@ -834,9 +909,7 @@ function Podcast42ScenesPage() {
 									<div className="flex items-center gap-1">
 										<button
 											type="button"
-											onClick={() =>
-												podcast42Actions.reorderScenes(index, index - 1)
-											}
+											onClick={() => handleReorderScenes(index, index - 1)}
 											disabled={index === 0 || scenesDisabled}
 											className="p-1 text-slate-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
 											title="Move up"
@@ -845,9 +918,7 @@ function Podcast42ScenesPage() {
 										</button>
 										<button
 											type="button"
-											onClick={() =>
-												podcast42Actions.reorderScenes(index, index + 1)
-											}
+											onClick={() => handleReorderScenes(index, index + 1)}
 											disabled={index === scenes.length - 1 || scenesDisabled}
 											className="p-1 text-slate-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
 											title="Move down"
@@ -858,7 +929,7 @@ function Podcast42ScenesPage() {
 									{/* Delete button */}
 									<button
 										type="button"
-										onClick={() => podcast42Actions.deleteScene(scene.id)}
+										onClick={() => handleDeleteScene(scene.id)}
 										disabled={scenes.length <= 1 || scenesDisabled}
 										className="p-1 text-red-400 hover:text-red-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
 										title="Delete scene"
@@ -888,6 +959,32 @@ function Podcast42ScenesPage() {
 										/>
 									</div>
 
+									{/* Update caption button */}
+									<div className="mt-3">
+										<button
+											type="button"
+											onClick={() => handleSaveCaptionToDb(scene.id)}
+											disabled={
+												!scene.caption.trim() ||
+												updateSceneMutation.isPending ||
+												scenesDisabled
+											}
+											className="w-full py-2 bg-gradient-to-r from-slate-600 to-slate-500 hover:from-slate-500 hover:to-slate-400 disabled:from-slate-700 disabled:to-slate-700 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-all duration-300 shadow-md shadow-slate-500/20 hover:shadow-slate-500/40 disabled:shadow-none flex items-center justify-center gap-2"
+										>
+											{updateSceneMutation.isPending ? (
+												<>
+													<Loader2 className="w-4 h-4 animate-spin" />
+													Saving...
+												</>
+											) : (
+												<>
+													<Save className="w-4 h-4" />
+													UPDATE CAPTION
+												</>
+											)}
+										</button>
+									</div>
+
 									{/* Audio generation button */}
 									<div className="mt-3">
 										<button
@@ -908,7 +1005,9 @@ function Podcast42ScenesPage() {
 											) : (
 												<>
 													<Volume2 className="w-5 h-5" />
-													GENERATE AUDIO
+													{scene.audioUrl
+														? "REGENERATE AUDIO"
+														: "GENERATE AUDIO"}
 												</>
 											)}
 										</button>
@@ -924,7 +1023,7 @@ function Podcast42ScenesPage() {
 										)}
 										{/* Progress bar for video generation (3 minutes) */}
 										<CountdownProgress
-											isActive={scene.isGeneratingVideo ?? false}
+											isActive={isSceneProcessing(scene.id)}
 											durationSeconds={180}
 										/>
 										<button
@@ -932,7 +1031,8 @@ function Podcast42ScenesPage() {
 											onClick={() => handleGenerateSceneVideo(scene.id)}
 											disabled={
 												!scene.audioBase64 ||
-												scene.isGeneratingVideo ||
+												isSceneProcessing(scene.id) ||
+												isSceneInQueue(scene.id) ||
 												scenesDisabled ||
 												!(scene.speaker === "person1"
 													? person1ImageUrl
@@ -941,19 +1041,38 @@ function Podcast42ScenesPage() {
 											title={
 												!scene.audioBase64
 													? "Generate audio first to enable video generation"
-													: undefined
+													: isSceneInQueue(scene.id)
+														? `Waiting in queue (position ${getSceneQueuePosition(scene.id)})`
+														: undefined
 											}
-											className={`${scene.isGeneratingVideo ? "" : "mt-3"} w-full py-3 bg-gradient-to-r from-indigo-500 to-violet-500 hover:from-indigo-400 hover:to-violet-400 disabled:from-slate-600 disabled:to-slate-600 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-all duration-300 shadow-md shadow-indigo-500/20 hover:shadow-indigo-500/40 disabled:shadow-none flex items-center justify-center gap-2`}
+											className={`${isSceneProcessing(scene.id) ? "" : "mt-3"} w-full py-3 bg-gradient-to-r ${
+												isSceneInQueue(scene.id)
+													? "from-amber-500 to-orange-500"
+													: "from-indigo-500 to-violet-500 hover:from-indigo-400 hover:to-violet-400"
+											} disabled:from-slate-600 disabled:to-slate-600 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-all duration-300 shadow-md ${
+												isSceneInQueue(scene.id)
+													? "shadow-amber-500/20"
+													: "shadow-indigo-500/20 hover:shadow-indigo-500/40"
+											} disabled:shadow-none flex items-center justify-center gap-2`}
 										>
-											{scene.isGeneratingVideo ? (
+											{isSceneProcessing(scene.id) ? (
 												<>
 													<Loader2 className="w-5 h-5 animate-spin" />
 													Generating Video...
 												</>
+											) : isSceneInQueue(scene.id) ? (
+												<>
+													<Loader2 className="w-5 h-5 animate-spin" />
+													Queue #{getSceneQueuePosition(scene.id)}
+												</>
 											) : (
 												<>
 													<Film className="w-5 h-5" />
-													{scene.videoError ? "RETRY VIDEO" : "GENERATE VIDEO"}
+													{scene.videoError
+														? "RETRY VIDEO"
+														: scene.videoUrl
+															? "REGENERATE VIDEO"
+															: "GENERATE VIDEO"}
 												</>
 											)}
 										</button>

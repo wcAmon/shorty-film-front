@@ -10,6 +10,9 @@
     "format": "biome format",
     "lint": "biome lint",
     "check": "biome check",
+    "db:generate": "drizzle-kit generate",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio",
     "postinstall": "chmod +x node_modules/@ffmpeg-installer/*/ffmpeg node_modules/@ffprobe-installer/*/ffprobe 2>/dev/null || true"
   },
   "dependencies": {
@@ -17,6 +20,7 @@
     "@fal-ai/client": "^1.2.0",
     "@ffmpeg-installer/ffmpeg": "^1.1.0",
     "@ffprobe-installer/ffprobe": "^2.1.2",
+    "@supabase/supabase-js": "^2.90.1",
     "@t3-oss/env-core": "^0.13.8",
     "@tailwindcss/vite": "^4.0.6",
     "@tanstack/react-devtools": "^0.7.0",
@@ -37,6 +41,7 @@
     "lucide-react": "^0.561.0",
     "nitro": "latest",
     "openai": "^6.15.0",
+    "postgres": "^3.4.8",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "sharp": "^0.34.5",

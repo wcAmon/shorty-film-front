@@ -92,6 +92,9 @@ export function useListStories(type?: "aistory" | "podcast42") {
 	return useQuery({
 		queryKey: ["stories", type],
 		queryFn: () => listStoriesApi(type),
+		// Always fetch fresh data, don't use stale cache
+		staleTime: 0,
+		gcTime: 0,
 	});
 }
 

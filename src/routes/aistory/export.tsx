@@ -9,7 +9,7 @@ export const Route = createFileRoute("/aistory/export")({
 		const state = aistoryStore.state;
 		const allScenesHaveVideos =
 			state.scenes.length > 0 &&
-			state.scenes.every((scene) => scene.videoBase64 && scene.audioBase64);
+			state.scenes.every((scene) => scene.videoUrl && scene.audioUrl);
 
 		if (!allScenesHaveVideos) {
 			throw redirect({ to: "/aistory/scenes" });
@@ -47,7 +47,6 @@ function ExportPage() {
 		exportVideoMutation.mutate(
 			{
 				storyId,
-				sceneCount: scenes.length,
 			},
 			{
 				onSuccess: (result) => {
@@ -70,15 +69,30 @@ function ExportPage() {
 		);
 	};
 
-	// Handle download exported video
-	const handleDownloadExportedVideo = () => {
+	// Handle download exported video from Supabase Storage
+	const handleDownloadExportedVideo = async () => {
 		if (!exportedVideoUrl) return;
-		const link = document.createElement("a");
-		link.href = exportedVideoUrl;
-		link.download = `shorty_film_${Date.now()}.mp4`;
-		document.body.appendChild(link);
-		link.click();
-		document.body.removeChild(link);
+
+		try {
+			// Fetch the video as blob to handle cross-origin download
+			const response = await fetch(exportedVideoUrl);
+			const blob = await response.blob();
+
+			// Create object URL and trigger download
+			const blobUrl = URL.createObjectURL(blob);
+			const link = document.createElement("a");
+			link.href = blobUrl;
+			link.download = `shorty_film_${Date.now()}.mp4`;
+			document.body.appendChild(link);
+			link.click();
+			document.body.removeChild(link);
+
+			// Clean up object URL
+			URL.revokeObjectURL(blobUrl);
+		} catch (error) {
+			console.error("Download failed:", error);
+			aistoryActions.setExportError("Failed to download video");
+		}
 	};
 
 	return (

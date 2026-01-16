@@ -1,13 +1,22 @@
 import * as fs from "node:fs";
 import { fal } from "@fal-ai/client";
 import { createFileRoute } from "@tanstack/react-router";
+import { generateVideoId } from "@/db";
 import {
-	ensureStoryDir,
-	getSceneVideoPath,
-	getSceneVideoUrl,
-	readSceneVideoBase64,
-	loadStoryMetadata,
-	saveStoryMetadata,
+	createVideo,
+	updateVideo,
+	getSceneById,
+	getAudioById,
+	updateSceneVideo,
+} from "@/db/queries";
+import {
+	uploadVideo,
+	downloadFromStorage,
+} from "@/lib/supabase-storage";
+import {
+	getTempFilePath,
+	deleteTempFile,
+	ensureTempDir,
 } from "@/lib/cache";
 
 // Video engines for podcast42 talking-head generation
@@ -17,13 +26,14 @@ const AURORA_ENGINE = "fal-ai/creatify/aurora";
 // Video engine type
 type Podcast42VideoEngine = "omnihuman" | "aurora";
 
-// In-memory store for pending video jobs (storyId-sceneIndex -> job info)
+// In-memory store for pending video jobs (sceneId -> job info)
 const pendingJobs = new Map<
 	string,
 	{
 		requestId: string;
 		storyId: string;
-		sceneIndex: number;
+		sceneId: string;
+		videoId: string;
 		videoEngine: Podcast42VideoEngine;
 		status: "pending" | "processing" | "completed" | "failed";
 		videoUrl?: string;
@@ -33,7 +43,7 @@ const pendingJobs = new Map<
 >();
 
 // Download video from URL to local file
-async function downloadVideo(url: string, outputPath: string): Promise<void> {
+async function downloadVideoFromUrl(url: string, outputPath: string): Promise<void> {
 	const response = await fetch(url);
 	const arrayBuffer = await response.arrayBuffer();
 	fs.writeFileSync(outputPath, Buffer.from(arrayBuffer));
@@ -42,28 +52,28 @@ async function downloadVideo(url: string, outputPath: string): Promise<void> {
 // Request/Response interfaces
 interface SubmitVideoRequest {
 	storyId: string;
-	sceneIndex: number;
+	sceneId: string;
 	imageUrl: string; // FAL storage URL for character image
-	audioBase64: string; // Base64 encoded audio
 	videoEngine?: Podcast42VideoEngine; // Default: "omnihuman"
 }
 
 interface SubmitVideoResponse {
 	success: boolean;
 	requestId?: string;
+	videoId?: string;
 	error?: string;
 }
 
 interface CheckStatusRequest {
 	storyId: string;
-	sceneIndex: number;
+	sceneId: string;
 }
 
 interface CheckStatusResponse {
 	success: boolean;
 	status: "pending" | "processing" | "completed" | "failed";
+	videoId?: string;
 	videoUrl?: string;
-	videoBase64?: string;
 	videoDuration?: number;
 	error?: string;
 }
@@ -91,11 +101,6 @@ interface FalQueueStatus {
 	response_url?: string;
 }
 
-// Generate job key from storyId and sceneIndex
-function getJobKey(storyId: string, sceneIndex: number): string {
-	return `${storyId}-${sceneIndex}`;
-}
-
 export const Route = createFileRoute("/api/podcast42-generate-video")({
 	server: {
 		handlers: {
@@ -103,7 +108,7 @@ export const Route = createFileRoute("/api/podcast42-generate-video")({
 			POST: async ({ request }) => {
 				try {
 					const body = (await request.json()) as SubmitVideoRequest;
-					const { storyId, sceneIndex, imageUrl, audioBase64, videoEngine = "omnihuman" } = body;
+					const { storyId, sceneId, imageUrl, videoEngine = "omnihuman" } = body;
 
 					// Validation
 					if (!storyId?.trim()) {
@@ -112,9 +117,9 @@ export const Route = createFileRoute("/api/podcast42-generate-video")({
 							{ status: 400 },
 						);
 					}
-					if (typeof sceneIndex !== "number" || sceneIndex < 0) {
+					if (!sceneId?.trim()) {
 						return Response.json(
-							{ success: false, error: "Valid scene index is required" },
+							{ success: false, error: "Scene ID is required" },
 							{ status: 400 },
 						);
 					}
@@ -124,40 +129,81 @@ export const Route = createFileRoute("/api/podcast42-generate-video")({
 							{ status: 400 },
 						);
 					}
-					if (!audioBase64) {
+
+					// Verify scene exists and has audio
+					const scene = await getSceneById(sceneId);
+					if (!scene) {
 						return Response.json(
-							{ success: false, error: "Audio is required" },
+							{ success: false, error: "Scene not found" },
+							{ status: 404 },
+						);
+					}
+
+					if (!scene.audioId) {
+						return Response.json(
+							{
+								success: false,
+								error: "Scene audio not found. Generate audio first.",
+							},
 							{ status: 400 },
 						);
 					}
 
-					const jobKey = getJobKey(storyId, sceneIndex);
+					// Verify audio exists
+					const audio = await getAudioById(scene.audioId);
+					if (!audio || !audio.audioUrl) {
+						return Response.json(
+							{
+								success: false,
+								error: "Audio file not found in storage.",
+							},
+							{ status: 400 },
+						);
+					}
 
 					// Check if job already exists
-					const existingJob = pendingJobs.get(jobKey);
+					const existingJob = pendingJobs.get(sceneId);
 					if (existingJob && existingJob.status === "processing") {
 						return Response.json({
 							success: true,
 							requestId: existingJob.requestId,
+							videoId: existingJob.videoId,
 						} as SubmitVideoResponse);
 					}
+
+					// Step 1: Create video record with status "generating"
+					const videoId = generateVideoId();
+					await createVideo({
+						id: videoId,
+						storyId,
+						sceneId,
+						imageId: scene.imageId,
+						audioId: scene.audioId,
+						prompt: `Podcast42 talking-head video for scene ${scene.id}`,
+						status: "generating",
+					});
+
+					console.log(`[podcast42-generate-video] Created video record: ${videoId}`);
 
 					// Configure FAL client
 					fal.config({
 						credentials: process.env.FAL_API_KEY,
 					});
 
-					// Ensure story directory exists
-					ensureStoryDir(storyId);
+					// Ensure temp directory exists
+					ensureTempDir();
 
-					// Upload audio to FAL storage
-					const audioBuffer = Buffer.from(audioBase64, "base64");
+					// Download audio from Supabase Storage and upload to FAL
+					const audioBuffer = await downloadFromStorage(
+						"audios",
+						`audio-${storyId}-${sceneId}.mp3`,
+					);
 					const audioBlob = new Blob([audioBuffer], { type: "audio/mp3" });
-					const audioUrl = await fal.storage.upload(audioBlob);
+					const audioFalUrl = await fal.storage.upload(audioBlob);
 
 					const endpoint = getVideoEndpoint(videoEngine);
 					console.log(
-						`[podcast42-generate-video] Submitting ${videoEngine} job for ${jobKey}`,
+						`[podcast42-generate-video] Submitting ${videoEngine} job for scene ${sceneId}`,
 					);
 					console.log(
 						`[podcast42-generate-video] Engine: ${endpoint}`,
@@ -166,13 +212,13 @@ export const Route = createFileRoute("/api/podcast42-generate-video")({
 						`[podcast42-generate-video] Image URL: ${imageUrl}`,
 					);
 					console.log(
-						`[podcast42-generate-video] Audio URL: ${audioUrl}`,
+						`[podcast42-generate-video] Audio URL: ${audioFalUrl}`,
 					);
 
 					// Submit to FAL queue with selected video engine
 					const inputParams = videoEngine === "omnihuman"
-						? { image_url: imageUrl, audio_url: audioUrl, resolution: "720p" }
-						: { image_url: imageUrl, audio_url: audioUrl };
+						? { image_url: imageUrl, audio_url: audioFalUrl, resolution: "720p" }
+						: { image_url: imageUrl, audio_url: audioFalUrl };
 
 					const { request_id } = await fal.queue.submit(endpoint, {
 						input: inputParams,
@@ -183,10 +229,11 @@ export const Route = createFileRoute("/api/podcast42-generate-video")({
 					);
 
 					// Store job info
-					pendingJobs.set(jobKey, {
+					pendingJobs.set(sceneId, {
 						requestId: request_id,
 						storyId,
-						sceneIndex,
+						sceneId,
+						videoId,
 						videoEngine,
 						status: "processing",
 					});
@@ -194,6 +241,7 @@ export const Route = createFileRoute("/api/podcast42-generate-video")({
 					return Response.json({
 						success: true,
 						requestId: request_id,
+						videoId,
 					} as SubmitVideoResponse);
 				} catch (err) {
 					console.error("[podcast42-generate-video] Submit error:", err);
@@ -215,7 +263,7 @@ export const Route = createFileRoute("/api/podcast42-generate-video")({
 			PUT: async ({ request }) => {
 				try {
 					const body = (await request.json()) as CheckStatusRequest;
-					const { storyId, sceneIndex } = body;
+					const { storyId, sceneId } = body;
 
 					if (!storyId?.trim()) {
 						return Response.json(
@@ -223,15 +271,14 @@ export const Route = createFileRoute("/api/podcast42-generate-video")({
 							{ status: 400 },
 						);
 					}
-					if (typeof sceneIndex !== "number" || sceneIndex < 0) {
+					if (!sceneId?.trim()) {
 						return Response.json(
-							{ success: false, error: "Valid scene index is required" },
+							{ success: false, error: "Scene ID is required" },
 							{ status: 400 },
 						);
 					}
 
-					const jobKey = getJobKey(storyId, sceneIndex);
-					const job = pendingJobs.get(jobKey);
+					const job = pendingJobs.get(sceneId);
 
 					if (!job) {
 						return Response.json(
@@ -242,13 +289,11 @@ export const Route = createFileRoute("/api/podcast42-generate-video")({
 
 					// If already completed, return cached result
 					if (job.status === "completed") {
-						const videoUrl = getSceneVideoUrl(storyId, sceneIndex);
-						const videoBase64 = readSceneVideoBase64(storyId, sceneIndex);
 						return Response.json({
 							success: true,
 							status: "completed",
-							videoUrl,
-							videoBase64,
+							videoId: job.videoId,
+							videoUrl: job.videoUrl,
 							videoDuration: job.videoDuration,
 						} as CheckStatusResponse);
 					}
@@ -276,7 +321,7 @@ export const Route = createFileRoute("/api/podcast42-generate-video")({
 					})) as FalQueueStatus;
 
 					console.log(
-						`[podcast42-generate-video] Status for ${jobKey}: ${status.status}`,
+						`[podcast42-generate-video] Status for scene ${sceneId}: ${status.status}`,
 					);
 
 					if (status.status === "IN_QUEUE" || status.status === "IN_PROGRESS") {
@@ -287,11 +332,12 @@ export const Route = createFileRoute("/api/podcast42-generate-video")({
 					}
 
 					if (status.status === "FAILED") {
-						pendingJobs.set(jobKey, {
+						pendingJobs.set(sceneId, {
 							...job,
 							status: "failed",
 							error: "Video generation failed",
 						});
+						await updateVideo(job.videoId, { status: "ready" });
 						return Response.json({
 							success: false,
 							status: "failed",
@@ -309,17 +355,18 @@ export const Route = createFileRoute("/api/podcast42-generate-video")({
 						JSON.stringify(result, null, 2),
 					);
 
-					const videoUrl = result.video?.url || result.data?.video?.url;
-					if (!videoUrl) {
+					const falVideoUrl = result.video?.url || result.data?.video?.url;
+					if (!falVideoUrl) {
 						console.error(
 							`[podcast42-generate-video] No video URL found in result:`,
 							result,
 						);
-						pendingJobs.set(jobKey, {
+						pendingJobs.set(sceneId, {
 							...job,
 							status: "failed",
 							error: "No video URL in result",
 						});
+						await updateVideo(job.videoId, { status: "ready" });
 						return Response.json({
 							success: false,
 							status: "failed",
@@ -331,41 +378,51 @@ export const Route = createFileRoute("/api/podcast42-generate-video")({
 						`[podcast42-generate-video] Video ready, downloading...`,
 					);
 
-					// Get paths
-					const finalVideoPath = getSceneVideoPath(storyId, sceneIndex);
+					// Get temp path
+					const tempFilename = `podcast42-${job.videoId}.mp4`;
+					const tempVideoPath = getTempFilePath(tempFilename);
 
-					// Download the generated video directly (OmniHuman already includes audio)
-					await downloadVideo(videoUrl, finalVideoPath);
-					console.log(`[podcast42-generate-video] Downloaded video: ${finalVideoPath}`);
+					try {
+						// Download the generated video directly (OmniHuman already includes audio)
+						await downloadVideoFromUrl(falVideoUrl, tempVideoPath);
+						console.log(`[podcast42-generate-video] Downloaded video: ${tempVideoPath}`);
 
-					// Update job status
-					const finalVideoUrl = getSceneVideoUrl(storyId, sceneIndex);
-					pendingJobs.set(jobKey, {
-						...job,
-						status: "completed",
-						videoUrl: finalVideoUrl,
-					});
+						// Read and upload to Supabase Storage
+						const videoBuffer = fs.readFileSync(tempVideoPath);
+						const videoUrl = await uploadVideo(storyId, sceneId, videoBuffer);
 
-					console.log(
-						`[podcast42-generate-video] Video processing complete for ${jobKey}`,
-					);
+						console.log(`[podcast42-generate-video] Uploaded to Supabase: ${videoUrl}`);
 
-					// Update metadata if it exists
-					const existingMetadata = loadStoryMetadata(storyId);
-					if (existingMetadata && existingMetadata.scenes[sceneIndex]) {
-						existingMetadata.scenes[sceneIndex].hasVideo = true;
-						saveStoryMetadata(existingMetadata);
+						// Update video record with URL and status "completed"
+						await updateVideo(job.videoId, {
+							videoUrl,
+							status: "completed",
+						});
+
+						// Update scene FK reference (orphans old video if exists)
+						await updateSceneVideo(sceneId, job.videoId);
+
+						// Update job status
+						pendingJobs.set(sceneId, {
+							...job,
+							status: "completed",
+							videoUrl,
+						});
+
+						console.log(
+							`[podcast42-generate-video] Video processing complete for scene ${sceneId}`,
+						);
+
+						return Response.json({
+							success: true,
+							status: "completed",
+							videoId: job.videoId,
+							videoUrl,
+						} as CheckStatusResponse);
+					} finally {
+						// Clean up temp file
+						deleteTempFile(tempFilename);
 					}
-
-					// Read video as base64 for frontend display
-					const videoBase64 = readSceneVideoBase64(storyId, sceneIndex);
-
-					return Response.json({
-						success: true,
-						status: "completed",
-						videoUrl: finalVideoUrl,
-						videoBase64,
-					} as CheckStatusResponse);
 				} catch (err) {
 					console.error("[podcast42-generate-video] Status check error:", err);
 

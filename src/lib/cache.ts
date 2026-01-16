@@ -1,28 +1,36 @@
-// Cache utility for saving generated assets with storyId-based naming
-// All assets are stored server-side to avoid base64 encoding/decoding issues
-// Metadata is stored in SQLite database, media files remain in filesystem
+// Cache utility - now uses Supabase Storage instead of local filesystem
+// ID generation is in src/db/index.ts
+// Storage operations are in src/lib/supabase-storage.ts
+// Database operations are in src/db/queries.ts
 
 import fs from "node:fs";
 import path from "node:path";
+import { generateStoryId as genStoryId } from "@/db";
 import {
-	saveStoryMetadataDb,
-	loadStoryMetadataDb,
-	storyExistsDb,
-	listAllStoriesAsMetadata,
-	listStoriesByTypeAsMetadata,
-	deleteStoryDb,
+	deleteStoryById,
+	listAllStories as listAllStoriesDb,
+	listStoriesByType as listStoriesByTypeDb,
+	getScenesByStoryId,
+	getStoryById,
 } from "@/db/queries";
+import type { Story, Scene } from "@/db/schema";
+import {
+	deleteStoryFiles as deleteStorageStoryFiles,
+} from "@/lib/supabase-storage";
 
-// Base directory for all story assets
-const CACHE_BASE_DIR = path.join(process.cwd(), "public/video_cache/stories");
+// Re-export for backward compatibility
+export const generateStoryId = genStoryId;
+
+// Base directory for temporary files (used during FFmpeg processing)
+const TEMP_DIR = path.join(process.cwd(), "temp");
 
 // ============================================================================
-// Story Metadata Types (for JSON persistence)
+// Story Metadata Types (for backward compatibility during migration)
 // ============================================================================
 
 export interface StorySceneMetadata {
 	id: string;
-	caption: string;
+	caption?: string;
 	// For aistory
 	title?: string;
 	prompt?: string;
@@ -30,489 +38,269 @@ export interface StorySceneMetadata {
 	isCharacter?: boolean;
 	// For podcast42
 	speaker?: "person1" | "person2";
-	// Media URLs (public URLs for frontend access)
-	imageUrl?: string; // e.g., /video_cache/stories/{storyId}/scene-{index}-image.jpg
-	audioUrl?: string; // e.g., /video_cache/stories/{storyId}/scene-{index}-audio.mp3
-	videoUrl?: string; // e.g., /video_cache/stories/{storyId}/scene-{index}-video.mp4
+	// Media IDs (new)
+	imageId?: string;
+	audioId?: string;
+	videoId?: string;
+	// Media URLs (Supabase Storage URLs)
+	imageUrl?: string;
+	audioUrl?: string;
+	videoUrl?: string;
 	// Word timestamps for caption sync
 	wordTimestamps?: Array<{ word: string; start: number; end: number }>;
 	audioDuration?: number;
 	videoDuration?: number;
+	// Status flags (from list API)
+	hasAudio?: boolean;
+	hasVideo?: boolean;
 }
 
 export interface StoryMetadata {
 	// Common fields
 	storyId: string;
-	type: "aistory" | "podcast42";
+	type: "aistory" | "podcast42" | string;
 	createdAt: string;
 	updatedAt: string;
 
 	// Input
-	script?: string; // for aistory
-	playScript?: string; // for podcast42
+	script?: string | null; // for aistory
+	playScript?: string | null; // for podcast42
 
 	// Engine settings
-	imageEngine: "gpt-image" | "flux-pro";
-	imageStyle: "cinematic" | "comic" | "low-poly" | "japanese-anime" | "clay";
-	voiceId?: string; // for aistory
-	person1VoiceId?: string; // for podcast42
-	person2VoiceId?: string; // for podcast42
-	videoEngine?: string; // for aistory
-	podcast42VideoEngine?: "omnihuman" | "aurora"; // for podcast42
+	imageEngine?: "gpt-image" | "flux-pro" | string | null;
+	imageStyle?: "cinematic" | "comic" | "low-poly" | "japanese-anime" | "clay" | string | null;
+	voiceId?: string | null; // for aistory
+	person1VoiceId?: string | null; // for podcast42
+	person2VoiceId?: string | null; // for podcast42
+	videoEngine?: string | null; // for aistory
+	podcast42VideoEngine?: "omnihuman" | "aurora" | string | null; // for podcast42
 
-	// Character data
-	characterPrompt?: string; // for aistory
-	characterFileId?: string; // OpenAI file ID
-	characterImageUrl?: string; // FAL storage URL
+	// Character data (new: IDs instead of URLs)
+	characterPrompt?: string | null; // for aistory
+	characterImageId?: string | null; // Image ID for character
+	characterImageUrl?: string | null; // Supabase Storage URL
+
+	// Legacy fields (deprecated)
+	characterFileId?: string | null; // OpenAI file ID (deprecated)
 	hasCharacterImage?: boolean;
 
 	// Podcast42 specific
-	person1Prompt?: string;
-	person1ImageUrl?: string;
+	person1Prompt?: string | null;
+	person1ImageId?: string | null;
+	person1ImageUrl?: string | null;
 	hasPerson1Image?: boolean;
-	person2Prompt?: string;
-	person2ImageUrl?: string;
+	person2Prompt?: string | null;
+	person2ImageId?: string | null;
+	person2ImageUrl?: string | null;
 	hasPerson2Image?: boolean;
 
-	// Scenes
-	scenes: StorySceneMetadata[];
+	// Scenes (optional for list API which only includes scene stats)
+	scenes?: StorySceneMetadata[];
 
 	// Export
 	hasExportedVideo?: boolean;
+	exportedVideoUrl?: string | null;
 }
 
+// ============================================================================
+// Word Timestamp Types
+// ============================================================================
+
+export interface WordTimestamp {
+	word: string;
+	start: number;
+	end: number;
+}
+
+// ============================================================================
+// Temporary Directory Functions (for FFmpeg processing)
+// ============================================================================
+
 /**
- * Ensure story directory exists
+ * Ensure temp directory exists
  */
-export function ensureStoryDir(storyId: string): string {
-	const dir = path.join(CACHE_BASE_DIR, storyId);
-	if (!fs.existsSync(dir)) {
-		fs.mkdirSync(dir, { recursive: true });
+export function ensureTempDir(): string {
+	if (!fs.existsSync(TEMP_DIR)) {
+		fs.mkdirSync(TEMP_DIR, { recursive: true });
 	}
-	return dir;
+	return TEMP_DIR;
 }
 
 /**
- * Generate a unique story ID
+ * Get a temporary file path
  */
-export function generateStoryId(): string {
-	return `story_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-}
-
-// ============================================================================
-// File path getters (for reading files)
-// ============================================================================
-
-/**
- * Get the absolute file path for character image
- */
-export function getCharacterImagePath(storyId: string): string {
-	return path.join(CACHE_BASE_DIR, storyId, "character.jpg");
+export function getTempFilePath(filename: string): string {
+	ensureTempDir();
+	return path.join(TEMP_DIR, filename);
 }
 
 /**
- * Get the absolute file path for scene image
+ * Clean up a temporary file
  */
-export function getSceneImagePath(storyId: string, sceneIndex: number): string {
-	return path.join(CACHE_BASE_DIR, storyId, `scene-${sceneIndex}-image.jpg`);
+export function deleteTempFile(filename: string): void {
+	const filePath = path.join(TEMP_DIR, filename);
+	try {
+		if (fs.existsSync(filePath)) {
+			fs.unlinkSync(filePath);
+			console.log(`[cache] Deleted temp file: ${filePath}`);
+		}
+	} catch (err) {
+		console.error(`[cache] Failed to delete temp file ${filePath}:`, err);
+	}
 }
 
 /**
- * Get the absolute file path for scene audio
+ * Write a buffer to a temporary file
  */
-export function getSceneAudioPath(storyId: string, sceneIndex: number): string {
-	return path.join(CACHE_BASE_DIR, storyId, `scene-${sceneIndex}-audio.mp3`);
-}
-
-/**
- * Get the absolute file path for scene video (raw from FAL, not merged)
- */
-export function getSceneVideoRawPath(
-	storyId: string,
-	sceneIndex: number,
-): string {
-	return path.join(CACHE_BASE_DIR, storyId, `scene-${sceneIndex}-video-raw.mp4`);
-}
-
-/**
- * Get the absolute file path for scene video (merged with audio)
- */
-export function getSceneVideoPath(storyId: string, sceneIndex: number): string {
-	return path.join(CACHE_BASE_DIR, storyId, `scene-${sceneIndex}-video.mp4`);
-}
-
-/**
- * Get the absolute file path for exported video
- */
-export function getExportedVideoPath(storyId: string): string {
-	return path.join(CACHE_BASE_DIR, storyId, "export.mp4");
-}
-
-// ============================================================================
-// URL getters (for frontend access)
-// ============================================================================
-
-/**
- * Get the public URL for character image
- */
-export function getCharacterImageUrl(storyId: string): string {
-	return `/video_cache/stories/${storyId}/character.jpg`;
-}
-
-/**
- * Get the public URL for scene image
- */
-export function getSceneImageUrl(storyId: string, sceneIndex: number): string {
-	return `/video_cache/stories/${storyId}/scene-${sceneIndex}-image.jpg`;
-}
-
-/**
- * Get the public URL for scene audio
- */
-export function getSceneAudioUrl(storyId: string, sceneIndex: number): string {
-	return `/video_cache/stories/${storyId}/scene-${sceneIndex}-audio.mp3`;
-}
-
-/**
- * Get the public URL for scene video
- */
-export function getSceneVideoUrl(storyId: string, sceneIndex: number): string {
-	return `/video_cache/stories/${storyId}/scene-${sceneIndex}-video.mp4`;
-}
-
-/**
- * Get the public URL for exported video
- */
-export function getExportedVideoUrl(storyId: string): string {
-	return `/video_cache/stories/${storyId}/export.mp4`;
-}
-
-// ============================================================================
-// Save functions
-// ============================================================================
-
-/**
- * Save character image
- */
-export function saveCharacterImage(
-	storyId: string,
-	imageBuffer: Buffer,
-): string {
-	ensureStoryDir(storyId);
-	const filePath = getCharacterImagePath(storyId);
-	fs.writeFileSync(filePath, imageBuffer);
-	console.log(`[cache] Saved character image: ${filePath}`);
-	return getCharacterImageUrl(storyId);
-}
-
-/**
- * Save scene image
- */
-export function saveSceneImage(
-	storyId: string,
-	sceneIndex: number,
-	imageBuffer: Buffer,
-): string {
-	ensureStoryDir(storyId);
-	const filePath = getSceneImagePath(storyId, sceneIndex);
-	fs.writeFileSync(filePath, imageBuffer);
-	console.log(`[cache] Saved scene image: ${filePath}`);
-	return getSceneImageUrl(storyId, sceneIndex);
-}
-
-/**
- * Save scene audio
- */
-export function saveSceneAudio(
-	storyId: string,
-	sceneIndex: number,
-	audioBuffer: Buffer,
-): string {
-	ensureStoryDir(storyId);
-	const filePath = getSceneAudioPath(storyId, sceneIndex);
-	fs.writeFileSync(filePath, audioBuffer);
-	console.log(`[cache] Saved scene audio: ${filePath}`);
-	return getSceneAudioUrl(storyId, sceneIndex);
-}
-
-/**
- * Save scene video (raw from FAL)
- */
-export function saveSceneVideoRaw(
-	storyId: string,
-	sceneIndex: number,
-	videoBuffer: Buffer,
-): string {
-	ensureStoryDir(storyId);
-	const filePath = getSceneVideoRawPath(storyId, sceneIndex);
-	fs.writeFileSync(filePath, videoBuffer);
-	console.log(`[cache] Saved raw scene video: ${filePath}`);
+export function writeTempFile(filename: string, buffer: Buffer): string {
+	const filePath = getTempFilePath(filename);
+	fs.writeFileSync(filePath, buffer);
+	console.log(`[cache] Wrote temp file: ${filePath}`);
 	return filePath;
 }
 
 /**
- * Save scene video (merged with audio)
+ * Read a temporary file
  */
-export function saveSceneVideo(
-	storyId: string,
-	sceneIndex: number,
-	videoBuffer: Buffer,
-): string {
-	ensureStoryDir(storyId);
-	const filePath = getSceneVideoPath(storyId, sceneIndex);
-	fs.writeFileSync(filePath, videoBuffer);
-	console.log(`[cache] Saved merged scene video: ${filePath}`);
-	return getSceneVideoUrl(storyId, sceneIndex);
-}
-
-// ============================================================================
-// Check functions
-// ============================================================================
-
-/**
- * Check if character image exists
- */
-export function characterImageExists(storyId: string): boolean {
-	return fs.existsSync(getCharacterImagePath(storyId));
-}
-
-/**
- * Check if scene image exists
- */
-export function sceneImageExists(storyId: string, sceneIndex: number): boolean {
-	return fs.existsSync(getSceneImagePath(storyId, sceneIndex));
-}
-
-/**
- * Check if scene audio exists
- */
-export function sceneAudioExists(storyId: string, sceneIndex: number): boolean {
-	return fs.existsSync(getSceneAudioPath(storyId, sceneIndex));
-}
-
-/**
- * Check if scene video exists
- */
-export function sceneVideoExists(storyId: string, sceneIndex: number): boolean {
-	return fs.existsSync(getSceneVideoPath(storyId, sceneIndex));
-}
-
-/**
- * Check if exported video exists
- */
-export function exportedVideoExists(storyId: string): boolean {
-	return fs.existsSync(getExportedVideoPath(storyId));
-}
-
-// ============================================================================
-// Read functions
-// ============================================================================
-
-/**
- * Read character image as base64 (for frontend display)
- */
-export function readCharacterImageBase64(storyId: string): string | null {
-	const filePath = getCharacterImagePath(storyId);
+export function readTempFile(filename: string): Buffer | null {
+	const filePath = path.join(TEMP_DIR, filename);
 	if (!fs.existsSync(filePath)) return null;
-	return fs.readFileSync(filePath).toString("base64");
-}
-
-/**
- * Read scene image as base64 (for frontend display)
- */
-export function readSceneImageBase64(
-	storyId: string,
-	sceneIndex: number,
-): string | null {
-	const filePath = getSceneImagePath(storyId, sceneIndex);
-	if (!fs.existsSync(filePath)) return null;
-	return fs.readFileSync(filePath).toString("base64");
-}
-
-/**
- * Read scene video as base64 (for frontend display)
- */
-export function readSceneVideoBase64(
-	storyId: string,
-	sceneIndex: number,
-): string | null {
-	const filePath = getSceneVideoPath(storyId, sceneIndex);
-	if (!fs.existsSync(filePath)) return null;
-	return fs.readFileSync(filePath).toString("base64");
+	return fs.readFileSync(filePath);
 }
 
 // ============================================================================
-// Cleanup functions
+// Helper Functions
 // ============================================================================
 
 /**
- * Delete raw video file after merging
+ * Parse word timestamps from JSON string
  */
-export function deleteSceneVideoRaw(
-	storyId: string,
-	sceneIndex: number,
-): void {
-	const filePath = getSceneVideoRawPath(storyId, sceneIndex);
-	if (fs.existsSync(filePath)) {
-		fs.unlinkSync(filePath);
-		console.log(`[cache] Deleted raw video: ${filePath}`);
+export function parseWordTimestamps(json: string | null): WordTimestamp[] {
+	if (!json) return [];
+	try {
+		return JSON.parse(json) as WordTimestamp[];
+	} catch {
+		return [];
 	}
 }
 
 /**
- * Delete entire story (database record + media files directory)
+ * Stringify word timestamps to JSON
  */
-export function deleteStory(storyId: string): void {
-	// Delete from database
-	deleteStoryDb(storyId);
+export function stringifyWordTimestamps(timestamps: WordTimestamp[]): string {
+	return JSON.stringify(timestamps);
+}
+
+/**
+ * Generate a unique ID with optional prefix
+ */
+export function generateId(prefix = ""): string {
+	const timestamp = Date.now();
+	const random = Math.random().toString(36).slice(2, 8);
+	return prefix ? `${prefix}_${timestamp}_${random}` : `${timestamp}_${random}`;
+}
+
+// ============================================================================
+// Story Operations (Async wrappers for backward compatibility)
+// ============================================================================
+
+/**
+ * Delete entire story (database record + Supabase storage files)
+ */
+export async function deleteStory(storyId: string): Promise<void> {
+	// Delete from database (cascades to scenes)
+	await deleteStoryById(storyId);
 	console.log(`[cache] Deleted story from DB: ${storyId}`);
 
-	// Delete media files directory
-	const dir = path.join(CACHE_BASE_DIR, storyId);
-	if (fs.existsSync(dir)) {
-		fs.rmSync(dir, { recursive: true, force: true });
-		console.log(`[cache] Deleted story files: ${dir}`);
+	// Delete files from Supabase Storage
+	try {
+		await Promise.all([
+			deleteStorageStoryFiles("images", storyId),
+			deleteStorageStoryFiles("audios", storyId),
+			deleteStorageStoryFiles("videos", storyId),
+		]);
+		console.log(`[cache] Deleted story files from Supabase: ${storyId}`);
+	} catch (err) {
+		console.error(`[cache] Error deleting storage files:`, err);
 	}
 }
 
-// ============================================================================
-// Database Metadata functions (SQLite with Drizzle ORM)
-// ============================================================================
-
 /**
- * Save story metadata to database
+ * Convert DB Story + Scenes to StoryMetadata format
  */
-export function saveStoryMetadata(metadata: StoryMetadata): void {
-	// Also ensure story directory exists for media files
-	ensureStoryDir(metadata.storyId);
-	saveStoryMetadataDb(metadata);
-	console.log(`[cache] Saved story metadata to DB: ${metadata.storyId}`);
+export function dbToStoryMetadata(story: Story, storyScenes: Scene[]): StoryMetadata {
+	const scenes: StorySceneMetadata[] = storyScenes.map((scene) => ({
+		id: scene.id,
+		caption: scene.caption,
+		title: scene.title ?? undefined,
+		prompt: scene.prompt ?? undefined,
+		video_prompt: scene.videoPrompt ?? undefined,
+		isCharacter: scene.isCharacter ?? undefined,
+		speaker: scene.speaker as "person1" | "person2" | undefined,
+		imageId: scene.imageId ?? undefined,
+		audioId: scene.audioId ?? undefined,
+		videoId: scene.videoId ?? undefined,
+	}));
+
+	return {
+		storyId: story.id,
+		type: story.type,
+		createdAt: story.createdAt?.toISOString() ?? new Date().toISOString(),
+		updatedAt: story.updatedAt?.toISOString() ?? new Date().toISOString(),
+		script: story.script ?? undefined,
+		playScript: story.playScript ?? undefined,
+		imageEngine: story.imageEngine as "gpt-image" | "flux-pro",
+		imageStyle: story.imageStyle as "cinematic" | "comic" | "low-poly" | "japanese-anime" | "clay",
+		voiceId: story.voiceId ?? undefined,
+		person1VoiceId: story.person1VoiceId ?? undefined,
+		person2VoiceId: story.person2VoiceId ?? undefined,
+		videoEngine: story.videoEngine ?? undefined,
+		podcast42VideoEngine: story.podcast42VideoEngine as "omnihuman" | "aurora" | undefined,
+		characterPrompt: story.characterPrompt ?? undefined,
+		person1Prompt: story.person1Prompt ?? undefined,
+		person2Prompt: story.person2Prompt ?? undefined,
+		hasExportedVideo: story.hasExportedVideo ?? undefined,
+		scenes,
+	};
 }
 
 /**
  * Load story metadata from database
  */
-export function loadStoryMetadata(storyId: string): StoryMetadata | null {
-	return loadStoryMetadataDb(storyId);
+export async function loadStoryMetadata(storyId: string): Promise<StoryMetadata | null> {
+	const story = await getStoryById(storyId);
+	if (!story) return null;
+
+	const storyScenes = await getScenesByStoryId(storyId);
+	return dbToStoryMetadata(story, storyScenes);
 }
 
 /**
- * Check if story metadata exists in database
+ * List all stories as StoryMetadata
  */
-export function storyMetadataExists(storyId: string): boolean {
-	return storyExistsDb(storyId);
+export async function listAllStories(): Promise<StoryMetadata[]> {
+	const stories = await listAllStoriesDb();
+	const results = await Promise.all(
+		stories.map(async (story) => {
+			const storyScenes = await getScenesByStoryId(story.id);
+			return dbToStoryMetadata(story, storyScenes);
+		}),
+	);
+	return results;
 }
 
 /**
- * List all stories with metadata from database
+ * List stories by type as StoryMetadata
  */
-export function listAllStories(): StoryMetadata[] {
-	return listAllStoriesAsMetadata();
-}
-
-/**
- * List stories by type from database
- */
-export function listStoriesByType(
+export async function listStoriesByType(
 	type: "aistory" | "podcast42",
-): StoryMetadata[] {
-	return listStoriesByTypeAsMetadata(type);
-}
-
-// ============================================================================
-// Podcast42-specific path/URL getters
-// ============================================================================
-
-/**
- * Get the absolute file path for person1 image (podcast42)
- */
-export function getPerson1ImagePath(storyId: string): string {
-	return path.join(CACHE_BASE_DIR, storyId, "person1.jpg");
-}
-
-/**
- * Get the absolute file path for person2 image (podcast42)
- */
-export function getPerson2ImagePath(storyId: string): string {
-	return path.join(CACHE_BASE_DIR, storyId, "person2.jpg");
-}
-
-/**
- * Get the public URL for person1 image (podcast42)
- */
-export function getPerson1ImageUrl(storyId: string): string {
-	return `/video_cache/stories/${storyId}/person1.jpg`;
-}
-
-/**
- * Get the public URL for person2 image (podcast42)
- */
-export function getPerson2ImageUrl(storyId: string): string {
-	return `/video_cache/stories/${storyId}/person2.jpg`;
-}
-
-/**
- * Save person1 image (podcast42)
- */
-export function savePerson1Image(storyId: string, imageBuffer: Buffer): string {
-	ensureStoryDir(storyId);
-	const filePath = getPerson1ImagePath(storyId);
-	fs.writeFileSync(filePath, imageBuffer);
-	console.log(`[cache] Saved person1 image: ${filePath}`);
-	return getPerson1ImageUrl(storyId);
-}
-
-/**
- * Save person2 image (podcast42)
- */
-export function savePerson2Image(storyId: string, imageBuffer: Buffer): string {
-	ensureStoryDir(storyId);
-	const filePath = getPerson2ImagePath(storyId);
-	fs.writeFileSync(filePath, imageBuffer);
-	console.log(`[cache] Saved person2 image: ${filePath}`);
-	return getPerson2ImageUrl(storyId);
-}
-
-/**
- * Check if person1 image exists
- */
-export function person1ImageExists(storyId: string): boolean {
-	return fs.existsSync(getPerson1ImagePath(storyId));
-}
-
-/**
- * Check if person2 image exists
- */
-export function person2ImageExists(storyId: string): boolean {
-	return fs.existsSync(getPerson2ImagePath(storyId));
-}
-
-/**
- * Read person1 image as base64
- */
-export function readPerson1ImageBase64(storyId: string): string | null {
-	const filePath = getPerson1ImagePath(storyId);
-	if (!fs.existsSync(filePath)) return null;
-	return fs.readFileSync(filePath).toString("base64");
-}
-
-/**
- * Read person2 image as base64
- */
-export function readPerson2ImageBase64(storyId: string): string | null {
-	const filePath = getPerson2ImagePath(storyId);
-	if (!fs.existsSync(filePath)) return null;
-	return fs.readFileSync(filePath).toString("base64");
-}
-
-/**
- * Read scene audio as base64
- */
-export function readSceneAudioBase64(
-	storyId: string,
-	sceneIndex: number,
-): string | null {
-	const filePath = getSceneAudioPath(storyId, sceneIndex);
-	if (!fs.existsSync(filePath)) return null;
-	return fs.readFileSync(filePath).toString("base64");
+): Promise<StoryMetadata[]> {
+	const stories = await listStoriesByTypeDb(type);
+	const results = await Promise.all(
+		stories.map(async (story) => {
+			const storyScenes = await getScenesByStoryId(story.id);
+			return dbToStoryMetadata(story, storyScenes);
+		}),
+	);
+	return results;
 }

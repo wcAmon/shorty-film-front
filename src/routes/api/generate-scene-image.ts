@@ -1,8 +1,21 @@
 import { fal } from "@fal-ai/client";
 import { createFileRoute } from "@tanstack/react-router";
 import OpenAI from "openai";
-import sharp from "sharp";
-import { saveSceneImage } from "@/lib/cache";
+import type Sharp from "sharp";
+import { generateImageId } from "@/db";
+
+// Dynamically import sharp to avoid Vite SSR issues with native modules
+const getSharp = async (): Promise<typeof Sharp> => {
+	const sharpModule = await import("sharp");
+	return sharpModule.default;
+};
+import {
+	createImage,
+	updateImage,
+	getSceneById,
+	updateSceneImage,
+} from "@/db/queries";
+import { uploadImage } from "@/lib/supabase-storage";
 
 function isOpenAISafetyRejection(
 	err: InstanceType<typeof OpenAI.APIError>,
@@ -46,7 +59,7 @@ export const Route = createFileRoute("/api/generate-scene-image")({
 					const body = (await request.json()) as {
 						prompt: string;
 						storyId: string;
-						sceneIndex: number;
+						sceneId: string;
 						isCharacter: boolean;
 						characterFileId?: string;
 						characterImageUrl?: string; // FAL storage URL for Flux Pro
@@ -55,24 +68,33 @@ export const Route = createFileRoute("/api/generate-scene-image")({
 					const {
 						prompt,
 						storyId,
-						sceneIndex,
+						sceneId,
 						isCharacter,
 						characterFileId,
 						characterImageUrl,
 						imageEngine = "gpt-image",
 					} = body;
 
-					// Validate storyId and sceneIndex
+					// Validate storyId and sceneId
 					if (!storyId?.trim()) {
 						return Response.json(
 							{ success: false, error: "Story ID is required" },
 							{ status: 400 },
 						);
 					}
-					if (typeof sceneIndex !== "number" || sceneIndex < 0) {
+					if (!sceneId?.trim()) {
 						return Response.json(
-							{ success: false, error: "Valid scene index is required" },
+							{ success: false, error: "Scene ID is required" },
 							{ status: 400 },
+						);
+					}
+
+					// Verify scene exists
+					const scene = await getSceneById(sceneId);
+					if (!scene) {
+						return Response.json(
+							{ success: false, error: "Scene not found" },
+							{ status: 404 },
 						);
 					}
 
@@ -87,8 +109,8 @@ export const Route = createFileRoute("/api/generate-scene-image")({
 						imageEngine,
 						"storyId:",
 						storyId,
-						"sceneIndex:",
-						sceneIndex,
+						"sceneId:",
+						sceneId,
 					);
 
 					// Validate input is not empty
@@ -98,6 +120,53 @@ export const Route = createFileRoute("/api/generate-scene-image")({
 							{ status: 400 },
 						);
 					}
+
+					// Step 1: Create image record with status "generating"
+					const imageId = generateImageId();
+					await createImage({
+						id: imageId,
+						storyId,
+						sceneId,
+						prompt,
+						imageType: "scene",
+						status: "generating",
+					});
+
+					console.log(`[generateSceneImage] Created image record: ${imageId}`);
+
+					// Helper function to save image and return response
+					const saveImageAndRespond = async (jpegBuffer: Buffer) => {
+						// Upload to Supabase Storage
+						const imageUrl = await uploadImage(storyId, sceneId, jpegBuffer, "jpg");
+
+						console.log(`[generateSceneImage] Uploaded to Supabase: ${imageUrl}`);
+
+						// Update image record with URL and status "completed"
+						await updateImage(imageId, {
+							imageUrl,
+							status: "completed",
+						});
+
+						// Update scene FK reference (orphans old image if exists)
+						await updateSceneImage(sceneId, imageId);
+
+						console.log(`[generateSceneImage] Image generation completed: ${imageId}`);
+
+						return Response.json({
+							success: true,
+							imageId,
+							imageUrl,
+						});
+					};
+
+					// Helper function to handle errors
+					const handleError = async (error: string, statusCode = 500) => {
+						await updateImage(imageId, { status: "ready" }); // Reset to ready on failure
+						return Response.json(
+							{ success: false, error },
+							{ status: statusCode },
+						);
+					};
 
 					// ============================================================================
 					// FLUX PRO PATH
@@ -171,13 +240,7 @@ export const Route = createFileRoute("/api/generate-scene-image")({
 							);
 
 							if (status.status === "FAILED") {
-								return Response.json(
-									{
-										success: false,
-										error: `${imageEngine} scene image generation failed`,
-									},
-									{ status: 500 },
-								);
+								return handleError(`${imageEngine} scene image generation failed`);
 							}
 
 							if (status.status === "COMPLETED") {
@@ -187,59 +250,39 @@ export const Route = createFileRoute("/api/generate-scene-image")({
 								})) as FalImageResult;
 
 								// Extract image URL from result
-								const imageUrl =
+								const resultImageUrl =
 									result.images?.[0]?.url || result.data?.images?.[0]?.url;
 
-								if (!imageUrl) {
+								if (!resultImageUrl) {
 									console.error(
 										`[generateSceneImage] No image URL in ${imageEngine} result:`,
 										result,
 									);
-									return Response.json(
-										{
-											success: false,
-											error: `No image URL returned from ${imageEngine}`,
-										},
-										{ status: 500 },
-									);
+									return handleError(`No image URL returned from ${imageEngine}`);
 								}
 
-								// Download image and convert to base64
-								const imageResponse = await fetch(imageUrl);
+								// Download image and convert to JPEG
+								const imageResponse = await fetch(resultImageUrl);
 								const arrayBuffer = await imageResponse.arrayBuffer();
 								const imageBuffer = Buffer.from(arrayBuffer);
 
-								// Convert to JPEG for smaller payload
+								const sharp = await getSharp();
 								const jpegBuffer = await sharp(imageBuffer)
 									.jpeg({ quality: 85 })
 									.toBuffer();
-								const jpegBase64 = jpegBuffer.toString("base64");
 
 								console.log(
 									`[generateSceneImage] ${imageEngine} scene image completed`,
 								);
 
-								// Save to cache with storyId and sceneIndex
-								const cachedUrl = saveSceneImage(storyId, sceneIndex, jpegBuffer);
-								console.log(`[generateSceneImage] Saved to cache: ${cachedUrl}`);
-
-								return Response.json({
-									success: true,
-									imageBase64: jpegBase64,
-								});
+								return saveImageAndRespond(jpegBuffer);
 							}
 
 							// Continue polling if IN_QUEUE or IN_PROGRESS
 						}
 
 						// Timeout
-						return Response.json(
-							{
-								success: false,
-								error: `${imageEngine} scene image generation timed out`,
-							},
-							{ status: 500 },
-						);
+						return handleError(`${imageEngine} scene image generation timed out`);
 					}
 
 					// ============================================================================
@@ -303,9 +346,10 @@ The character in this scene must be EXACTLY the same person as shown in the refe
 							"[generateSceneImage] OpenAI responses.create() completed",
 						);
 
-						const extractImageBase64 = async (
+						const extractImageBuffer = async (
 							resp: typeof response,
-						): Promise<string | null> => {
+						): Promise<Buffer | null> => {
+							const sharp = await getSharp();
 							for (const item of resp.output) {
 								// image_generation_call: result is base64 PNG
 								if (item.type === "image_generation_call" && item.result) {
@@ -313,7 +357,7 @@ The character in this scene must be EXACTLY the same person as shown in the refe
 									const jpegBuffer = await sharp(pngBuffer)
 										.jpeg({ quality: 85 })
 										.toBuffer();
-									return jpegBuffer.toString("base64");
+									return jpegBuffer;
 								}
 
 								// Some SDK shapes return message content with output_image
@@ -329,9 +373,9 @@ The character in this scene must be EXACTLY the same person as shown in the refe
 												itemAny.type === "output_image") &&
 											itemAny.image_url?.url
 										) {
-											const imageUrl = itemAny.image_url.url;
-											if (imageUrl.startsWith("data:")) {
-												const base64Match = imageUrl.match(/base64,(.+)/);
+											const imgUrl = itemAny.image_url.url;
+											if (imgUrl.startsWith("data:")) {
+												const base64Match = imgUrl.match(/base64,(.+)/);
 												if (base64Match) {
 													const pngBuffer = Buffer.from(
 														base64Match[1],
@@ -340,16 +384,16 @@ The character in this scene must be EXACTLY the same person as shown in the refe
 													const jpegBuffer = await sharp(pngBuffer)
 														.jpeg({ quality: 85 })
 														.toBuffer();
-													return jpegBuffer.toString("base64");
+													return jpegBuffer;
 												}
 											} else {
-												const imageResponse = await fetch(imageUrl);
-												const arrayBuffer = await imageResponse.arrayBuffer();
-												const pngBuffer = Buffer.from(arrayBuffer);
+												const imgResponse = await fetch(imgUrl);
+												const arrBuffer = await imgResponse.arrayBuffer();
+												const pngBuffer = Buffer.from(arrBuffer);
 												const jpegBuffer = await sharp(pngBuffer)
 													.jpeg({ quality: 85 })
 													.toBuffer();
-												return jpegBuffer.toString("base64");
+												return jpegBuffer;
 											}
 										}
 									}
@@ -358,37 +402,25 @@ The character in this scene must be EXACTLY the same person as shown in the refe
 							return null;
 						};
 
-						let imageBase64 = await extractImageBase64(response);
+						let imageBuffer = await extractImageBuffer(response);
 
 						// If not present yet, poll retrieve a few times (image_generation_call may finalize after initial response)
-						for (let attempt = 0; attempt < 4 && !imageBase64; attempt++) {
+						for (let attempt = 0; attempt < 4 && !imageBuffer; attempt++) {
 							await new Promise((resolve) => setTimeout(resolve, 800));
 							response = await openai.responses.retrieve(response.id);
-							imageBase64 = await extractImageBase64(response);
+							imageBuffer = await extractImageBuffer(response);
 						}
 
-						if (imageBase64) {
-							// Save to cache with storyId and sceneIndex
-							const cachedUrl = saveSceneImage(storyId, sceneIndex, Buffer.from(imageBase64, "base64"));
-							console.log(`[generateSceneImage] Saved to cache: ${cachedUrl}`);
-
-							return Response.json({
-								success: true,
-								imageBase64,
-							});
+						if (imageBuffer) {
+							return saveImageAndRespond(imageBuffer);
 						}
 
 						console.log(
 							"[generateSceneImage] No image found after polling. Response status:",
 							response.status,
 						);
-						return Response.json(
-							{
-								success: false,
-								error:
-									"No image data returned from OpenAI responses API (image_generation_call missing result)",
-							},
-							{ status: 500 },
+						return handleError(
+							"No image data returned from OpenAI responses API (image_generation_call missing result)",
 						);
 					}
 
@@ -409,10 +441,7 @@ The character in this scene must be EXACTLY the same person as shown in the refe
 
 					// Check if response contains image data
 					if (!response.data || response.data.length === 0) {
-						return Response.json(
-							{ success: false, error: "No image data returned from OpenAI" },
-							{ status: 500 },
-						);
+						return handleError("No image data returned from OpenAI");
 					}
 
 					const imageData = response.data[0];
@@ -423,44 +452,27 @@ The character in this scene must be EXACTLY the same person as shown in the refe
 						const arrayBuffer = await imageResponse.arrayBuffer();
 						// Compress PNG to JPEG for smaller payload
 						const pngBuffer = Buffer.from(arrayBuffer);
+						const sharp = await getSharp();
 						const jpegBuffer = await sharp(pngBuffer)
 							.jpeg({ quality: 85 })
 							.toBuffer();
-						const jpegBase64 = jpegBuffer.toString("base64");
 
-						// Save to cache with storyId and sceneIndex
-						const cachedUrl = saveSceneImage(storyId, sceneIndex, jpegBuffer);
-						console.log(`[generateSceneImage] Saved to cache: ${cachedUrl}`);
-
-						return Response.json({
-							success: true,
-							imageBase64: jpegBase64,
-						});
+						return saveImageAndRespond(jpegBuffer);
 					}
 
 					// Handle b64_json format response
 					if (imageData.b64_json) {
 						// Compress PNG to JPEG for smaller payload
 						const pngBuffer = Buffer.from(imageData.b64_json, "base64");
+						const sharp = await getSharp();
 						const jpegBuffer = await sharp(pngBuffer)
 							.jpeg({ quality: 85 })
 							.toBuffer();
-						const jpegBase64 = jpegBuffer.toString("base64");
 
-						// Save to cache with storyId and sceneIndex
-						const cachedUrl = saveSceneImage(storyId, sceneIndex, jpegBuffer);
-						console.log(`[generateSceneImage] Saved to cache: ${cachedUrl}`);
-
-						return Response.json({
-							success: true,
-							imageBase64: jpegBase64,
-						});
+						return saveImageAndRespond(jpegBuffer);
 					}
 
-					return Response.json(
-						{ success: false, error: "No image data returned from OpenAI" },
-						{ status: 500 },
-					);
+					return handleError("No image data returned from OpenAI");
 				} catch (err) {
 					console.error("OpenAI API error:", err);
 

@@ -7,14 +7,11 @@ import {
 	getStoryById,
 	updateStory,
 	getScenesWithMedia,
-	createVideo,
-	generateVideoId,
 } from "@/db/queries";
 import {
 	uploadExportVideo,
 	deleteExportVideo,
 	downloadFromStorage,
-	extractPathFromUrl,
 } from "@/lib/supabase-storage";
 import {
 	getTempFilePath,
@@ -28,6 +25,8 @@ ffmpeg.setFfmpegPath(ffmpegInstaller.path);
 // Request interface
 interface ExportVideoRequest {
 	storyId: string;
+	// Scene IDs in the order they should be exported
+	sceneIds?: string[];
 }
 
 // Response interface
@@ -38,7 +37,7 @@ interface ExportVideoResponse {
 }
 
 // Concatenate multiple video segments using concat demuxer
-// Re-encodes to ensure format consistency for aistory
+// Full re-encode for both video and audio to ensure proper sync and no frame drops
 function concatenateVideos(
 	videoPaths: string[],
 	outputPath: string,
@@ -52,7 +51,7 @@ function concatenateVideos(
 	fs.writeFileSync(concatListPath, concatContent);
 
 	console.log(
-		`[export-video] Concatenating ${videoPaths.length} videos:`,
+		`[podcast42-export-video] Concatenating ${videoPaths.length} videos (full re-encode):`,
 		videoPaths,
 	);
 
@@ -61,28 +60,38 @@ function concatenateVideos(
 			.input(concatListPath)
 			.inputOptions(["-f concat", "-safe 0"])
 			.outputOptions([
+				// Video settings - high quality, fast encoding
 				"-c:v libx264",
+				"-preset fast",
+				"-crf 18",
+				"-pix_fmt yuv420p",
+				// Audio settings - re-encode to ensure sync
 				"-c:a aac",
+				"-b:a 192k",
 				"-ar 44100",
 				"-ac 2",
-				"-b:a 128k",
-				"-pix_fmt yuv420p",
+				// Sync and optimization
+				"-vsync cfr", // Constant frame rate for better sync
+				"-async 1", // Audio sync
 				"-movflags +faststart",
 			])
 			.output(outputPath)
 			.on("start", (cmd) => {
-				console.log("[export-video] FFmpeg concat command:", cmd);
+				console.log("[podcast42-export-video] FFmpeg concat command:", cmd);
 			})
 			.on("end", () => {
 				// Clean up concat list file
 				try {
 					fs.unlinkSync(concatListPath);
 				} catch {}
-				console.log("[export-video] Concatenation complete:", outputPath);
+				console.log(
+					"[podcast42-export-video] Concatenation complete:",
+					outputPath,
+				);
 				resolve();
 			})
 			.on("error", (err) => {
-				console.error("[export-video] FFmpeg concat error:", err);
+				console.error("[podcast42-export-video] FFmpeg concat error:", err);
 				try {
 					fs.unlinkSync(concatListPath);
 				} catch {}
@@ -92,7 +101,7 @@ function concatenateVideos(
 	});
 }
 
-export const Route = createFileRoute("/api/export-video")({
+export const Route = createFileRoute("/api/podcast42-export-video")({
 	server: {
 		handlers: {
 			POST: async ({ request }) => {
@@ -100,7 +109,7 @@ export const Route = createFileRoute("/api/export-video")({
 
 				try {
 					const body = (await request.json()) as ExportVideoRequest;
-					const { storyId } = body;
+					const { storyId, sceneIds } = body;
 
 					// Validation
 					if (!storyId?.trim()) {
@@ -119,7 +128,21 @@ export const Route = createFileRoute("/api/export-video")({
 						);
 					}
 
-					console.log(`[export-video] Starting export for story ${storyId}`);
+					// Validate this is a podcast42 story
+					if (story.type !== "podcast42") {
+						return Response.json(
+							{
+								success: false,
+								error: "This API is only for podcast42 stories",
+							},
+							{ status: 400 },
+						);
+					}
+
+					console.log(
+						`[podcast42-export-video] Starting export for story ${storyId}`,
+						sceneIds ? `(custom order: ${sceneIds.length} scenes)` : "(sequential order)",
+					);
 
 					// Get all scenes with their media
 					const scenesWithMedia = await getScenesWithMedia(storyId);
@@ -131,12 +154,33 @@ export const Route = createFileRoute("/api/export-video")({
 						);
 					}
 
+					// Determine which scenes to export and in what order
+					let scenesToExport: typeof scenesWithMedia;
+					if (sceneIds && sceneIds.length > 0) {
+						// Custom order based on provided scene IDs
+						scenesToExport = sceneIds
+							.map((id) => scenesWithMedia.find((s) => s.scene.id === id))
+							.filter((s): s is NonNullable<typeof s> => s !== undefined);
+
+						if (scenesToExport.length !== sceneIds.length) {
+							return Response.json(
+								{
+									success: false,
+									error: "Some scene IDs were not found",
+								},
+								{ status: 400 },
+							);
+						}
+					} else {
+						// Default: use all scenes in order
+						scenesToExport = scenesWithMedia;
+					}
+
 					// Verify all scenes have videos
-					const missingVideos: number[] = [];
-					for (let i = 0; i < scenesWithMedia.length; i++) {
-						const { video } = scenesWithMedia[i];
+					const missingVideos: string[] = [];
+					for (const { scene, video } of scenesToExport) {
 						if (!video || !video.videoUrl) {
-							missingVideos.push(i + 1);
+							missingVideos.push(scene.id);
 						}
 					}
 
@@ -150,43 +194,37 @@ export const Route = createFileRoute("/api/export-video")({
 						);
 					}
 
-					console.log(`[export-video] All ${scenesWithMedia.length} scene videos found, downloading...`);
+					console.log(`[podcast42-export-video] All ${scenesToExport.length} scene videos found, downloading...`);
 
 					// Ensure temp directory exists
 					ensureTempDir();
 
 					// Download all scene videos to temp directory
 					const videoPaths: string[] = [];
-					for (let i = 0; i < scenesWithMedia.length; i++) {
-						const { scene, video } = scenesWithMedia[i];
-						const tempFilename = `export-scene-${storyId}-${scene.id}.mp4`;
+					for (let i = 0; i < scenesToExport.length; i++) {
+						const { scene } = scenesToExport[i];
+						const tempFilename = `podcast42-export-scene-${storyId}-${scene.id}.mp4`;
 						const tempPath = getTempFilePath(tempFilename);
 
-						// Extract path from video URL stored in database
-						const videoUrl = video!.videoUrl!;
-						console.log(`[export-video] Scene ${i + 1} videoUrl:`, videoUrl);
-
-						const videoPath = extractPathFromUrl(videoUrl);
-						console.log(`[export-video] Scene ${i + 1} extracted path:`, videoPath);
-
-						if (!videoPath) {
-							throw new Error(`Invalid video URL for scene ${i + 1}: ${videoUrl}`);
-						}
-
 						// Download video from Supabase Storage
-						const videoBuffer = await downloadFromStorage("videos", videoPath);
+						const videoBuffer = await downloadFromStorage(
+							"videos",
+							`video-${storyId}-${scene.id}.mp4`,
+						);
 						fs.writeFileSync(tempPath, videoBuffer);
 
 						videoPaths.push(tempPath);
 						tempFiles.push(tempFilename);
 
-						console.log(`[export-video] Downloaded scene ${i + 1}/${scenesWithMedia.length}`);
+						console.log(`[podcast42-export-video] Downloaded scene ${i + 1}/${scenesToExport.length}`);
 					}
 
-					console.log("[export-video] All scene videos downloaded, starting concatenation...");
+					console.log(
+						"[podcast42-export-video] All scene videos downloaded, starting concatenation...",
+					);
 
 					// Concatenate all scene videos
-					const exportTempFilename = `export-final-${storyId}.mp4`;
+					const exportTempFilename = `podcast42-export-final-${storyId}.mp4`;
 					const exportTempPath = getTempFilePath(exportTempFilename);
 					tempFiles.push(exportTempFilename);
 
@@ -194,7 +232,7 @@ export const Route = createFileRoute("/api/export-video")({
 
 					// Delete old export video from Supabase Storage if exists
 					if (story.exportVideoUrl) {
-						console.log("[export-video] Deleting old export video...");
+						console.log("[podcast42-export-video] Deleting old export video...");
 						await deleteExportVideo(storyId);
 					}
 
@@ -202,7 +240,7 @@ export const Route = createFileRoute("/api/export-video")({
 					const exportBuffer = fs.readFileSync(exportTempPath);
 					const exportUrl = await uploadExportVideo(storyId, exportBuffer);
 
-					console.log(`[export-video] Uploaded to Supabase: ${exportUrl}`);
+					console.log(`[podcast42-export-video] Uploaded to Supabase: ${exportUrl}`);
 
 					// Update story record with new export URL
 					await updateStory(storyId, {
@@ -210,26 +248,14 @@ export const Route = createFileRoute("/api/export-video")({
 						exportVideoUrl: exportUrl,
 					});
 
-					// Create a video record without storyId/sceneId for asset library
-					const videoId = generateVideoId();
-					await createVideo({
-						id: videoId,
-						storyId: null,
-						sceneId: null,
-						prompt: `Exported video from story ${storyId}`,
-						videoUrl: exportUrl,
-						status: "completed",
-					});
-
-					console.log(`[export-video] Created video record for asset library: ${videoId}`);
-					console.log(`[export-video] Export complete: ${exportUrl}`);
+					console.log(`[podcast42-export-video] Export complete: ${exportUrl}`);
 
 					return Response.json({
 						success: true,
 						videoUrl: exportUrl,
 					} as ExportVideoResponse);
 				} catch (err) {
-					console.error("[export-video] Export error:", err);
+					console.error("[podcast42-export-video] Export error:", err);
 
 					return Response.json(
 						{

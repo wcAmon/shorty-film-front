@@ -36,125 +36,119 @@ function HistoryPage() {
 	};
 
 	const handleResume = async (story: StoryMetadata) => {
-		setLoadingStoryId(story.storyId);
+		const storyId = story.storyId;
+		if (!storyId) {
+			alert("Invalid story: missing storyId");
+			console.error("Story missing storyId:", story);
+			return;
+		}
+		setLoadingStoryId(storyId);
 
 		try {
-			// Fetch full story data with files
+			// Fetch full story data from new API
 			const response = await fetch(
-				`/api/story-metadata?storyId=${story.storyId}`,
+				`/api/story-metadata?storyId=${storyId}`,
 			);
 			const result = await response.json();
 
-			if (!result.success || !result.metadata) {
+			if (!result.success || !result.story) {
 				alert("Failed to load story data");
 				return;
 			}
 
-			const metadata = result.metadata as StoryMetadata;
-			const files = result.files || {};
+			const storyData = result.story;
+			const scenes = result.scenes || [];
+			const characterImages = result.characterImages || {};
 
-			if (metadata.type === "podcast42") {
+			if (storyData.type === "podcast42") {
 				// Restore podcast42 state
 				podcast42Actions.reset();
-				podcast42Actions.setStoryId(metadata.storyId);
-				podcast42Actions.setPlayScript(metadata.playScript || "");
-				podcast42Actions.setPerson1Prompt(metadata.person1Prompt || null);
-				podcast42Actions.setPerson2Prompt(metadata.person2Prompt || null);
-				podcast42Actions.setImageEngine(metadata.imageEngine);
-				podcast42Actions.setImageStyle(metadata.imageStyle);
+				podcast42Actions.setStoryId(storyData.id);
+				podcast42Actions.setPlayScript(storyData.playScript || "");
+				podcast42Actions.setPerson1Prompt(storyData.person1Prompt || null);
+				podcast42Actions.setPerson2Prompt(storyData.person2Prompt || null);
+				podcast42Actions.setImageEngine(storyData.imageEngine);
+				podcast42Actions.setImageStyle(storyData.imageStyle);
 
-				if (metadata.person1VoiceId) {
-					podcast42Actions.setPerson1VoiceId(metadata.person1VoiceId as any);
+				if (storyData.person1VoiceId) {
+					podcast42Actions.setPerson1VoiceId(storyData.person1VoiceId as any);
 				}
-				if (metadata.person2VoiceId) {
-					podcast42Actions.setPerson2VoiceId(metadata.person2VoiceId as any);
-				}
-
-				// Restore person images
-				if (files.person1ImageBase64) {
-					podcast42Actions.setPerson1Image(files.person1ImageBase64);
-					podcast42Actions.setPerson1ImageUrl(metadata.person1ImageUrl || null);
-				}
-				if (files.person2ImageBase64) {
-					podcast42Actions.setPerson2Image(files.person2ImageBase64);
-					podcast42Actions.setPerson2ImageUrl(metadata.person2ImageUrl || null);
+				if (storyData.person2VoiceId) {
+					podcast42Actions.setPerson2VoiceId(storyData.person2VoiceId as any);
 				}
 
-				// Restore scenes
-				const restoredScenes = metadata.scenes.map((scene, index) => ({
-					id: scene.id || `scene-${index}`,
+				// Restore person images from characterImages (URL-based)
+				if (characterImages.person1) {
+					podcast42Actions.setPerson1ImageId(characterImages.person1.imageId);
+					podcast42Actions.setPerson1ImageUrl(characterImages.person1.imageUrl);
+				}
+				if (characterImages.person2) {
+					podcast42Actions.setPerson2ImageId(characterImages.person2.imageId);
+					podcast42Actions.setPerson2ImageUrl(characterImages.person2.imageUrl);
+				}
+
+				// Restore scenes with URL-based media
+				const restoredScenes = scenes.map((scene: any) => ({
+					id: scene.id,
 					speaker: scene.speaker || "person1",
 					caption: scene.caption,
-					audioBase64: files.sceneAudios?.[index] || undefined,
+					audioId: scene.audioId,
+					audioUrl: scene.audioUrl,
 					audioDuration: scene.audioDuration,
-					wordTimestamps: scene.wordTimestamps?.map((wt) => ({
-						word: wt.word,
-						startTime: wt.start,
-						endTime: wt.end,
-					})),
-					videoBase64: files.sceneVideos?.[index] || undefined,
+					videoId: scene.videoId,
+					videoUrl: scene.videoUrl,
 					videoDuration: scene.videoDuration,
 				}));
 				podcast42Actions.setScenes(restoredScenes as any);
 				podcast42Actions.setPromptsGenerated(true);
 
-				// Navigate to appropriate page
-				const hasAllVideos = restoredScenes.every((s) => s.videoBase64);
-				if (hasAllVideos && metadata.hasExportedVideo) {
-					navigate({ to: "/podcast42/export" });
-				} else {
-					navigate({ to: "/podcast42/scenes" });
-				}
+				// Always navigate to scenes page for podcast42
+				navigate({ to: "/podcast42/scenes" });
 			} else {
 				// Restore aistory state
 				aistoryActions.reset();
-				aistoryActions.setStoryId(metadata.storyId);
-				aistoryActions.setScript(metadata.script || "");
-				aistoryActions.setCharacterPrompt(metadata.characterPrompt || "");
-				aistoryActions.setImageEngine(metadata.imageEngine);
-				aistoryActions.setImageStyle(metadata.imageStyle);
+				aistoryActions.setStoryId(storyData.id);
+				aistoryActions.setScript(storyData.script || "");
+				aistoryActions.setCharacterPrompt(storyData.characterPrompt || "");
+				aistoryActions.setImageEngine(storyData.imageEngine);
+				aistoryActions.setImageStyle(storyData.imageStyle);
 
-				if (metadata.voiceId) {
-					aistoryActions.setVoiceId(metadata.voiceId as any);
+				if (storyData.voiceId) {
+					aistoryActions.setVoiceId(storyData.voiceId as any);
 				}
-				if (metadata.videoEngine) {
-					aistoryActions.setVideoEngine(metadata.videoEngine as any);
-				}
-
-				// Restore character image
-				if (files.characterImageBase64) {
-					aistoryActions.setCharacterImage(files.characterImageBase64);
-					aistoryActions.setCharacterFileId(metadata.characterFileId || null);
-					aistoryActions.setCharacterImageUrl(
-						metadata.characterImageUrl || null,
-					);
+				if (storyData.videoEngine) {
+					aistoryActions.setVideoEngine(storyData.videoEngine as any);
 				}
 
-				// Restore scenes
-				const restoredScenes = metadata.scenes.map((scene, index) => ({
-					id: scene.id || `scene-${index}`,
-					title: scene.title || `Scene ${index + 1}`,
+				// Restore character image from characterImages (URL-based)
+				if (characterImages.character) {
+					aistoryActions.setCharacterImageId(characterImages.character.imageId);
+					aistoryActions.setCharacterImageUrl(characterImages.character.imageUrl);
+				}
+
+				// Restore scenes with URL-based media
+				const restoredScenes = scenes.map((scene: any) => ({
+					id: scene.id,
+					title: scene.title || "Untitled",
 					prompt: scene.prompt || "",
-					video_prompt: scene.video_prompt || "",
+					video_prompt: scene.videoPrompt || "",
 					isCharacter: scene.isCharacter ?? true,
 					caption: scene.caption,
-					imageBase64: files.sceneImages?.[index] || undefined,
-					audioBase64: files.sceneAudios?.[index] || undefined,
+					imageId: scene.imageId,
+					imageUrl: scene.imageUrl,
+					audioId: scene.audioId,
+					audioUrl: scene.audioUrl,
 					audioDuration: scene.audioDuration,
-					wordTimestamps: scene.wordTimestamps?.map((wt) => ({
-						word: wt.word,
-						startTime: wt.start,
-						endTime: wt.end,
-					})),
-					videoBase64: files.sceneVideos?.[index] || undefined,
+					videoId: scene.videoId,
+					videoUrl: scene.videoUrl,
 					videoDuration: scene.videoDuration,
 				}));
 				aistoryActions.setScenes(restoredScenes as any);
 				aistoryActions.setPromptsGenerated(true);
 
 				// Navigate to appropriate page
-				const hasAllVideos = restoredScenes.every((s) => s.videoBase64);
-				if (hasAllVideos && metadata.hasExportedVideo) {
+				const hasAllVideos = restoredScenes.every((s: any) => s.videoUrl);
+				if (hasAllVideos && storyData.hasExportedVideo) {
 					navigate({ to: "/aistory/export" });
 				} else {
 					navigate({ to: "/aistory/scenes" });
@@ -171,9 +165,10 @@ function HistoryPage() {
 	};
 
 	const getProgress = (story: StoryMetadata) => {
-		const total = story.scenes.length;
-		const withAudio = story.scenes.filter((s) => s.hasAudio).length;
-		const withVideo = story.scenes.filter((s) => s.hasVideo).length;
+		const scenes = story.scenes || [];
+		const total = scenes.length;
+		const withAudio = scenes.filter((s) => s.hasAudio).length;
+		const withVideo = scenes.filter((s) => s.hasVideo).length;
 		return { total, withAudio, withVideo };
 	};
 

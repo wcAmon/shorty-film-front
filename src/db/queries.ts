@@ -1,7 +1,27 @@
-import { eq, desc } from "drizzle-orm";
-import { db } from "./index";
-import { stories, scenes, type Story, type NewStory, type Scene, type NewScene } from "./schema";
-import type { StoryMetadata, StorySceneMetadata } from "@/lib/cache";
+import { eq, desc, isNull, and } from "drizzle-orm";
+import { db, generateStoryId, generateAudioId, generateImageId, generateVideoId, generateSceneId } from "./index";
+import {
+	stories,
+	scenes,
+	audios,
+	images,
+	videos,
+	type Story,
+	type NewStory,
+	type Scene,
+	type NewScene,
+	type Audio,
+	type NewAudio,
+	type Image,
+	type NewImage,
+	type Video,
+	type NewVideo,
+	type MediaStatus,
+	type ImageType,
+} from "./schema";
+
+// Re-export ID generators for convenience
+export { generateStoryId, generateAudioId, generateImageId, generateVideoId, generateSceneId };
 
 // ============================================================================
 // Story CRUD Operations
@@ -10,56 +30,59 @@ import type { StoryMetadata, StorySceneMetadata } from "@/lib/cache";
 /**
  * Create a new story
  */
-export function createStory(data: NewStory): Story {
-	return db.insert(stories).values(data).returning().get();
+export async function createStory(data: NewStory): Promise<Story> {
+	const [result] = await db.insert(stories).values(data).returning();
+	return result;
 }
 
 /**
  * Get a story by ID
  */
-export function getStoryById(id: string): Story | undefined {
-	return db.select().from(stories).where(eq(stories.id, id)).get();
+export async function getStoryById(id: string): Promise<Story | undefined> {
+	const [result] = await db.select().from(stories).where(eq(stories.id, id));
+	return result;
 }
 
 /**
  * Update a story
  */
-export function updateStory(id: string, data: Partial<NewStory>): Story | undefined {
-	return db
+export async function updateStory(
+	id: string,
+	data: Partial<NewStory>,
+): Promise<Story | undefined> {
+	const [result] = await db
 		.update(stories)
-		.set({ ...data, updatedAt: new Date().toISOString() })
+		.set({ ...data, updatedAt: new Date() })
 		.where(eq(stories.id, id))
-		.returning()
-		.get();
+		.returning();
+	return result;
 }
 
 /**
- * Delete a story (cascades to scenes)
+ * Delete a story (cascades to scenes via FK)
  */
-export function deleteStoryById(id: string): void {
-	// First delete scenes (for foreign key constraint)
-	db.delete(scenes).where(eq(scenes.storyId, id)).run();
-	// Then delete story
-	db.delete(stories).where(eq(stories.id, id)).run();
+export async function deleteStoryById(id: string): Promise<void> {
+	await db.delete(stories).where(eq(stories.id, id));
 }
 
 /**
  * List all stories ordered by updatedAt desc
  */
-export function listAllStoriesDb(): Story[] {
-	return db.select().from(stories).orderBy(desc(stories.updatedAt)).all();
+export async function listAllStories(): Promise<Story[]> {
+	return db.select().from(stories).orderBy(desc(stories.updatedAt));
 }
 
 /**
  * List stories by type
  */
-export function listStoriesByTypeDb(type: "aistory" | "podcast42"): Story[] {
+export async function listStoriesByType(
+	type: "aistory" | "podcast42",
+): Promise<Story[]> {
 	return db
 		.select()
 		.from(stories)
 		.where(eq(stories.type, type))
-		.orderBy(desc(stories.updatedAt))
-		.all();
+		.orderBy(desc(stories.updatedAt));
 }
 
 // ============================================================================
@@ -69,245 +92,459 @@ export function listStoriesByTypeDb(type: "aistory" | "podcast42"): Story[] {
 /**
  * Create a scene
  */
-export function createScene(data: NewScene): Scene {
-	return db.insert(scenes).values(data).returning().get();
+export async function createScene(data: NewScene): Promise<Scene> {
+	const [result] = await db.insert(scenes).values(data).returning();
+	return result;
 }
 
 /**
  * Create multiple scenes
  */
-export function createScenes(data: NewScene[]): Scene[] {
+export async function createScenes(data: NewScene[]): Promise<Scene[]> {
 	if (data.length === 0) return [];
-	return db.insert(scenes).values(data).returning().all();
+	return db.insert(scenes).values(data).returning();
 }
 
 /**
  * Get scenes for a story ordered by orderIndex
  */
-export function getScenesByStoryId(storyId: string): Scene[] {
+export async function getScenesByStoryId(storyId: string): Promise<Scene[]> {
 	return db
 		.select()
 		.from(scenes)
 		.where(eq(scenes.storyId, storyId))
-		.orderBy(scenes.orderIndex)
-		.all();
+		.orderBy(scenes.orderIndex);
 }
 
 /**
  * Get a scene by ID
  */
-export function getSceneById(id: string): Scene | undefined {
-	return db.select().from(scenes).where(eq(scenes.id, id)).get();
+export async function getSceneById(id: string): Promise<Scene | undefined> {
+	const [result] = await db.select().from(scenes).where(eq(scenes.id, id));
+	return result;
 }
 
 /**
  * Update a scene
  */
-export function updateScene(id: string, data: Partial<NewScene>): Scene | undefined {
-	return db.update(scenes).set(data).where(eq(scenes.id, id)).returning().get();
+export async function updateScene(
+	id: string,
+	data: Partial<NewScene>,
+): Promise<Scene | undefined> {
+	const [result] = await db
+		.update(scenes)
+		.set({ ...data, updatedAt: new Date() })
+		.where(eq(scenes.id, id))
+		.returning();
+	return result;
 }
 
 /**
  * Delete a scene
  */
-export function deleteSceneById(id: string): void {
-	db.delete(scenes).where(eq(scenes.id, id)).run();
+export async function deleteSceneById(id: string): Promise<void> {
+	await db.delete(scenes).where(eq(scenes.id, id));
 }
 
 /**
  * Delete all scenes for a story
  */
-export function deleteScenesByStoryId(storyId: string): void {
-	db.delete(scenes).where(eq(scenes.storyId, storyId)).run();
+export async function deleteScenesByStoryId(storyId: string): Promise<void> {
+	await db.delete(scenes).where(eq(scenes.storyId, storyId));
 }
 
 // ============================================================================
-// Conversion functions (DB <-> StoryMetadata)
+// Audio CRUD Operations
 // ============================================================================
 
 /**
- * Convert DB Story + Scenes to StoryMetadata format
+ * Create an audio record
  */
-export function dbToStoryMetadata(story: Story, storyScenes: Scene[]): StoryMetadata {
-	const scenesMeta: StorySceneMetadata[] = storyScenes.map((scene) => ({
-		id: scene.id,
-		caption: scene.caption,
-		title: scene.title ?? undefined,
-		prompt: scene.prompt ?? undefined,
-		video_prompt: scene.videoPrompt ?? undefined,
-		isCharacter: scene.isCharacter ?? undefined,
-		speaker: scene.speaker as "person1" | "person2" | undefined,
-		imageUrl: scene.imageUrl ?? undefined,
-		audioUrl: scene.audioUrl ?? undefined,
-		videoUrl: scene.videoUrl ?? undefined,
-		wordTimestamps: scene.wordTimestamps
-			? (JSON.parse(scene.wordTimestamps) as Array<{ word: string; start: number; end: number }>)
-			: undefined,
-		audioDuration: scene.audioDuration ?? undefined,
-		videoDuration: scene.videoDuration ?? undefined,
-	}));
-
-	return {
-		storyId: story.id,
-		type: story.type,
-		createdAt: story.createdAt,
-		updatedAt: story.updatedAt,
-		script: story.script ?? undefined,
-		playScript: story.playScript ?? undefined,
-		imageEngine: story.imageEngine as "gpt-image" | "flux-pro",
-		imageStyle: story.imageStyle as "cinematic" | "comic" | "low-poly" | "japanese-anime" | "clay",
-		voiceId: story.voiceId ?? undefined,
-		person1VoiceId: story.person1VoiceId ?? undefined,
-		person2VoiceId: story.person2VoiceId ?? undefined,
-		videoEngine: story.videoEngine ?? undefined,
-		podcast42VideoEngine: story.podcast42VideoEngine as "omnihuman" | "aurora" | undefined,
-		characterPrompt: story.characterPrompt ?? undefined,
-		characterFileId: story.characterFileId ?? undefined,
-		characterImageUrl: story.characterImageUrl ?? undefined,
-		hasCharacterImage: story.hasCharacterImage ?? undefined,
-		person1Prompt: story.person1Prompt ?? undefined,
-		person1ImageUrl: story.person1ImageUrl ?? undefined,
-		hasPerson1Image: story.hasPerson1Image ?? undefined,
-		person2Prompt: story.person2Prompt ?? undefined,
-		person2ImageUrl: story.person2ImageUrl ?? undefined,
-		hasPerson2Image: story.hasPerson2Image ?? undefined,
-		hasExportedVideo: story.hasExportedVideo ?? undefined,
-		scenes: scenesMeta,
-	};
+export async function createAudio(data: NewAudio): Promise<Audio> {
+	const [result] = await db.insert(audios).values(data).returning();
+	return result;
 }
 
 /**
- * Convert StoryMetadata to DB format for insert/update
+ * Get an audio by ID
  */
-export function storyMetadataToDb(metadata: StoryMetadata): { story: NewStory; scenes: NewScene[] } {
-	const story: NewStory = {
-		id: metadata.storyId,
-		type: metadata.type,
-		createdAt: metadata.createdAt,
-		updatedAt: metadata.updatedAt,
-		script: metadata.script ?? null,
-		playScript: metadata.playScript ?? null,
-		imageEngine: metadata.imageEngine,
-		imageStyle: metadata.imageStyle,
-		voiceId: metadata.voiceId ?? null,
-		person1VoiceId: metadata.person1VoiceId ?? null,
-		person2VoiceId: metadata.person2VoiceId ?? null,
-		videoEngine: metadata.videoEngine ?? null,
-		podcast42VideoEngine: metadata.podcast42VideoEngine ?? null,
-		characterPrompt: metadata.characterPrompt ?? null,
-		characterFileId: metadata.characterFileId ?? null,
-		characterImageUrl: metadata.characterImageUrl ?? null,
-		hasCharacterImage: metadata.hasCharacterImage ?? null,
-		person1Prompt: metadata.person1Prompt ?? null,
-		person1ImageUrl: metadata.person1ImageUrl ?? null,
-		hasPerson1Image: metadata.hasPerson1Image ?? null,
-		person2Prompt: metadata.person2Prompt ?? null,
-		person2ImageUrl: metadata.person2ImageUrl ?? null,
-		hasPerson2Image: metadata.hasPerson2Image ?? null,
-		hasExportedVideo: metadata.hasExportedVideo ?? null,
-	};
+export async function getAudioById(id: string): Promise<Audio | undefined> {
+	const [result] = await db.select().from(audios).where(eq(audios.id, id));
+	return result;
+}
 
-	const dbScenes: NewScene[] = metadata.scenes.map((scene, index) => ({
-		id: scene.id,
-		storyId: metadata.storyId,
-		orderIndex: index,
-		caption: scene.caption,
-		title: scene.title ?? null,
-		prompt: scene.prompt ?? null,
-		videoPrompt: scene.video_prompt ?? null,
-		isCharacter: scene.isCharacter ?? null,
-		speaker: scene.speaker ?? null,
-		imageUrl: scene.imageUrl ?? null,
-		audioUrl: scene.audioUrl ?? null,
-		videoUrl: scene.videoUrl ?? null,
-		wordTimestamps: scene.wordTimestamps ? JSON.stringify(scene.wordTimestamps) : null,
-		audioDuration: scene.audioDuration ?? null,
-		videoDuration: scene.videoDuration ?? null,
-	}));
+/**
+ * Update an audio
+ */
+export async function updateAudio(
+	id: string,
+	data: Partial<NewAudio>,
+): Promise<Audio | undefined> {
+	const [result] = await db
+		.update(audios)
+		.set({ ...data, updatedAt: new Date() })
+		.where(eq(audios.id, id))
+		.returning();
+	return result;
+}
 
-	return { story, scenes: dbScenes };
+/**
+ * Update audio status
+ */
+export async function updateAudioStatus(
+	id: string,
+	status: MediaStatus,
+): Promise<Audio | undefined> {
+	return updateAudio(id, { status });
+}
+
+/**
+ * Orphan an audio (set storyId and sceneId to null)
+ * Used when regenerating to keep old media for asset library
+ */
+export async function orphanAudio(id: string): Promise<Audio | undefined> {
+	const [result] = await db
+		.update(audios)
+		.set({ storyId: null, sceneId: null, updatedAt: new Date() })
+		.where(eq(audios.id, id))
+		.returning();
+	return result;
+}
+
+/**
+ * Get audios for a story
+ */
+export async function getAudiosByStoryId(storyId: string): Promise<Audio[]> {
+	return db.select().from(audios).where(eq(audios.storyId, storyId));
+}
+
+/**
+ * Get orphaned audios (storyId is null)
+ */
+export async function getOrphanedAudios(): Promise<Audio[]> {
+	return db.select().from(audios).where(isNull(audios.storyId));
+}
+
+/**
+ * Delete an audio by ID
+ */
+export async function deleteAudioById(id: string): Promise<void> {
+	await db.delete(audios).where(eq(audios.id, id));
 }
 
 // ============================================================================
-// High-level operations (matching cache.ts API)
+// Image CRUD Operations
 // ============================================================================
 
 /**
- * Save story metadata to database (create or update)
+ * Create an image record
  */
-export function saveStoryMetadataDb(metadata: StoryMetadata): void {
-	const { story, scenes: scenesData } = storyMetadataToDb({
-		...metadata,
-		updatedAt: new Date().toISOString(),
-	});
+export async function createImage(data: NewImage): Promise<Image> {
+	const [result] = await db.insert(images).values(data).returning();
+	return result;
+}
 
-	// Check if story exists
-	const existing = getStoryById(metadata.storyId);
+/**
+ * Get an image by ID
+ */
+export async function getImageById(id: string): Promise<Image | undefined> {
+	const [result] = await db.select().from(images).where(eq(images.id, id));
+	return result;
+}
 
-	if (existing) {
-		// Update story
-		db.update(stories)
-			.set(story)
-			.where(eq(stories.id, metadata.storyId))
-			.run();
+/**
+ * Update an image
+ */
+export async function updateImage(
+	id: string,
+	data: Partial<NewImage>,
+): Promise<Image | undefined> {
+	const [result] = await db
+		.update(images)
+		.set({ ...data, updatedAt: new Date() })
+		.where(eq(images.id, id))
+		.returning();
+	return result;
+}
 
-		// Delete old scenes and insert new ones
-		deleteScenesByStoryId(metadata.storyId);
-		if (scenesData.length > 0) {
-			createScenes(scenesData);
-		}
-	} else {
-		// Create story
-		createStory(story);
-		if (scenesData.length > 0) {
-			createScenes(scenesData);
-		}
+/**
+ * Update image status
+ */
+export async function updateImageStatus(
+	id: string,
+	status: MediaStatus,
+): Promise<Image | undefined> {
+	return updateImage(id, { status });
+}
+
+/**
+ * Orphan an image (set storyId and sceneId to null)
+ */
+export async function orphanImage(id: string): Promise<Image | undefined> {
+	const [result] = await db
+		.update(images)
+		.set({ storyId: null, sceneId: null, updatedAt: new Date() })
+		.where(eq(images.id, id))
+		.returning();
+	return result;
+}
+
+/**
+ * Get images for a story
+ */
+export async function getImagesByStoryId(storyId: string): Promise<Image[]> {
+	return db.select().from(images).where(eq(images.storyId, storyId));
+}
+
+/**
+ * Get character image for a story
+ */
+export async function getCharacterImage(
+	storyId: string,
+	imageType: ImageType = "character",
+): Promise<Image | undefined> {
+	const [result] = await db
+		.select()
+		.from(images)
+		.where(and(eq(images.storyId, storyId), eq(images.imageType, imageType)));
+	return result;
+}
+
+/**
+ * Get orphaned images (storyId is null)
+ */
+export async function getOrphanedImages(): Promise<Image[]> {
+	return db.select().from(images).where(isNull(images.storyId));
+}
+
+/**
+ * Delete an image by ID
+ */
+export async function deleteImageById(id: string): Promise<void> {
+	await db.delete(images).where(eq(images.id, id));
+}
+
+// ============================================================================
+// Video CRUD Operations
+// ============================================================================
+
+/**
+ * Create a video record
+ */
+export async function createVideo(data: NewVideo): Promise<Video> {
+	const [result] = await db.insert(videos).values(data).returning();
+	return result;
+}
+
+/**
+ * Get a video by ID
+ */
+export async function getVideoById(id: string): Promise<Video | undefined> {
+	const [result] = await db.select().from(videos).where(eq(videos.id, id));
+	return result;
+}
+
+/**
+ * Update a video
+ */
+export async function updateVideo(
+	id: string,
+	data: Partial<NewVideo>,
+): Promise<Video | undefined> {
+	const [result] = await db
+		.update(videos)
+		.set({ ...data, updatedAt: new Date() })
+		.where(eq(videos.id, id))
+		.returning();
+	return result;
+}
+
+/**
+ * Update video status
+ */
+export async function updateVideoStatus(
+	id: string,
+	status: MediaStatus,
+): Promise<Video | undefined> {
+	return updateVideo(id, { status });
+}
+
+/**
+ * Orphan a video (set storyId and sceneId to null)
+ */
+export async function orphanVideo(id: string): Promise<Video | undefined> {
+	const [result] = await db
+		.update(videos)
+		.set({ storyId: null, sceneId: null, updatedAt: new Date() })
+		.where(eq(videos.id, id))
+		.returning();
+	return result;
+}
+
+/**
+ * Get videos for a story
+ */
+export async function getVideosByStoryId(storyId: string): Promise<Video[]> {
+	return db.select().from(videos).where(eq(videos.storyId, storyId));
+}
+
+/**
+ * Get orphaned videos (storyId is null)
+ */
+export async function getOrphanedVideos(): Promise<Video[]> {
+	return db.select().from(videos).where(isNull(videos.storyId));
+}
+
+/**
+ * Delete a video by ID
+ */
+export async function deleteVideoById(id: string): Promise<void> {
+	await db.delete(videos).where(eq(videos.id, id));
+}
+
+// ============================================================================
+// Scene Media Operations
+// ============================================================================
+
+/**
+ * Update scene's image reference (and optionally orphan old image)
+ */
+export async function updateSceneImage(
+	sceneId: string,
+	newImageId: string,
+	orphanOld = true,
+): Promise<void> {
+	const scene = await getSceneById(sceneId);
+	if (!scene) return;
+
+	// Orphan old image if exists
+	if (orphanOld && scene.imageId) {
+		await orphanImage(scene.imageId);
 	}
+
+	// Update scene with new image
+	await updateScene(sceneId, { imageId: newImageId });
 }
 
 /**
- * Load story metadata from database
+ * Update scene's audio reference (and optionally orphan old audio)
  */
-export function loadStoryMetadataDb(storyId: string): StoryMetadata | null {
-	const story = getStoryById(storyId);
-	if (!story) return null;
+export async function updateSceneAudio(
+	sceneId: string,
+	newAudioId: string,
+	orphanOld = true,
+): Promise<void> {
+	const scene = await getSceneById(sceneId);
+	if (!scene) return;
 
-	const storyScenes = getScenesByStoryId(storyId);
-	return dbToStoryMetadata(story, storyScenes);
+	// Orphan old audio if exists
+	if (orphanOld && scene.audioId) {
+		await orphanAudio(scene.audioId);
+	}
+
+	// Update scene with new audio
+	await updateScene(sceneId, { audioId: newAudioId });
 }
 
 /**
- * Check if story exists in database
+ * Update scene's audio reference and DELETE old audio record
+ * Used when regenerating audio to clean up old records
+ * (Storage files are automatically overwritten due to upsert: true)
  */
-export function storyExistsDb(storyId: string): boolean {
-	return getStoryById(storyId) !== undefined;
+export async function replaceSceneAudio(
+	sceneId: string,
+	newAudioId: string,
+): Promise<void> {
+	const scene = await getSceneById(sceneId);
+	if (!scene) return;
+
+	// Delete old audio record if exists
+	if (scene.audioId) {
+		await deleteAudioById(scene.audioId);
+	}
+
+	// Update scene with new audio
+	await updateScene(sceneId, { audioId: newAudioId });
 }
 
 /**
- * List all stories as StoryMetadata
+ * Update scene's video reference (and optionally orphan old video)
  */
-export function listAllStoriesAsMetadata(): StoryMetadata[] {
-	const allStories = listAllStoriesDb();
-	return allStories.map((story) => {
-		const storyScenes = getScenesByStoryId(story.id);
-		return dbToStoryMetadata(story, storyScenes);
-	});
+export async function updateSceneVideo(
+	sceneId: string,
+	newVideoId: string,
+	orphanOld = true,
+): Promise<void> {
+	const scene = await getSceneById(sceneId);
+	if (!scene) return;
+
+	// Orphan old video if exists
+	if (orphanOld && scene.videoId) {
+		await orphanVideo(scene.videoId);
+	}
+
+	// Update scene with new video
+	await updateScene(sceneId, { videoId: newVideoId });
+}
+
+// ============================================================================
+// Full Scene with Media
+// ============================================================================
+
+/**
+ * Get a scene with its related media
+ */
+export async function getSceneWithMedia(sceneId: string): Promise<{
+	scene: Scene;
+	image?: Image;
+	audio?: Audio;
+	video?: Video;
+} | null> {
+	const scene = await getSceneById(sceneId);
+	if (!scene) return null;
+
+	const [image, audio, video] = await Promise.all([
+		scene.imageId ? getImageById(scene.imageId) : undefined,
+		scene.audioId ? getAudioById(scene.audioId) : undefined,
+		scene.videoId ? getVideoById(scene.videoId) : undefined,
+	]);
+
+	return { scene, image, audio, video };
 }
 
 /**
- * List stories by type as StoryMetadata
+ * Get all scenes for a story with their media
  */
-export function listStoriesByTypeAsMetadata(type: "aistory" | "podcast42"): StoryMetadata[] {
-	const typeStories = listStoriesByTypeDb(type);
-	return typeStories.map((story) => {
-		const storyScenes = getScenesByStoryId(story.id);
-		return dbToStoryMetadata(story, storyScenes);
-	});
+export async function getScenesWithMedia(storyId: string): Promise<
+	Array<{
+		scene: Scene;
+		image?: Image;
+		audio?: Audio;
+		video?: Video;
+	}>
+> {
+	const storyScenes = await getScenesByStoryId(storyId);
+
+	return Promise.all(
+		storyScenes.map(async (scene) => {
+			const [image, audio, video] = await Promise.all([
+				scene.imageId ? getImageById(scene.imageId) : undefined,
+				scene.audioId ? getAudioById(scene.audioId) : undefined,
+				scene.videoId ? getVideoById(scene.videoId) : undefined,
+			]);
+			return { scene, image, audio, video };
+		}),
+	);
 }
 
+// ============================================================================
+// Story Check
+// ============================================================================
+
 /**
- * Delete a story from database
+ * Check if a story exists
  */
-export function deleteStoryDb(storyId: string): void {
-	deleteStoryById(storyId);
+export async function storyExists(storyId: string): Promise<boolean> {
+	const story = await getStoryById(storyId);
+	return story !== undefined;
 }

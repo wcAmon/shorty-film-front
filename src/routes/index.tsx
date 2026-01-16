@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Clock, Mic, Sparkles } from "lucide-react";
+import { Clock, FolderOpen, Mic, Sparkles } from "lucide-react";
 
 export const Route = createFileRoute("/")({ component: Home });
 
@@ -23,13 +23,22 @@ function Home() {
 					Podcast 42
 				</Link>
 			</div>
-			<Link
-				to="/history"
-				className="group inline-flex items-center gap-2 px-6 py-3 bg-slate-700/50 hover:bg-slate-600/50 text-slate-300 hover:text-white text-lg font-medium rounded-xl transition-all duration-300 border border-slate-600 hover:border-slate-500"
-			>
-				<Clock className="w-5 h-5" />
-				History
-			</Link>
+			<div className="flex flex-col sm:flex-row gap-4">
+				<Link
+					to="/history"
+					className="group inline-flex items-center gap-2 px-6 py-3 bg-slate-700/50 hover:bg-slate-600/50 text-slate-300 hover:text-white text-lg font-medium rounded-xl transition-all duration-300 border border-slate-600 hover:border-slate-500"
+				>
+					<Clock className="w-5 h-5" />
+					History
+				</Link>
+				<Link
+					to="/asset-library"
+					className="group inline-flex items-center gap-2 px-6 py-3 bg-slate-700/50 hover:bg-slate-600/50 text-slate-300 hover:text-white text-lg font-medium rounded-xl transition-all duration-300 border border-slate-600 hover:border-slate-500"
+				>
+					<FolderOpen className="w-5 h-5" />
+					Asset Library
+				</Link>
+			</div>
 		</div>
 	);
 }

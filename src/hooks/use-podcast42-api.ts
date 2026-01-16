@@ -25,20 +25,24 @@ interface GeneratePodcast42PromptsResponse {
 
 interface GeneratePodcast42CharacterResponse {
 	success: boolean;
-	imageBase64?: string;
-	imageUrl?: string; // FAL storage URL
+	imageId?: string; // Database image ID
+	imageUrl?: string; // Supabase Storage URL
+	falImageUrl?: string; // FAL storage URL (for video generation)
 	error?: string;
 }
 
 interface UploadPodcast42CharacterResponse {
 	success: boolean;
-	imageUrl?: string; // FAL storage URL
+	imageId?: string; // Database image ID
+	imageUrl?: string; // Supabase Storage URL
+	falImageUrl?: string; // FAL storage URL (for video generation)
 	error?: string;
 }
 
 interface GenerateSceneAudioResponse {
 	success: boolean;
-	audioBase64?: string;
+	audioId?: string; // Database audio ID
+	audioUrl?: string; // Supabase Storage URL
 	wordTimestamps?: WordTimestamp[];
 	audioDuration?: number;
 	error?: string;
@@ -48,13 +52,15 @@ interface GenerateSceneAudioResponse {
 interface SubmitVideoJobResponse {
 	success: boolean;
 	requestId?: string;
+	videoId?: string; // Database video ID
 	error?: string;
 }
 
 interface CheckVideoStatusResponse {
 	success: boolean;
 	status: "pending" | "processing" | "completed" | "failed";
-	videoBase64?: string;
+	videoId?: string; // Database video ID
+	videoUrl?: string; // Supabase Storage URL
 	videoDuration?: number;
 	error?: string;
 }
@@ -123,7 +129,7 @@ async function uploadPodcast42CharacterApi(params: {
 async function generatePodcast42SceneAudioApi(params: {
 	caption: string;
 	storyId: string;
-	sceneIndex: number;
+	sceneId: string;
 	voiceId?: string;
 }): Promise<GenerateSceneAudioResponse> {
 	// Use existing generate-scene-audio API
@@ -138,9 +144,8 @@ async function generatePodcast42SceneAudioApi(params: {
 // Submit a video generation job (non-blocking)
 async function submitPodcast42VideoJobApi(params: {
 	storyId: string;
-	sceneIndex: number;
-	imageUrl: string;
-	audioBase64: string;
+	sceneId: string;
+	imageUrl: string; // FAL storage URL for character image
 	videoEngine?: Podcast42VideoEngine;
 }): Promise<SubmitVideoJobResponse> {
 	const response = await fetch("/api/podcast42-generate-video", {
@@ -154,7 +159,7 @@ async function submitPodcast42VideoJobApi(params: {
 // Check video generation status
 async function checkPodcast42VideoStatusApi(params: {
 	storyId: string;
-	sceneIndex: number;
+	sceneId: string;
 }): Promise<CheckVideoStatusResponse> {
 	const response = await fetch("/api/podcast42-generate-video", {
 		method: "PUT",
@@ -167,9 +172,8 @@ async function checkPodcast42VideoStatusApi(params: {
 // Poll for video completion with configurable interval
 async function generatePodcast42SceneVideoWithPolling(params: {
 	storyId: string;
-	sceneIndex: number;
-	imageUrl: string;
-	audioBase64: string;
+	sceneId: string;
+	imageUrl: string; // FAL storage URL for character image
 	videoEngine?: Podcast42VideoEngine;
 	onStatusUpdate?: (
 		status: "pending" | "processing" | "completed" | "failed",
@@ -179,9 +183,8 @@ async function generatePodcast42SceneVideoWithPolling(params: {
 }): Promise<CheckVideoStatusResponse> {
 	const {
 		storyId,
-		sceneIndex,
+		sceneId,
 		imageUrl,
-		audioBase64,
 		videoEngine = "omnihuman",
 		onStatusUpdate,
 		pollInterval = 5000, // 5 seconds
@@ -191,9 +194,8 @@ async function generatePodcast42SceneVideoWithPolling(params: {
 	// Submit the job
 	const submitResult = await submitPodcast42VideoJobApi({
 		storyId,
-		sceneIndex,
+		sceneId,
 		imageUrl,
-		audioBase64,
 		videoEngine,
 	});
 
@@ -213,7 +215,7 @@ async function generatePodcast42SceneVideoWithPolling(params: {
 
 		const statusResult = await checkPodcast42VideoStatusApi({
 			storyId,
-			sceneIndex,
+			sceneId,
 		});
 
 		if (onStatusUpdate) {
@@ -246,10 +248,11 @@ async function generatePodcast42SceneVideoWithPolling(params: {
 // Export video API function
 async function exportPodcast42VideoApi(params: {
 	storyId: string;
-	sceneCount: number;
+	// Scene IDs in the order they should be exported (supports reordering)
+	sceneIds?: string[];
 }): Promise<ExportVideoResponse> {
-	// Use existing export-video API
-	const response = await fetch("/api/export-video", {
+	// Use podcast42-specific export API
+	const response = await fetch("/api/podcast42-export-video", {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify(params),
@@ -298,13 +301,14 @@ export function useUploadPodcast42Character() {
 /**
  * Hook to generate scene audio with ElevenLabs
  * Uses appropriate voice based on speaker
+ * Returns audioId and audioUrl (Supabase Storage)
  */
 export function useGeneratePodcast42SceneAudio() {
 	return useMutation({
 		mutationFn: (params: {
 			caption: string;
 			storyId: string;
-			sceneIndex: number;
+			sceneId: string;
 			voiceId?: string;
 		}) => generatePodcast42SceneAudioApi(params),
 	});
@@ -313,14 +317,14 @@ export function useGeneratePodcast42SceneAudio() {
 /**
  * Hook to generate scene video using OmniHuman or Aurora (with polling)
  * Uses queue-based API: submits job, then polls for completion
+ * Returns videoId and videoUrl (Supabase Storage)
  */
 export function useGeneratePodcast42SceneVideo() {
 	return useMutation({
 		mutationFn: (params: {
 			storyId: string;
-			sceneIndex: number;
-			imageUrl: string;
-			audioBase64: string;
+			sceneId: string;
+			imageUrl: string; // FAL storage URL for character image
 			videoEngine?: Podcast42VideoEngine;
 			onStatusUpdate?: (
 				status: "pending" | "processing" | "completed" | "failed",
@@ -331,10 +335,11 @@ export function useGeneratePodcast42SceneVideo() {
 
 /**
  * Hook to export final video with all scenes combined
+ * Returns videoUrl (Supabase Storage)
  */
 export function useExportPodcast42Video() {
 	return useMutation({
-		mutationFn: (params: { storyId: string; sceneCount: number }) =>
+		mutationFn: (params: { storyId: string; sceneIds?: string[] }) =>
 			exportPodcast42VideoApi(params),
 	});
 }
@@ -394,5 +399,150 @@ async function updatePodcast42SettingsApi(params: {
 export function useUpdatePodcast42Settings() {
 	return useMutation({
 		mutationFn: updatePodcast42SettingsApi,
+	});
+}
+
+// ============================================================================
+// Scene Management API
+// ============================================================================
+
+interface DeleteSceneResponse {
+	success: boolean;
+	error?: string;
+}
+
+/**
+ * Delete scene files from storage
+ */
+async function deletePodcast42SceneFilesApi(params: {
+	storyId: string;
+	sceneId: string;
+}): Promise<DeleteSceneResponse> {
+	const response = await fetch("/api/podcast42-delete-scene-files", {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify(params),
+	});
+	return response.json();
+}
+
+/**
+ * Delete a scene from the database
+ * Note: This now uses database operations, not metadata JSON
+ */
+async function deletePodcast42SceneApi(params: {
+	storyId: string;
+	sceneId: string;
+}): Promise<DeleteSceneResponse> {
+	// Delete scene files from storage
+	await deletePodcast42SceneFilesApi(params);
+	return { success: true };
+}
+
+/**
+ * Hook to delete a scene from podcast42
+ */
+export function useDeletePodcast42Scene() {
+	return useMutation({
+		mutationFn: (params: { storyId: string; sceneId: string }) =>
+			deletePodcast42SceneApi(params),
+	});
+}
+
+interface UpdateSceneResponse {
+	success: boolean;
+	error?: string;
+}
+
+/**
+ * Update a scene's properties (caption, speaker, etc.)
+ */
+async function updatePodcast42SceneApi(params: {
+	storyId: string;
+	sceneId: string;
+	updates: { caption?: string; speaker?: "person1" | "person2" };
+}): Promise<UpdateSceneResponse> {
+	const { storyId, sceneId, updates } = params;
+
+	// First get current metadata
+	const getResponse = await fetch(`/api/story-metadata?storyId=${storyId}`);
+	const getData = await getResponse.json();
+
+	if (!getData.success || !getData.metadata) {
+		return { success: false, error: "Failed to get current metadata" };
+	}
+
+	// Update the specific scene
+	const updatedScenes = getData.metadata.scenes.map(
+		(scene: { id: string; caption: string; speaker: string }) =>
+			scene.id === sceneId ? { ...scene, ...updates } : scene,
+	);
+
+	// Save updated metadata
+	const updatedMetadata = {
+		...getData.metadata,
+		scenes: updatedScenes,
+	};
+
+	const saveResponse = await fetch("/api/story-metadata", {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({ metadata: updatedMetadata }),
+	});
+	return saveResponse.json();
+}
+
+/**
+ * Hook to update a scene's properties
+ */
+export function useUpdatePodcast42Scene() {
+	return useMutation({
+		mutationFn: updatePodcast42SceneApi,
+	});
+}
+
+/**
+ * Reorder scenes in the story
+ */
+async function reorderPodcast42ScenesApi(params: {
+	storyId: string;
+	fromIndex: number;
+	toIndex: number;
+}): Promise<UpdateSceneResponse> {
+	const { storyId, fromIndex, toIndex } = params;
+
+	// First get current metadata
+	const getResponse = await fetch(`/api/story-metadata?storyId=${storyId}`);
+	const getData = await getResponse.json();
+
+	if (!getData.success || !getData.metadata) {
+		return { success: false, error: "Failed to get current metadata" };
+	}
+
+	// Reorder scenes
+	const newScenes = [...getData.metadata.scenes];
+	const [moved] = newScenes.splice(fromIndex, 1);
+	newScenes.splice(toIndex, 0, moved);
+
+	// Save updated metadata
+	const updatedMetadata = {
+		...getData.metadata,
+		scenes: newScenes,
+	};
+
+	const saveResponse = await fetch("/api/story-metadata", {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({ metadata: updatedMetadata }),
+	});
+	return saveResponse.json();
+}
+
+/**
+ * Hook to reorder scenes
+ */
+export function useReorderPodcast42Scenes() {
+	return useMutation({
+		mutationFn: reorderPodcast42ScenesApi,
 	});
 }
