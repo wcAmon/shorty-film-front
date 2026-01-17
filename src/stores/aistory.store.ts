@@ -5,7 +5,12 @@ import type { Scene, WordTimestamp } from "@/hooks/use-aistory-api";
 export type ImageEngine = "gpt-image" | "flux-pro";
 
 // Image style options for prompt + image generation
-export type ImageStyle = "cinematic" | "comic" | "low-poly" | "japanese-anime" | "clay";
+export type ImageStyle =
+	| "cinematic"
+	| "comic"
+	| "low-poly"
+	| "japanese-anime"
+	| "clay";
 
 // Voice options for ElevenLabs narration
 export type VoiceId =
@@ -24,6 +29,9 @@ export type VideoEngine =
 	| "fal-ai/kling-video/o1/reference-to-video"
 	| "fal-ai/ltx-2-19b/image-to-video";
 
+// Media status type (matches database enum)
+export type MediaStatus = "ready" | "generating" | "completed";
+
 // Extended scene state with UI-related fields
 export interface SceneState extends Scene {
 	// Database media IDs
@@ -34,6 +42,10 @@ export interface SceneState extends Scene {
 	imageUrl?: string;
 	audioUrl?: string;
 	videoUrl?: string;
+	// Database media status (for resuming generation monitoring)
+	imageStatus?: MediaStatus;
+	audioStatus?: MediaStatus;
+	videoStatus?: MediaStatus;
 	// UI state
 	isLoading?: boolean;
 	audioDuration?: number;

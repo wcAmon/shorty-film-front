@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { updateScene, getSceneById } from "@/db/queries";
+import { getSceneById, updateScene, verifySceneOwnership } from "@/db/queries";
+import { requireAuth } from "@/lib/auth-middleware";
 
 interface UpdateSceneCaptionResponse {
 	success: boolean;
@@ -11,6 +12,10 @@ export const Route = createFileRoute("/api/update-scene-caption")({
 		handlers: {
 			// POST: Update scene caption
 			POST: async ({ request }) => {
+				// Require authentication
+				const { user, error: authError } = await requireAuth(request);
+				if (authError) return authError;
+
 				try {
 					const body = (await request.json()) as {
 						sceneId: string;
@@ -32,6 +37,15 @@ export const Route = createFileRoute("/api/update-scene-caption")({
 						);
 					}
 
+					// Verify user owns this scene
+					const isOwner = await verifySceneOwnership(sceneId, user.id);
+					if (!isOwner) {
+						return Response.json(
+							{ success: false, error: "Scene not found" },
+							{ status: 404 },
+						);
+					}
+
 					// Verify scene exists
 					const scene = await getSceneById(sceneId);
 					if (!scene) {
@@ -44,7 +58,9 @@ export const Route = createFileRoute("/api/update-scene-caption")({
 					// Update the scene caption
 					await updateScene(sceneId, { caption });
 
-					console.log(`[update-scene-caption] Updated caption for scene ${sceneId}`);
+					console.log(
+						`[update-scene-caption] Updated caption for scene ${sceneId}`,
+					);
 
 					return Response.json({ success: true } as UpdateSceneCaptionResponse);
 				} catch (err) {

@@ -30,13 +30,13 @@ import {
 	useUploadPodcast42Character,
 } from "@/hooks/use-podcast42-api";
 import { useVideoQueueProcessor } from "@/hooks/use-video-queue-processor";
+import type { ImageEngine, ImageStyle, VoiceId } from "@/stores/aistory.store";
 import {
-	podcast42Actions,
-	podcast42Store,
 	type Podcast42Speaker,
 	type Podcast42VideoEngine,
+	podcast42Actions,
+	podcast42Store,
 } from "@/stores/podcast42.store";
-import type { ImageEngine, ImageStyle, VoiceId } from "@/stores/aistory.store";
 
 // Voice options for display
 const VOICE_OPTIONS: Array<{ id: VoiceId; name: string }> = [
@@ -61,7 +61,11 @@ const IMAGE_STYLE_OPTIONS: Array<{ id: ImageStyle; name: string }> = [
 export const Route = createFileRoute("/podcast42/scenes")({
 	beforeLoad: () => {
 		const state = podcast42Store.state;
-		if (!state.promptsGenerated || !state.person1Prompt || !state.person2Prompt) {
+		if (
+			!state.promptsGenerated ||
+			!state.person1Prompt ||
+			!state.person2Prompt
+		) {
 			throw redirect({ to: "/podcast42" });
 		}
 	},
@@ -84,22 +88,46 @@ function Podcast42ScenesPage() {
 	useVideoQueueProcessor();
 
 	// Subscribe to store state
-	const person1Prompt = useStore(podcast42Store, (state) => state.person1Prompt);
+	const person1Prompt = useStore(
+		podcast42Store,
+		(state) => state.person1Prompt,
+	);
 	const person1Image = useStore(podcast42Store, (state) => state.person1Image);
-	const person1ImageUrl = useStore(podcast42Store, (state) => state.person1ImageUrl);
-	const isGeneratingPerson1 = useStore(podcast42Store, (state) => state.isGeneratingPerson1);
+	const person1ImageUrl = useStore(
+		podcast42Store,
+		(state) => state.person1ImageUrl,
+	);
+	const isGeneratingPerson1 = useStore(
+		podcast42Store,
+		(state) => state.isGeneratingPerson1,
+	);
 
-	const person2Prompt = useStore(podcast42Store, (state) => state.person2Prompt);
+	const person2Prompt = useStore(
+		podcast42Store,
+		(state) => state.person2Prompt,
+	);
 	const person2Image = useStore(podcast42Store, (state) => state.person2Image);
-	const person2ImageUrl = useStore(podcast42Store, (state) => state.person2ImageUrl);
-	const isGeneratingPerson2 = useStore(podcast42Store, (state) => state.isGeneratingPerson2);
+	const person2ImageUrl = useStore(
+		podcast42Store,
+		(state) => state.person2ImageUrl,
+	);
+	const isGeneratingPerson2 = useStore(
+		podcast42Store,
+		(state) => state.isGeneratingPerson2,
+	);
 
 	const scenes = useStore(podcast42Store, (state) => state.scenes);
 	const sceneError = useStore(podcast42Store, (state) => state.sceneError);
 	const imageEngine = useStore(podcast42Store, (state) => state.imageEngine);
 	const imageStyle = useStore(podcast42Store, (state) => state.imageStyle);
-	const person1VoiceId = useStore(podcast42Store, (state) => state.person1VoiceId);
-	const person2VoiceId = useStore(podcast42Store, (state) => state.person2VoiceId);
+	const person1VoiceId = useStore(
+		podcast42Store,
+		(state) => state.person1VoiceId,
+	);
+	const person2VoiceId = useStore(
+		podcast42Store,
+		(state) => state.person2VoiceId,
+	);
 	const storyId = useStore(podcast42Store, (state) => state.storyId);
 	const videoEngine = useStore(podcast42Store, (state) => state.videoEngine);
 	const videoQueue = useStore(podcast42Store, (state) => state.videoQueue);
@@ -395,7 +423,8 @@ function Podcast42ScenesPage() {
 		if (!scene || sceneIndex === -1 || !storyId) return;
 
 		// Get the appropriate voice for this speaker
-		const voiceId = scene.speaker === "person1" ? person1VoiceId : person2VoiceId;
+		const voiceId =
+			scene.speaker === "person1" ? person1VoiceId : person2VoiceId;
 
 		podcast42Actions.updateScene(sceneId, { isGeneratingAudio: true });
 
@@ -1083,7 +1112,11 @@ function Podcast42ScenesPage() {
 								<div className="w-64 flex-shrink-0">
 									{/* Character image preview based on speaker */}
 									<div className="relative mb-3">
-										{(scene.speaker === "person1" ? person1Image : person2Image) ? (
+										{(
+											scene.speaker === "person1"
+												? person1Image
+												: person2Image
+										) ? (
 											<>
 												<img
 													src={`data:image/jpeg;base64,${scene.speaker === "person1" ? person1Image : person2Image}`}

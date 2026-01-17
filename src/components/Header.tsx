@@ -1,10 +1,14 @@
 import { Link } from "@tanstack/react-router";
-import { Home, Menu, Sparkles, X } from "lucide-react";
+import { useStore } from "@tanstack/react-store";
+import { Home, Menu, Mic, Sparkles, User, X } from "lucide-react";
 import { useState } from "react";
+import { authStore } from "@/stores/auth.store";
+import UserMenu from "./UserMenu";
 
 // Main navigation header component with hamburger menu and side navigation
 export default function Header() {
 	const [isOpen, setIsOpen] = useState(false);
+	const { isAuthenticated } = useStore(authStore);
 
 	return (
 		<>
@@ -22,6 +26,9 @@ export default function Header() {
 						<Link to="/">Shorty Film</Link>
 					</h1>
 				</div>
+
+				{/* Right side: User menu */}
+				<UserMenu />
 			</header>
 
 			<aside
@@ -55,20 +62,60 @@ export default function Header() {
 						<span className="font-medium">Home</span>
 					</Link>
 
-					<Link
-						to="/aistory"
-						onClick={() => setIsOpen(false)}
-						className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-800 transition-colors mb-2"
-						activeProps={{
-							className:
-								"flex items-center gap-3 p-3 rounded-lg bg-cyan-600 hover:bg-cyan-700 transition-colors mb-2",
-						}}
-					>
-						<Sparkles size={20} />
-						<span className="font-medium">AI Story</span>
-					</Link>
+					{/* Only show AI Story and Podcast 42 links when authenticated */}
+					{isAuthenticated && (
+						<>
+							<Link
+								to="/aistory"
+								onClick={() => setIsOpen(false)}
+								className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-800 transition-colors mb-2"
+								activeProps={{
+									className:
+										"flex items-center gap-3 p-3 rounded-lg bg-cyan-600 hover:bg-cyan-700 transition-colors mb-2",
+								}}
+							>
+								<Sparkles size={20} />
+								<span className="font-medium">AI Story</span>
+							</Link>
+
+							<Link
+								to="/podcast42"
+								onClick={() => setIsOpen(false)}
+								className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-800 transition-colors mb-2"
+								activeProps={{
+									className:
+										"flex items-center gap-3 p-3 rounded-lg bg-amber-600 hover:bg-amber-700 transition-colors mb-2",
+								}}
+							>
+								<Mic size={20} />
+								<span className="font-medium">Podcast 42</span>
+							</Link>
+
+							<Link
+								to="/user"
+								onClick={() => setIsOpen(false)}
+								className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-800 transition-colors mb-2"
+								activeProps={{
+									className:
+										"flex items-center gap-3 p-3 rounded-lg bg-cyan-600 hover:bg-cyan-700 transition-colors mb-2",
+								}}
+							>
+								<User size={20} />
+								<span className="font-medium">My Account</span>
+							</Link>
+						</>
+					)}
 				</nav>
 			</aside>
+
+			{/* Backdrop */}
+			{isOpen && (
+				<div
+					className="fixed inset-0 bg-black/50 z-40"
+					onClick={() => setIsOpen(false)}
+					aria-hidden="true"
+				/>
+			)}
 		</>
 	);
 }

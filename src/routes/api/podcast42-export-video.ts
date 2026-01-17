@@ -4,20 +4,18 @@ import ffmpegInstaller from "@ffmpeg-installer/ffmpeg";
 import { createFileRoute } from "@tanstack/react-router";
 import ffmpeg from "fluent-ffmpeg";
 import {
+	getScenesWithMedia,
 	getStoryById,
 	updateStory,
-	getScenesWithMedia,
+	verifyStoryOwnership,
 } from "@/db/queries";
+import { requireAuth } from "@/lib/auth-middleware";
+import { deleteTempFile, ensureTempDir, getTempFilePath } from "@/lib/cache";
 import {
-	uploadExportVideo,
 	deleteExportVideo,
 	downloadFromStorage,
+	uploadExportVideo,
 } from "@/lib/supabase-storage";
-import {
-	getTempFilePath,
-	deleteTempFile,
-	ensureTempDir,
-} from "@/lib/cache";
 
 // Configure FFmpeg path
 ffmpeg.setFfmpegPath(ffmpegInstaller.path);
@@ -105,6 +103,10 @@ export const Route = createFileRoute("/api/podcast42-export-video")({
 	server: {
 		handlers: {
 			POST: async ({ request }) => {
+				// Require authentication
+				const { user, error: authError } = await requireAuth(request);
+				if (authError) return authError;
+
 				const tempFiles: string[] = [];
 
 				try {
@@ -116,6 +118,15 @@ export const Route = createFileRoute("/api/podcast42-export-video")({
 						return Response.json(
 							{ success: false, error: "Story ID is required" },
 							{ status: 400 },
+						);
+					}
+
+					// Verify user owns this story
+					const isOwner = await verifyStoryOwnership(storyId, user.id);
+					if (!isOwner) {
+						return Response.json(
+							{ success: false, error: "Story not found" },
+							{ status: 404 },
 						);
 					}
 
@@ -141,7 +152,9 @@ export const Route = createFileRoute("/api/podcast42-export-video")({
 
 					console.log(
 						`[podcast42-export-video] Starting export for story ${storyId}`,
-						sceneIds ? `(custom order: ${sceneIds.length} scenes)` : "(sequential order)",
+						sceneIds
+							? `(custom order: ${sceneIds.length} scenes)`
+							: "(sequential order)",
 					);
 
 					// Get all scenes with their media
@@ -194,7 +207,9 @@ export const Route = createFileRoute("/api/podcast42-export-video")({
 						);
 					}
 
-					console.log(`[podcast42-export-video] All ${scenesToExport.length} scene videos found, downloading...`);
+					console.log(
+						`[podcast42-export-video] All ${scenesToExport.length} scene videos found, downloading...`,
+					);
 
 					// Ensure temp directory exists
 					ensureTempDir();
@@ -216,7 +231,9 @@ export const Route = createFileRoute("/api/podcast42-export-video")({
 						videoPaths.push(tempPath);
 						tempFiles.push(tempFilename);
 
-						console.log(`[podcast42-export-video] Downloaded scene ${i + 1}/${scenesToExport.length}`);
+						console.log(
+							`[podcast42-export-video] Downloaded scene ${i + 1}/${scenesToExport.length}`,
+						);
 					}
 
 					console.log(
@@ -232,7 +249,9 @@ export const Route = createFileRoute("/api/podcast42-export-video")({
 
 					// Delete old export video from Supabase Storage if exists
 					if (story.exportVideoUrl) {
-						console.log("[podcast42-export-video] Deleting old export video...");
+						console.log(
+							"[podcast42-export-video] Deleting old export video...",
+						);
 						await deleteExportVideo(storyId);
 					}
 
@@ -240,7 +259,9 @@ export const Route = createFileRoute("/api/podcast42-export-video")({
 					const exportBuffer = fs.readFileSync(exportTempPath);
 					const exportUrl = await uploadExportVideo(storyId, exportBuffer);
 
-					console.log(`[podcast42-export-video] Uploaded to Supabase: ${exportUrl}`);
+					console.log(
+						`[podcast42-export-video] Uploaded to Supabase: ${exportUrl}`,
+					);
 
 					// Update story record with new export URL
 					await updateStory(storyId, {

@@ -1,14 +1,12 @@
-import {
-	pgTable,
-	pgSchema,
-	pgEnum,
-	text,
-	integer,
-	real,
-	timestamp,
-	boolean,
-} from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
+import {
+	boolean,
+	integer,
+	pgSchema,
+	real,
+	text,
+	timestamp,
+} from "drizzle-orm/pg-core";
 
 // Use the 'shorty' schema
 export const shortySchema = pgSchema("shorty");
@@ -41,6 +39,7 @@ export const imageTypeEnum = shortySchema.enum("image_type", [
 
 export const stories = shortySchema.table("stories", {
 	id: text("id").primaryKey(),
+	ownerId: text("owner_id").notNull().default("anonymous"),
 	type: storyTypeEnum("type").notNull(),
 
 	// Timestamps
@@ -78,6 +77,7 @@ export const stories = shortySchema.table("stories", {
 	// Export status
 	hasExportedVideo: boolean("has_exported_video").default(false),
 	exportVideoUrl: text("export_video_url"), // Supabase Storage URL for exported video
+	exportedVideoId: text("exported_video_id"), // Reference to videos table for exported video
 });
 
 // ============================================================================
@@ -86,6 +86,7 @@ export const stories = shortySchema.table("stories", {
 
 export const audios = shortySchema.table("audios", {
 	id: text("id").primaryKey(),
+	ownerId: text("owner_id").notNull().default("anonymous"),
 	storyId: text("story_id").references(() => stories.id, {
 		onDelete: "set null",
 	}),
@@ -116,6 +117,7 @@ export const audios = shortySchema.table("audios", {
 
 export const images = shortySchema.table("images", {
 	id: text("id").primaryKey(),
+	ownerId: text("owner_id").notNull().default("anonymous"),
 	storyId: text("story_id").references(() => stories.id, {
 		onDelete: "set null",
 	}),
@@ -145,6 +147,7 @@ export const images = shortySchema.table("images", {
 
 export const videos = shortySchema.table("videos", {
 	id: text("id").primaryKey(),
+	ownerId: text("owner_id").notNull().default("anonymous"),
 	storyId: text("story_id").references(() => stories.id, {
 		onDelete: "set null",
 	}),
@@ -175,6 +178,7 @@ export const videos = shortySchema.table("videos", {
 
 export const scenes = shortySchema.table("scenes", {
 	id: text("id").primaryKey(),
+	ownerId: text("owner_id").notNull().default("anonymous"),
 	storyId: text("story_id")
 		.notNull()
 		.references(() => stories.id, { onDelete: "cascade" }),

@@ -17,15 +17,16 @@ import {
 	User,
 	Volume2,
 } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CountdownProgress } from "@/components/countdown-progress";
 import {
 	useGenerateCharacter,
 	useGenerateSceneAudio,
 	useGenerateSceneImage,
 	useGenerateSceneVideo,
-	useUploadCharacter,
 	useUpdateSceneCaption,
+	useUploadCharacter,
+	pollMediaUntilReady,
 } from "@/hooks/use-aistory-api";
 import { aistoryActions, aistoryStore } from "@/stores/aistory.store";
 
@@ -87,17 +88,148 @@ function ScenesPage() {
 	const imageStyle = useStore(aistoryStore, (state) => state.imageStyle);
 	const voiceId = useStore(aistoryStore, (state) => state.voiceId);
 	const storyId = useStore(aistoryStore, (state) => state.storyId);
+	const exportedVideoUrl = useStore(
+		aistoryStore,
+		(state) => state.exportedVideoUrl,
+	);
 
 	// State for word-by-word caption display during audio playback
 	const [currentWordIndex, setCurrentWordIndex] = useState<number | null>(null);
 
 	// State for tracking which scenes have unsaved caption changes
-	const [savedCaptions, setSavedCaptions] = useState<Record<string, string>>({});
+	const [savedCaptions, setSavedCaptions] = useState<Record<string, string>>(
+		{},
+	);
 	const [savingCaptionId, setSavingCaptionId] = useState<string | null>(null);
 
 	// Refs
 	const audioRef = useRef<HTMLAudioElement | null>(null);
 	const fileInputRef = useRef<HTMLInputElement>(null);
+
+	// Track which media are being polled to avoid duplicate polling
+	const pollingRef = useRef<Set<string>>(new Set());
+
+	// Effect: Resume monitoring for any media that's still generating when page loads
+	useEffect(() => {
+		const resumeGeneratingMedia = async () => {
+			for (const scene of scenes) {
+				// Check for generating images
+				if (
+					scene.imageId &&
+					scene.imageStatus === "generating" &&
+					!pollingRef.current.has(`image-${scene.imageId}`)
+				) {
+					pollingRef.current.add(`image-${scene.imageId}`);
+					console.log(
+						`[resumeGeneratingMedia] Resuming image polling for scene ${scene.id}`,
+					);
+
+					// Set UI state to show generating
+					aistoryActions.updateScene(scene.id, { isLoading: true });
+
+					// Start polling
+					pollMediaUntilReady("image", scene.imageId, {
+						pollInterval: 5000,
+						maxAttempts: 120, // 10 minutes
+					}).then((result) => {
+						pollingRef.current.delete(`image-${scene.imageId}`);
+						if (result.success && result.status === "completed") {
+							aistoryActions.updateScene(scene.id, {
+								imageUrl: result.imageUrl ?? undefined,
+								imageStatus: "completed",
+								isLoading: false,
+							});
+						} else {
+							aistoryActions.updateScene(scene.id, {
+								isLoading: false,
+							});
+							aistoryActions.setSceneError(
+								result.error || "Image generation failed",
+							);
+						}
+					});
+				}
+
+				// Check for generating videos
+				if (
+					scene.videoId &&
+					scene.videoStatus === "generating" &&
+					!pollingRef.current.has(`video-${scene.videoId}`)
+				) {
+					pollingRef.current.add(`video-${scene.videoId}`);
+					console.log(
+						`[resumeGeneratingMedia] Resuming video polling for scene ${scene.id}`,
+					);
+
+					// Set UI state to show generating
+					aistoryActions.updateScene(scene.id, { isGeneratingVideo: true });
+
+					// Start polling
+					pollMediaUntilReady("video", scene.videoId, {
+						pollInterval: 5000,
+						maxAttempts: 120, // 10 minutes
+					}).then((result) => {
+						pollingRef.current.delete(`video-${scene.videoId}`);
+						if (result.success && result.status === "completed") {
+							aistoryActions.updateScene(scene.id, {
+								videoUrl: result.videoUrl ?? undefined,
+								videoDuration: result.duration ?? undefined,
+								videoStatus: "completed",
+								isGeneratingVideo: false,
+							});
+						} else {
+							aistoryActions.updateScene(scene.id, {
+								isGeneratingVideo: false,
+								videoError: result.error || "Video generation failed",
+							});
+						}
+					});
+				}
+
+				// Check for generating audio
+				if (
+					scene.audioId &&
+					scene.audioStatus === "generating" &&
+					!pollingRef.current.has(`audio-${scene.audioId}`)
+				) {
+					pollingRef.current.add(`audio-${scene.audioId}`);
+					console.log(
+						`[resumeGeneratingMedia] Resuming audio polling for scene ${scene.id}`,
+					);
+
+					// Set UI state to show generating
+					aistoryActions.updateScene(scene.id, { isGeneratingAudio: true });
+
+					// Start polling
+					pollMediaUntilReady("audio", scene.audioId, {
+						pollInterval: 5000,
+						maxAttempts: 120, // 10 minutes
+					}).then((result) => {
+						pollingRef.current.delete(`audio-${scene.audioId}`);
+						if (result.success && result.status === "completed") {
+							aistoryActions.updateScene(scene.id, {
+								audioUrl: result.audioUrl ?? undefined,
+								audioDuration: result.duration ?? undefined,
+								audioStatus: "completed",
+								isGeneratingAudio: false,
+							});
+						} else {
+							aistoryActions.updateScene(scene.id, {
+								isGeneratingAudio: false,
+							});
+							aistoryActions.setSceneError(
+								result.error || "Audio generation failed",
+							);
+						}
+					});
+				}
+			}
+		};
+
+		resumeGeneratingMedia();
+		// Only run on mount and when scenes change
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [scenes.map((s) => `${s.id}-${s.imageStatus}-${s.videoStatus}-${s.audioStatus}`).join(",")]);
 
 	// Handle character image upload: crop to 9:16 aspect ratio and upload to OpenAI
 	const handleUploadCharacter = (
@@ -375,56 +507,74 @@ function ScenesPage() {
 		);
 	};
 
-	// Handle single scene video generation using FAL-AI Kling video model (with polling)
-	const handleGenerateSceneVideo = (sceneId: string) => {
+	// Handle single scene video generation using FAL-AI Kling video model
+	// Using async/await with mutateAsync to avoid callback override when multiple mutations run concurrently
+	const handleGenerateSceneVideo = async (sceneId: string) => {
+		console.log(`[handleGenerateSceneVideo] Starting for sceneId: ${sceneId}`);
 		const scene = scenes.find((s) => s.id === sceneId);
-		if (!scene || !storyId || !scene.imageUrl || !scene.audioDuration) return;
+		if (
+			!scene ||
+			!storyId ||
+			!scene.imageUrl ||
+			!scene.audioDuration ||
+			!scene.imageId ||
+			!scene.audioId
+		)
+			return;
 
 		aistoryActions.updateScene(sceneId, {
 			isGeneratingVideo: true,
 			videoError: null,
 		});
 
-		generateSceneVideoMutation.mutate(
-			{
+		try {
+			const result = await generateSceneVideoMutation.mutateAsync({
 				storyId,
 				sceneId,
 				videoPrompt: scene.video_prompt,
 				imageUrl: scene.imageUrl,
 				audioDuration: scene.audioDuration,
-				videoEngine, // Pass selected video engine
+				imageId: scene.imageId,
+				audioId: scene.audioId,
+				videoEngine,
 				onStatusUpdate: (status) => {
 					console.log(`[video] Scene ${sceneId} status: ${status}`);
 				},
-			},
-			{
-				onSuccess: (result) => {
-					if (result.success && result.videoId && result.videoUrl) {
-						aistoryActions.updateScene(sceneId, {
-							videoId: result.videoId,
-							videoUrl: result.videoUrl,
-							videoDuration: result.videoDuration,
-							isGeneratingVideo: false,
-							videoError: null,
-						});
-					} else {
-						aistoryActions.updateScene(sceneId, {
-							isGeneratingVideo: false,
-							videoError: result.error || "Failed to generate scene video",
-						});
-					}
-				},
-				onError: (err) => {
-					aistoryActions.updateScene(sceneId, {
-						isGeneratingVideo: false,
-						videoError:
-							err instanceof Error
-								? err.message
-								: "An unexpected error occurred",
-					});
-				},
-			},
-		);
+			});
+
+			console.log(`[video:${sceneId}] Result:`, result);
+
+			if (result.success && result.videoId && result.videoUrl) {
+				console.log(`[video:${sceneId}] Updating scene with video:`, {
+					videoId: result.videoId,
+					videoUrl: result.videoUrl,
+				});
+				aistoryActions.updateScene(sceneId, {
+					videoId: result.videoId,
+					videoUrl: result.videoUrl,
+					videoDuration: result.videoDuration,
+					isGeneratingVideo: false,
+					videoError: null,
+				});
+			} else {
+				console.log(`[video:${sceneId}] Missing data:`, {
+					success: result.success,
+					videoId: result.videoId,
+					videoUrl: result.videoUrl,
+				});
+				aistoryActions.updateScene(sceneId, {
+					isGeneratingVideo: false,
+					videoError: result.error || "Failed to generate scene video",
+				});
+			}
+		} catch (err) {
+			console.error(`[video:${sceneId}] Error:`, err);
+			aistoryActions.updateScene(sceneId, {
+				isGeneratingVideo: false,
+				videoError:
+					err instanceof Error ? err.message : "An unexpected error occurred",
+			});
+		}
 	};
 
 	// Play scene audio with word-by-word caption synchronization
@@ -494,9 +644,24 @@ function ScenesPage() {
 		scenes.length > 0 &&
 		scenes.every((scene) => scene.videoUrl && scene.audioUrl);
 
-	// Navigate to export page
-	const handleExportMyVideo = () => {
-		navigate({ to: "/aistory/export" });
+	// Handle download exported video
+	const handleDownloadExportedVideo = async () => {
+		if (!exportedVideoUrl) return;
+
+		try {
+			const response = await fetch(exportedVideoUrl);
+			const blob = await response.blob();
+			const blobUrl = URL.createObjectURL(blob);
+			const link = document.createElement("a");
+			link.href = blobUrl;
+			link.download = `shorty_film_${Date.now()}.mp4`;
+			document.body.appendChild(link);
+			link.click();
+			document.body.removeChild(link);
+			URL.revokeObjectURL(blobUrl);
+		} catch (error) {
+			console.error("Download failed:", error);
+		}
 	};
 
 	return (
@@ -509,6 +674,55 @@ function ScenesPage() {
 				accept="image/*"
 				className="hidden"
 			/>
+
+			{/* Engine Settings Display */}
+			<div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
+				<div className="flex items-center justify-between">
+					<div>
+						<h3 className="text-sm font-semibold text-slate-400 mb-3 uppercase tracking-wide">
+							Engine Settings
+						</h3>
+						<div className="flex flex-wrap gap-3">
+							<div className="px-3 py-1.5 bg-cyan-500/20 border border-cyan-500/30 rounded-lg">
+								<span className="text-xs text-cyan-400 font-medium">
+									Image: {imageEngine === "flux-pro" ? "Flux Pro" : "GPT Image"}
+								</span>
+							</div>
+							<div className="px-3 py-1.5 bg-amber-500/20 border border-amber-500/30 rounded-lg">
+								<span className="text-xs text-amber-400 font-medium">
+									Style: {imageStyle.charAt(0).toUpperCase() + imageStyle.slice(1).replace("-", " ")}
+								</span>
+							</div>
+							<div className="px-3 py-1.5 bg-purple-500/20 border border-purple-500/30 rounded-lg">
+								<span className="text-xs text-purple-400 font-medium">
+									Video:{" "}
+									{videoEngine.includes("kling")
+										? videoEngine.includes("no-audio")
+											? "Kling (No Audio)"
+											: videoEngine.includes("reference")
+											? "Kling Reference"
+											: "Kling v2.6"
+										: "LTX-2"}
+								</span>
+							</div>
+						</div>
+					</div>
+
+					{/* Exported Video Download Link */}
+					{exportedVideoUrl && (
+						<button
+							type="button"
+							onClick={handleDownloadExportedVideo}
+							className="flex items-center gap-2 px-4 py-2 bg-emerald-500/20 border border-emerald-500/30 rounded-lg hover:bg-emerald-500/30 transition-colors"
+						>
+							<Download className="w-4 h-4 text-emerald-400" />
+							<span className="text-sm text-emerald-400 font-medium">
+								Download Exported Video
+							</span>
+						</button>
+					)}
+				</div>
+			</div>
 
 			{/* Character Card */}
 			<div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
@@ -985,16 +1199,16 @@ function ScenesPage() {
 				</div>
 			)}
 
-			{/* Export My Video Button - shown when all scenes have videos */}
+			{/* Go to Export Button - shown when all scenes have videos */}
 			{allScenesHaveVideos && (
 				<div className="mt-8">
 					<button
 						type="button"
-						onClick={handleExportMyVideo}
+						onClick={() => navigate({ to: "/aistory/export" })}
 						className="w-full py-4 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-white text-lg font-bold rounded-xl transition-all duration-300 shadow-lg shadow-amber-500/30 hover:shadow-amber-500/50 flex items-center justify-center gap-3"
 					>
 						<Film className="w-6 h-6" />
-						EXPORT MY VIDEO
+						GO TO EXPORT
 					</button>
 				</div>
 			)}

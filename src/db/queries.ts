@@ -1,27 +1,40 @@
-import { eq, desc, isNull, and } from "drizzle-orm";
-import { db, generateStoryId, generateAudioId, generateImageId, generateVideoId, generateSceneId } from "./index";
+import { and, desc, eq, isNull } from "drizzle-orm";
 import {
-	stories,
-	scenes,
-	audios,
-	images,
-	videos,
-	type Story,
-	type NewStory,
-	type Scene,
-	type NewScene,
+	db,
+	generateAudioId,
+	generateImageId,
+	generateSceneId,
+	generateStoryId,
+	generateVideoId,
+} from "./index";
+import {
 	type Audio,
-	type NewAudio,
+	audios,
 	type Image,
-	type NewImage,
-	type Video,
-	type NewVideo,
-	type MediaStatus,
 	type ImageType,
+	images,
+	type MediaStatus,
+	type NewAudio,
+	type NewImage,
+	type NewScene,
+	type NewStory,
+	type NewVideo,
+	type Scene,
+	type Story,
+	scenes,
+	stories,
+	type Video,
+	videos,
 } from "./schema";
 
 // Re-export ID generators for convenience
-export { generateStoryId, generateAudioId, generateImageId, generateVideoId, generateSceneId };
+export {
+	generateStoryId,
+	generateAudioId,
+	generateImageId,
+	generateVideoId,
+	generateSceneId,
+};
 
 // ============================================================================
 // Story CRUD Operations
@@ -547,4 +560,83 @@ export async function getScenesWithMedia(storyId: string): Promise<
 export async function storyExists(storyId: string): Promise<boolean> {
 	const story = await getStoryById(storyId);
 	return story !== undefined;
+}
+
+// ============================================================================
+// User-Scoped Queries (for authenticated users)
+// ============================================================================
+
+/**
+ * List all stories for a specific user
+ */
+export async function listUserStories(ownerId: string): Promise<Story[]> {
+	return db
+		.select()
+		.from(stories)
+		.where(eq(stories.ownerId, ownerId))
+		.orderBy(desc(stories.updatedAt));
+}
+
+/**
+ * List user's stories by type
+ */
+export async function listUserStoriesByType(
+	ownerId: string,
+	type: "aistory" | "podcast42",
+): Promise<Story[]> {
+	return db
+		.select()
+		.from(stories)
+		.where(and(eq(stories.ownerId, ownerId), eq(stories.type, type)))
+		.orderBy(desc(stories.updatedAt));
+}
+
+/**
+ * Get ALL images for a user (not just orphaned)
+ */
+export async function getUserImages(ownerId: string): Promise<Image[]> {
+	return db
+		.select()
+		.from(images)
+		.where(eq(images.ownerId, ownerId))
+		.orderBy(desc(images.createdAt));
+}
+
+/**
+ * Get ALL videos for a user (not just orphaned)
+ */
+export async function getUserVideos(ownerId: string): Promise<Video[]> {
+	return db
+		.select()
+		.from(videos)
+		.where(eq(videos.ownerId, ownerId))
+		.orderBy(desc(videos.createdAt));
+}
+
+/**
+ * Verify user owns a story
+ */
+export async function verifyStoryOwnership(
+	storyId: string,
+	ownerId: string,
+): Promise<boolean> {
+	const [story] = await db
+		.select({ id: stories.id })
+		.from(stories)
+		.where(and(eq(stories.id, storyId), eq(stories.ownerId, ownerId)));
+	return !!story;
+}
+
+/**
+ * Verify user owns a scene
+ */
+export async function verifySceneOwnership(
+	sceneId: string,
+	ownerId: string,
+): Promise<boolean> {
+	const [scene] = await db
+		.select({ id: scenes.id })
+		.from(scenes)
+		.where(and(eq(scenes.id, sceneId), eq(scenes.ownerId, ownerId)));
+	return !!scene;
 }

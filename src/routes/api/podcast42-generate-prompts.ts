@@ -1,13 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
-import OpenAI from "openai";
 import { generateStoryId } from "@/db";
-import { createStory, createScenes } from "@/db/queries";
-import { type ImageStyle, getGptStyleBlock } from "@/lib/style-prompts";
-
-// Initialize OpenAI client with API key from environment variables
-const openai = new OpenAI({
-	apiKey: process.env.OPENAI_API_KEY,
-});
+import { createScenes, createStory } from "@/db/queries";
+import { requireAuth } from "@/lib/auth-middleware";
+import { OpenAI, openai } from "@/lib/openai-client";
+import { getGptStyleBlock, type ImageStyle } from "@/lib/style-prompts";
 
 // Scene data type definition for podcast42
 export interface Podcast42Scene {
@@ -35,6 +31,10 @@ export const Route = createFileRoute("/api/podcast42-generate-prompts")({
 	server: {
 		handlers: {
 			POST: async ({ request }) => {
+				// Require authentication
+				const { user, error: authError } = await requireAuth(request);
+				if (authError) return authError;
+
 				try {
 					const body = (await request.json()) as {
 						playScript: string;
@@ -177,6 +177,7 @@ Output must be ONLY valid JSON.`,
 					// Create story in database
 					await createStory({
 						id: storyId,
+						ownerId: user.id,
 						type: "podcast42",
 						playScript,
 						imageEngine,
@@ -191,6 +192,7 @@ Output must be ONLY valid JSON.`,
 					// Create scenes in database
 					const sceneData = scenes.map((scene, index) => ({
 						id: `${storyId}-scene-${index}`,
+						ownerId: user.id,
 						storyId,
 						orderIndex: index,
 						caption: scene.caption,

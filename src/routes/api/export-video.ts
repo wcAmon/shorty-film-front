@@ -1,249 +1,52 @@
-import * as fs from "node:fs";
-import * as path from "node:path";
-import ffmpegInstaller from "@ffmpeg-installer/ffmpeg";
 import { createFileRoute } from "@tanstack/react-router";
-import ffmpeg from "fluent-ffmpeg";
-import {
-	getStoryById,
-	updateStory,
-	getScenesWithMedia,
-	createVideo,
-	generateVideoId,
-} from "@/db/queries";
-import {
-	uploadExportVideo,
-	deleteExportVideo,
-	downloadFromStorage,
-	extractPathFromUrl,
-} from "@/lib/supabase-storage";
-import {
-	getTempFilePath,
-	deleteTempFile,
-	ensureTempDir,
-} from "@/lib/cache";
-
-// Configure FFmpeg path
-ffmpeg.setFfmpegPath(ffmpegInstaller.path);
-
-// Request interface
-interface ExportVideoRequest {
-	storyId: string;
-}
-
-// Response interface
-interface ExportVideoResponse {
-	success: boolean;
-	videoUrl?: string;
-	error?: string;
-}
-
-// Concatenate multiple video segments using concat demuxer
-// Re-encodes to ensure format consistency for aistory
-function concatenateVideos(
-	videoPaths: string[],
-	outputPath: string,
-): Promise<void> {
-	// Create a temporary concat list file
-	const concatListPath = path.join(
-		path.dirname(outputPath),
-		`concat_${Date.now()}.txt`,
-	);
-	const concatContent = videoPaths.map((p) => `file '${p}'`).join("\n");
-	fs.writeFileSync(concatListPath, concatContent);
-
-	console.log(
-		`[export-video] Concatenating ${videoPaths.length} videos:`,
-		videoPaths,
-	);
-
-	return new Promise((resolve, reject) => {
-		ffmpeg()
-			.input(concatListPath)
-			.inputOptions(["-f concat", "-safe 0"])
-			.outputOptions([
-				"-c:v libx264",
-				"-c:a aac",
-				"-ar 44100",
-				"-ac 2",
-				"-b:a 128k",
-				"-pix_fmt yuv420p",
-				"-movflags +faststart",
-			])
-			.output(outputPath)
-			.on("start", (cmd) => {
-				console.log("[export-video] FFmpeg concat command:", cmd);
-			})
-			.on("end", () => {
-				// Clean up concat list file
-				try {
-					fs.unlinkSync(concatListPath);
-				} catch {}
-				console.log("[export-video] Concatenation complete:", outputPath);
-				resolve();
-			})
-			.on("error", (err) => {
-				console.error("[export-video] FFmpeg concat error:", err);
-				try {
-					fs.unlinkSync(concatListPath);
-				} catch {}
-				reject(err);
-			})
-			.run();
-	});
-}
+import { requireAuth } from "@/lib/auth-middleware";
+import { isBackendConfigured, proxyToBackend } from "@/lib/backend-proxy";
 
 export const Route = createFileRoute("/api/export-video")({
 	server: {
 		handlers: {
 			POST: async ({ request }) => {
-				const tempFiles: string[] = [];
+				// Require authentication
+				const { user, error: authError } = await requireAuth(request);
+				if (authError) return authError;
 
-				try {
-					const body = (await request.json()) as ExportVideoRequest;
-					const { storyId } = body;
-
-					// Validation
-					if (!storyId?.trim()) {
-						return Response.json(
-							{ success: false, error: "Story ID is required" },
-							{ status: 400 },
-						);
-					}
-
-					// Verify story exists
-					const story = await getStoryById(storyId);
-					if (!story) {
-						return Response.json(
-							{ success: false, error: "Story not found" },
-							{ status: 404 },
-						);
-					}
-
-					console.log(`[export-video] Starting export for story ${storyId}`);
-
-					// Get all scenes with their media
-					const scenesWithMedia = await getScenesWithMedia(storyId);
-
-					if (scenesWithMedia.length === 0) {
-						return Response.json(
-							{ success: false, error: "No scenes found for this story" },
-							{ status: 400 },
-						);
-					}
-
-					// Verify all scenes have videos
-					const missingVideos: number[] = [];
-					for (let i = 0; i < scenesWithMedia.length; i++) {
-						const { video } = scenesWithMedia[i];
-						if (!video || !video.videoUrl) {
-							missingVideos.push(i + 1);
-						}
-					}
-
-					if (missingVideos.length > 0) {
-						return Response.json(
-							{
-								success: false,
-								error: `Scene(s) ${missingVideos.join(", ")} video not found. Generate video first.`,
-							},
-							{ status: 400 },
-						);
-					}
-
-					console.log(`[export-video] All ${scenesWithMedia.length} scene videos found, downloading...`);
-
-					// Ensure temp directory exists
-					ensureTempDir();
-
-					// Download all scene videos to temp directory
-					const videoPaths: string[] = [];
-					for (let i = 0; i < scenesWithMedia.length; i++) {
-						const { scene, video } = scenesWithMedia[i];
-						const tempFilename = `export-scene-${storyId}-${scene.id}.mp4`;
-						const tempPath = getTempFilePath(tempFilename);
-
-						// Extract path from video URL stored in database
-						const videoUrl = video!.videoUrl!;
-						console.log(`[export-video] Scene ${i + 1} videoUrl:`, videoUrl);
-
-						const videoPath = extractPathFromUrl(videoUrl);
-						console.log(`[export-video] Scene ${i + 1} extracted path:`, videoPath);
-
-						if (!videoPath) {
-							throw new Error(`Invalid video URL for scene ${i + 1}: ${videoUrl}`);
-						}
-
-						// Download video from Supabase Storage
-						const videoBuffer = await downloadFromStorage("videos", videoPath);
-						fs.writeFileSync(tempPath, videoBuffer);
-
-						videoPaths.push(tempPath);
-						tempFiles.push(tempFilename);
-
-						console.log(`[export-video] Downloaded scene ${i + 1}/${scenesWithMedia.length}`);
-					}
-
-					console.log("[export-video] All scene videos downloaded, starting concatenation...");
-
-					// Concatenate all scene videos
-					const exportTempFilename = `export-final-${storyId}.mp4`;
-					const exportTempPath = getTempFilePath(exportTempFilename);
-					tempFiles.push(exportTempFilename);
-
-					await concatenateVideos(videoPaths, exportTempPath);
-
-					// Delete old export video from Supabase Storage if exists
-					if (story.exportVideoUrl) {
-						console.log("[export-video] Deleting old export video...");
-						await deleteExportVideo(storyId);
-					}
-
-					// Read the concatenated video and upload to Supabase Storage
-					const exportBuffer = fs.readFileSync(exportTempPath);
-					const exportUrl = await uploadExportVideo(storyId, exportBuffer);
-
-					console.log(`[export-video] Uploaded to Supabase: ${exportUrl}`);
-
-					// Update story record with new export URL
-					await updateStory(storyId, {
-						hasExportedVideo: true,
-						exportVideoUrl: exportUrl,
-					});
-
-					// Create a video record without storyId/sceneId for asset library
-					const videoId = generateVideoId();
-					await createVideo({
-						id: videoId,
-						storyId: null,
-						sceneId: null,
-						prompt: `Exported video from story ${storyId}`,
-						videoUrl: exportUrl,
-						status: "completed",
-					});
-
-					console.log(`[export-video] Created video record for asset library: ${videoId}`);
-					console.log(`[export-video] Export complete: ${exportUrl}`);
-
-					return Response.json({
-						success: true,
-						videoUrl: exportUrl,
-					} as ExportVideoResponse);
-				} catch (err) {
-					console.error("[export-video] Export error:", err);
-
+				// Check if backend is configured
+				if (!isBackendConfigured()) {
 					return Response.json(
 						{
 							success: false,
 							error:
-								err instanceof Error ? err.message : "Failed to export video",
+								"Backend not configured. Set BACKEND_URL and SERVER_SECRET in environment variables.",
+						},
+						{ status: 503 },
+					);
+				}
+
+				try {
+					const body = (await request.json()) as {
+						storyId: string;
+					};
+
+					// Proxy to backend with owner ID
+					return proxyToBackend("/api/generation/export", {
+						method: "POST",
+						body: {
+							...body,
+							ownerId: user.id,
+						},
+					});
+				} catch (err) {
+					console.error("[export-video] Submit error:", err);
+					return Response.json(
+						{
+							success: false,
+							error:
+								err instanceof Error
+									? err.message
+									: "Failed to submit export video job",
 						},
 						{ status: 500 },
 					);
-				} finally {
-					// Clean up all temp files
-					for (const tempFilename of tempFiles) {
-						deleteTempFile(tempFilename);
-					}
 				}
 			},
 		},

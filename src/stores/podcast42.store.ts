@@ -1,6 +1,6 @@
 import { Store } from "@tanstack/store";
 import type { WordTimestamp } from "@/hooks/use-aistory-api";
-import type { VoiceId, ImageEngine, ImageStyle } from "./aistory.store";
+import type { ImageEngine, ImageStyle, VoiceId } from "./aistory.store";
 
 // Speaker type for podcast42
 export type Podcast42Speaker = "person1" | "person2";

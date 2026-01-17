@@ -1,6 +1,6 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useStore } from "@tanstack/react-store";
-import { Download, FileVideo, Film, Loader2 } from "lucide-react";
+import { Clock, Download, Film, Loader2, PlayCircle } from "lucide-react";
 import { useExportVideo } from "@/hooks/use-aistory-api";
 import { aistoryActions, aistoryStore } from "@/stores/aistory.store";
 
@@ -18,7 +18,7 @@ export const Route = createFileRoute("/aistory/export")({
 	component: ExportPage,
 });
 
-// Export Page: Video merging + Final video preview + Download
+// Export Page: Scene list with durations + Export button + Video preview
 function ExportPage() {
 	// React Query mutation
 	const exportVideoMutation = useExportVideo();
@@ -36,18 +36,28 @@ function ExportPage() {
 	);
 	const exportError = useStore(aistoryStore, (state) => state.exportError);
 
+	// Calculate total duration from all scene videos
+	const totalDuration = scenes.reduce(
+		(acc, scene) => acc + (scene.videoDuration || 0),
+		0,
+	);
+
+	// Format duration as mm:ss
+	const formatDuration = (seconds: number) => {
+		const mins = Math.floor(seconds / 60);
+		const secs = Math.floor(seconds % 60);
+		return `${mins}:${secs.toString().padStart(2, "0")}`;
+	};
+
 	// Handle export video
 	const handleExportVideo = () => {
 		if (!storyId) return;
 
 		aistoryActions.setIsExportingVideo(true);
 		aistoryActions.setExportError(null);
-		aistoryActions.setExportedVideoUrl(null);
 
 		exportVideoMutation.mutate(
-			{
-				storyId,
-			},
+			{ storyId },
 			{
 				onSuccess: (result) => {
 					if (result.success && result.videoUrl) {
@@ -74,11 +84,8 @@ function ExportPage() {
 		if (!exportedVideoUrl) return;
 
 		try {
-			// Fetch the video as blob to handle cross-origin download
 			const response = await fetch(exportedVideoUrl);
 			const blob = await response.blob();
-
-			// Create object URL and trigger download
 			const blobUrl = URL.createObjectURL(blob);
 			const link = document.createElement("a");
 			link.href = blobUrl;
@@ -86,8 +93,6 @@ function ExportPage() {
 			document.body.appendChild(link);
 			link.click();
 			document.body.removeChild(link);
-
-			// Clean up object URL
 			URL.revokeObjectURL(blobUrl);
 		} catch (error) {
 			console.error("Download failed:", error);
@@ -97,18 +102,56 @@ function ExportPage() {
 
 	return (
 		<div className="space-y-8">
-			{/* Export Video Section */}
+			{/* Scene List Section */}
 			<div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
 				<h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-					<FileVideo className="w-5 h-5 text-amber-400" />
-					Export Final Video
+					<PlayCircle className="w-5 h-5 text-purple-400" />
+					Scenes to Export
 				</h3>
 
-				<p className="text-slate-400 mb-6">
-					Your {scenes.length} scene{scenes.length > 1 ? "s are" : " is"} ready
-					to be merged into a single video. Click the button below to start the
-					export process.
-				</p>
+				{/* Scene List */}
+				<div className="space-y-2 mb-6">
+					{scenes.map((scene, index) => (
+						<div
+							key={scene.id}
+							className="flex items-center justify-between px-4 py-3 bg-slate-900/50 border border-slate-700 rounded-lg"
+						>
+							<div className="flex items-center gap-3">
+								<span className="text-slate-500 text-sm font-mono w-6">
+									{(index + 1).toString().padStart(2, "0")}
+								</span>
+								<span className="text-white font-medium">{scene.title}</span>
+							</div>
+							<div className="flex items-center gap-2 text-slate-400">
+								<Clock className="w-4 h-4" />
+								<span className="text-sm font-mono">
+									{scene.videoDuration
+										? formatDuration(scene.videoDuration)
+										: "--:--"}
+								</span>
+							</div>
+						</div>
+					))}
+				</div>
+
+				{/* Total Duration */}
+				<div className="flex items-center justify-between px-4 py-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+					<span className="text-amber-400 font-semibold">Total Duration</span>
+					<div className="flex items-center gap-2 text-amber-400">
+						<Clock className="w-4 h-4" />
+						<span className="font-mono font-bold">
+							{formatDuration(totalDuration)}
+						</span>
+					</div>
+				</div>
+			</div>
+
+			{/* Export Button Section */}
+			<div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+				<h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+					<Film className="w-5 h-5 text-amber-400" />
+					Export Final Video
+				</h3>
 
 				{exportError && (
 					<div className="mb-4 p-4 bg-red-500/20 border border-red-500/50 rounded-xl text-red-300">
@@ -120,8 +163,8 @@ function ExportPage() {
 					<button
 						type="button"
 						onClick={handleExportVideo}
-						disabled={isExportingVideo || !!exportedVideoUrl}
-						className="flex-1 py-4 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 disabled:from-slate-600 disabled:to-slate-600 disabled:cursor-not-allowed text-white text-lg font-bold rounded-xl transition-all duration-300 shadow-lg shadow-amber-500/30 flex items-center justify-center gap-3"
+						disabled={isExportingVideo}
+						className="flex-1 py-4 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 disabled:from-slate-600 disabled:to-slate-600 disabled:cursor-not-allowed text-white text-lg font-bold rounded-xl transition-all duration-300 shadow-lg shadow-amber-500/30 hover:shadow-amber-500/50 disabled:shadow-none flex items-center justify-center gap-3"
 					>
 						{isExportingVideo ? (
 							<>
@@ -131,7 +174,7 @@ function ExportPage() {
 						) : exportedVideoUrl ? (
 							<>
 								<Film className="w-6 h-6" />
-								Export Complete!
+								RE-EXPORT VIDEO
 							</>
 						) : (
 							<>

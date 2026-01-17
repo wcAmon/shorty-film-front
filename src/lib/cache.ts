@@ -8,15 +8,13 @@ import path from "node:path";
 import { generateStoryId as genStoryId } from "@/db";
 import {
 	deleteStoryById,
-	listAllStories as listAllStoriesDb,
-	listStoriesByType as listStoriesByTypeDb,
 	getScenesByStoryId,
 	getStoryById,
+	listAllStories as listAllStoriesDb,
+	listStoriesByType as listStoriesByTypeDb,
 } from "@/db/queries";
-import type { Story, Scene } from "@/db/schema";
-import {
-	deleteStoryFiles as deleteStorageStoryFiles,
-} from "@/lib/supabase-storage";
+import type { Scene, Story } from "@/db/schema";
+import { deleteStoryFiles as deleteStorageStoryFiles } from "@/lib/supabase-storage";
 
 // Re-export for backward compatibility
 export const generateStoryId = genStoryId;
@@ -68,7 +66,14 @@ export interface StoryMetadata {
 
 	// Engine settings
 	imageEngine?: "gpt-image" | "flux-pro" | string | null;
-	imageStyle?: "cinematic" | "comic" | "low-poly" | "japanese-anime" | "clay" | string | null;
+	imageStyle?:
+		| "cinematic"
+		| "comic"
+		| "low-poly"
+		| "japanese-anime"
+		| "clay"
+		| string
+		| null;
 	voiceId?: string | null; // for aistory
 	person1VoiceId?: string | null; // for podcast42
 	person2VoiceId?: string | null; // for podcast42
@@ -228,7 +233,10 @@ export async function deleteStory(storyId: string): Promise<void> {
 /**
  * Convert DB Story + Scenes to StoryMetadata format
  */
-export function dbToStoryMetadata(story: Story, storyScenes: Scene[]): StoryMetadata {
+export function dbToStoryMetadata(
+	story: Story,
+	storyScenes: Scene[],
+): StoryMetadata {
 	const scenes: StorySceneMetadata[] = storyScenes.map((scene) => ({
 		id: scene.id,
 		caption: scene.caption,
@@ -250,12 +258,20 @@ export function dbToStoryMetadata(story: Story, storyScenes: Scene[]): StoryMeta
 		script: story.script ?? undefined,
 		playScript: story.playScript ?? undefined,
 		imageEngine: story.imageEngine as "gpt-image" | "flux-pro",
-		imageStyle: story.imageStyle as "cinematic" | "comic" | "low-poly" | "japanese-anime" | "clay",
+		imageStyle: story.imageStyle as
+			| "cinematic"
+			| "comic"
+			| "low-poly"
+			| "japanese-anime"
+			| "clay",
 		voiceId: story.voiceId ?? undefined,
 		person1VoiceId: story.person1VoiceId ?? undefined,
 		person2VoiceId: story.person2VoiceId ?? undefined,
 		videoEngine: story.videoEngine ?? undefined,
-		podcast42VideoEngine: story.podcast42VideoEngine as "omnihuman" | "aurora" | undefined,
+		podcast42VideoEngine: story.podcast42VideoEngine as
+			| "omnihuman"
+			| "aurora"
+			| undefined,
 		characterPrompt: story.characterPrompt ?? undefined,
 		person1Prompt: story.person1Prompt ?? undefined,
 		person2Prompt: story.person2Prompt ?? undefined,
@@ -267,7 +283,9 @@ export function dbToStoryMetadata(story: Story, storyScenes: Scene[]): StoryMeta
 /**
  * Load story metadata from database
  */
-export async function loadStoryMetadata(storyId: string): Promise<StoryMetadata | null> {
+export async function loadStoryMetadata(
+	storyId: string,
+): Promise<StoryMetadata | null> {
 	const story = await getStoryById(storyId);
 	if (!story) return null;
 

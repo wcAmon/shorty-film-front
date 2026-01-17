@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { getOrphanedImages, getOrphanedVideos } from "@/db/queries";
+import { getUserImages, getUserVideos } from "@/db/queries";
+import { requireAuth } from "@/lib/auth-middleware";
 
 interface AssetLibraryResponse {
 	success: boolean;
@@ -8,6 +9,7 @@ interface AssetLibraryResponse {
 		imageUrl: string | null;
 		prompt: string;
 		imageType: string;
+		storyId: string | null;
 		createdAt: Date | null;
 	}>;
 	videos?: Array<{
@@ -15,6 +17,7 @@ interface AssetLibraryResponse {
 		videoUrl: string | null;
 		prompt: string;
 		duration: number | null;
+		storyId: string | null;
 		createdAt: Date | null;
 	}>;
 	error?: string;
@@ -23,12 +26,17 @@ interface AssetLibraryResponse {
 export const Route = createFileRoute("/api/asset-library")({
 	server: {
 		handlers: {
-			// GET: List orphaned images and videos
-			GET: async () => {
+			// GET: List all images and videos for authenticated user
+			GET: async ({ request }) => {
+				// Require authentication
+				const { user, error } = await requireAuth(request);
+				if (error) return error;
+
 				try {
+					// Get ALL user's images and videos (not just orphaned)
 					const [images, videos] = await Promise.all([
-						getOrphanedImages(),
-						getOrphanedVideos(),
+						getUserImages(user.id),
+						getUserVideos(user.id),
 					]);
 
 					return Response.json({
@@ -38,6 +46,7 @@ export const Route = createFileRoute("/api/asset-library")({
 							imageUrl: img.imageUrl,
 							prompt: img.prompt,
 							imageType: img.imageType,
+							storyId: img.storyId,
 							createdAt: img.createdAt,
 						})),
 						videos: videos.map((vid) => ({
@@ -45,6 +54,7 @@ export const Route = createFileRoute("/api/asset-library")({
 							videoUrl: vid.videoUrl,
 							prompt: vid.prompt,
 							duration: vid.duration,
+							storyId: vid.storyId,
 							createdAt: vid.createdAt,
 						})),
 					} as AssetLibraryResponse);
@@ -54,7 +64,9 @@ export const Route = createFileRoute("/api/asset-library")({
 						{
 							success: false,
 							error:
-								err instanceof Error ? err.message : "Failed to get asset library",
+								err instanceof Error
+									? err.message
+									: "Failed to get asset library",
 						},
 						{ status: 500 },
 					);

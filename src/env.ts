@@ -1,6 +1,14 @@
 import { createEnv } from "@t3-oss/env-core";
 import { z } from "zod";
 
+// Merge process.env (server-side) with import.meta.env (client-side)
+// This ensures server-side environment variables are available in SSR context
+const runtimeEnv = {
+	...import.meta.env,
+	// Server-side variables from process.env (available in Node.js context)
+	...(typeof process !== "undefined" ? process.env : {}),
+};
+
 export const env = createEnv({
 	server: {
 		SERVER_URL: z.string().url().optional(),
@@ -16,6 +24,9 @@ export const env = createEnv({
 		SUPABASE_SECRET_KEY: z.string().min(1),
 		SUPABASE_URI: z.string().min(1), // PostgreSQL connection string
 		SUPABASE_SCHEMA: z.string().min(1).default("shorty"),
+		// Backend API configuration
+		BACKEND_URL: z.string().url().optional(),
+		SERVER_SECRET: z.string().min(1).optional(),
 	},
 
 	/**
@@ -34,7 +45,7 @@ export const env = createEnv({
 	 * What object holds the environment variables at runtime. This is usually
 	 * `process.env` or `import.meta.env`.
 	 */
-	runtimeEnv: import.meta.env,
+	runtimeEnv,
 
 	/**
 	 * By default, this library will feed the environment variables directly to

@@ -1,5 +1,8 @@
 import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router";
+import { useStore } from "@tanstack/react-store";
 import { ArrowLeft, Sparkles } from "lucide-react";
+import { useEffect } from "react";
+import { authStore } from "@/stores/auth.store";
 import { aistoryActions } from "@/stores/aistory.store";
 
 export const Route = createFileRoute("/aistory")({
@@ -9,6 +12,28 @@ export const Route = createFileRoute("/aistory")({
 // Layout component for AI Story pages
 function AIStoryLayout() {
 	const navigate = useNavigate();
+	const { isAuthenticated, isLoading } = useStore(authStore);
+
+	// Redirect to home if not authenticated
+	useEffect(() => {
+		if (!isLoading && !isAuthenticated) {
+			navigate({ to: "/" });
+		}
+	}, [isAuthenticated, isLoading, navigate]);
+
+	// Show loading while checking auth
+	if (isLoading) {
+		return (
+			<div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
+				<div className="w-8 h-8 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+			</div>
+		);
+	}
+
+	// Don't render content if not authenticated (will redirect)
+	if (!isAuthenticated) {
+		return null;
+	}
 
 	const handleBack = () => {
 		aistoryActions.reset();

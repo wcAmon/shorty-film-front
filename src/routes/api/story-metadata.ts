@@ -1,14 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
 import {
-	listStoriesByType,
-	listAllStories,
-	getStoryById,
-	getScenesWithMedia,
-	getScenesByStoryId,
-	updateStory,
 	deleteStoryById,
 	getImageById,
+	getScenesByStoryId,
+	getScenesWithMedia,
+	getStoryById,
+	listUserStories,
+	listUserStoriesByType,
+	updateStory,
+	verifyStoryOwnership,
 } from "@/db/queries";
+import { requireAuth } from "@/lib/auth-middleware";
 
 // Response types
 interface StoryListItem {
@@ -113,6 +115,10 @@ export const Route = createFileRoute("/api/story-metadata")({
 		handlers: {
 			// GET: List stories or get a specific story
 			GET: async ({ request }) => {
+				// Require authentication
+				const { user, error } = await requireAuth(request);
+				if (error) return error;
+
 				try {
 					const url = new URL(request.url);
 					const storyId = url.searchParams.get("storyId");
@@ -123,6 +129,15 @@ export const Route = createFileRoute("/api/story-metadata")({
 
 					// If storyId provided, return that specific story with scenes and media
 					if (storyId) {
+						// Verify user owns this story
+						const isOwner = await verifyStoryOwnership(storyId, user.id);
+						if (!isOwner) {
+							return Response.json(
+								{ success: false, error: "Story not found" },
+								{ status: 404 },
+							);
+						}
+
 						const story = await getStoryById(storyId);
 						if (!story) {
 							return Response.json(
@@ -134,25 +149,31 @@ export const Route = createFileRoute("/api/story-metadata")({
 						// Get scenes with full media details
 						const scenesWithMedia = await getScenesWithMedia(storyId);
 
-						// Build scenes response with media URLs
-						const scenes = scenesWithMedia.map(({ scene, audio, image, video }) => ({
-							id: scene.id,
-							orderIndex: scene.orderIndex,
-							caption: scene.caption,
-							title: scene.title,
-							prompt: scene.prompt,
-							videoPrompt: scene.videoPrompt,
-							isCharacter: scene.isCharacter,
-							speaker: scene.speaker,
-							imageId: scene.imageId,
-							audioId: scene.audioId,
-							videoId: scene.videoId,
-							imageUrl: image?.imageUrl ?? null,
-							audioUrl: audio?.audioUrl ?? null,
-							videoUrl: video?.videoUrl ?? null,
-							audioDuration: audio?.duration ?? null,
-							videoDuration: video?.duration ?? null,
-						}));
+						// Build scenes response with media URLs and status
+						const scenes = scenesWithMedia.map(
+							({ scene, audio, image, video }) => ({
+								id: scene.id,
+								orderIndex: scene.orderIndex,
+								caption: scene.caption,
+								title: scene.title,
+								prompt: scene.prompt,
+								videoPrompt: scene.videoPrompt,
+								isCharacter: scene.isCharacter,
+								speaker: scene.speaker,
+								imageId: scene.imageId,
+								audioId: scene.audioId,
+								videoId: scene.videoId,
+								imageUrl: image?.imageUrl ?? null,
+								audioUrl: audio?.audioUrl ?? null,
+								videoUrl: video?.videoUrl ?? null,
+								audioDuration: audio?.duration ?? null,
+								videoDuration: video?.duration ?? null,
+								// Include media status for resuming generation monitoring
+								imageStatus: image?.status ?? null,
+								audioStatus: audio?.status ?? null,
+								videoStatus: video?.status ?? null,
+							}),
+						);
 
 						// Fetch character images based on story's person1ImageId and person2ImageId
 						const characterImages: GetStoryResponse["characterImages"] = {};
@@ -189,14 +210,17 @@ export const Route = createFileRoute("/api/story-metadata")({
 							success: true,
 							story,
 							scenes,
-							characterImages: Object.keys(characterImages).length > 0 ? characterImages : undefined,
+							characterImages:
+								Object.keys(characterImages).length > 0
+									? characterImages
+									: undefined,
 						} as GetStoryResponse);
 					}
 
-					// Otherwise list stories with scene statistics
+					// Otherwise list user's stories with scene statistics
 					const storiesDb = type
-						? await listStoriesByType(type)
-						: await listAllStories();
+						? await listUserStoriesByType(user.id, type)
+						: await listUserStories(user.id);
 
 					// Fetch scene data for each story
 					const storiesWithScenes: StoryListItem[] = await Promise.all(
@@ -216,8 +240,10 @@ export const Route = createFileRoute("/api/story-metadata")({
 								voiceId: story.voiceId,
 								hasExportedVideo: story.hasExportedVideo ?? false,
 								exportVideoUrl: story.exportVideoUrl,
-								createdAt: story.createdAt?.toISOString() ?? new Date().toISOString(),
-								updatedAt: story.updatedAt?.toISOString() ?? new Date().toISOString(),
+								createdAt:
+									story.createdAt?.toISOString() ?? new Date().toISOString(),
+								updatedAt:
+									story.updatedAt?.toISOString() ?? new Date().toISOString(),
 								scenes: storyScenes.map((scene) => ({
 									id: scene.id,
 									hasAudio: !!scene.audioId,
@@ -236,7 +262,8 @@ export const Route = createFileRoute("/api/story-metadata")({
 					return Response.json(
 						{
 							success: false,
-							error: err instanceof Error ? err.message : "Failed to get stories",
+							error:
+								err instanceof Error ? err.message : "Failed to get stories",
 						},
 						{ status: 500 },
 					);
@@ -245,6 +272,10 @@ export const Route = createFileRoute("/api/story-metadata")({
 
 			// POST: Update story metadata
 			POST: async ({ request }) => {
+				// Require authentication
+				const { user, error } = await requireAuth(request);
+				if (error) return error;
+
 				try {
 					const body = (await request.json()) as {
 						storyId: string;
@@ -269,9 +300,9 @@ export const Route = createFileRoute("/api/story-metadata")({
 						);
 					}
 
-					// Verify story exists
-					const story = await getStoryById(storyId);
-					if (!story) {
+					// Verify user owns this story
+					const isOwner = await verifyStoryOwnership(storyId, user.id);
+					if (!isOwner) {
 						return Response.json(
 							{ success: false, error: "Story not found" },
 							{ status: 404 },
@@ -297,6 +328,10 @@ export const Route = createFileRoute("/api/story-metadata")({
 
 			// DELETE: Delete a story
 			DELETE: async ({ request }) => {
+				// Require authentication
+				const { user, error } = await requireAuth(request);
+				if (error) return error;
+
 				try {
 					const url = new URL(request.url);
 					const storyId = url.searchParams.get("storyId");
@@ -305,6 +340,15 @@ export const Route = createFileRoute("/api/story-metadata")({
 						return Response.json(
 							{ success: false, error: "Story ID is required" },
 							{ status: 400 },
+						);
+					}
+
+					// Verify user owns this story
+					const isOwner = await verifyStoryOwnership(storyId, user.id);
+					if (!isOwner) {
+						return Response.json(
+							{ success: false, error: "Story not found" },
+							{ status: 404 },
 						);
 					}
 

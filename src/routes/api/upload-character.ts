@@ -1,15 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
-import OpenAI, { toFile } from "openai";
-
-// Initialize OpenAI client with API key from environment variables
-const openai = new OpenAI({
-	apiKey: process.env.OPENAI_API_KEY,
-});
+import { requireAuth } from "@/lib/auth-middleware";
+import { OpenAI, openai, toFile } from "@/lib/openai-client";
 
 export const Route = createFileRoute("/api/upload-character")({
 	server: {
 		handlers: {
 			POST: async ({ request }) => {
+				// Require authentication
+				const { error: authError } = await requireAuth(request);
+				if (authError) return authError;
+
 				try {
 					const body = (await request.json()) as { imageBase64: string };
 					const { imageBase64 } = body;

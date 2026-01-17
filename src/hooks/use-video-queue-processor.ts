@@ -1,10 +1,11 @@
-import { useEffect, useRef } from "react";
 import { useStore } from "@tanstack/react-store";
+import { useEffect, useRef } from "react";
 import {
+	type Podcast42VideoEngine,
 	podcast42Actions,
 	podcast42Store,
-	type Podcast42VideoEngine,
 } from "@/stores/podcast42.store";
+import { authFetch } from "./use-auth";
 
 // API functions (copied from use-podcast42-api.ts to avoid circular deps)
 interface SubmitVideoJobResponse {
@@ -28,7 +29,7 @@ async function submitPodcast42VideoJobApi(params: {
 	audioBase64: string;
 	videoEngine?: Podcast42VideoEngine;
 }): Promise<SubmitVideoJobResponse> {
-	const response = await fetch("/api/podcast42-generate-video", {
+	const response = await authFetch("/api/podcast42-generate-video", {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify(params),
@@ -40,7 +41,7 @@ async function checkPodcast42VideoStatusApi(params: {
 	storyId: string;
 	sceneIndex: number;
 }): Promise<CheckVideoStatusResponse> {
-	const response = await fetch("/api/podcast42-generate-video", {
+	const response = await authFetch("/api/podcast42-generate-video", {
 		method: "PUT",
 		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify(params),

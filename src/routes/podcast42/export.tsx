@@ -100,9 +100,9 @@ function Podcast42ExportPage() {
 				</h3>
 
 				<p className="text-slate-400 mb-6">
-					Your {scenes.length} dialogue scene{scenes.length > 1 ? "s are" : " is"}{" "}
-					ready to be merged into a single podcast video. Click the button below
-					to start the export process.
+					Your {scenes.length} dialogue scene
+					{scenes.length > 1 ? "s are" : " is"} ready to be merged into a single
+					podcast video. Click the button below to start the export process.
 				</p>
 
 				{exportError && (

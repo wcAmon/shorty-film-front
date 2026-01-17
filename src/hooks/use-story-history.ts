@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { StoryMetadata } from "@/lib/cache";
+import { authFetch } from "./use-auth";
 
 // ============================================================================
 // API Response Types
@@ -51,22 +52,20 @@ interface DeleteStoryResponse {
 async function listStoriesApi(
 	type?: "aistory" | "podcast42",
 ): Promise<ListStoriesResponse> {
-	const url = type
-		? `/api/story-metadata?type=${type}`
-		: "/api/story-metadata";
-	const response = await fetch(url);
+	const url = type ? `/api/story-metadata?type=${type}` : "/api/story-metadata";
+	const response = await authFetch(url);
 	return response.json();
 }
 
 async function getStoryApi(storyId: string): Promise<GetStoryResponse> {
-	const response = await fetch(`/api/story-metadata?storyId=${storyId}`);
+	const response = await authFetch(`/api/story-metadata?storyId=${storyId}`);
 	return response.json();
 }
 
 async function saveStoryMetadataApi(
 	metadata: StoryMetadata,
 ): Promise<SaveStoryResponse> {
-	const response = await fetch("/api/story-metadata", {
+	const response = await authFetch("/api/story-metadata", {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify({ metadata }),
@@ -75,7 +74,7 @@ async function saveStoryMetadataApi(
 }
 
 async function deleteStoryApi(storyId: string): Promise<DeleteStoryResponse> {
-	const response = await fetch(`/api/story-metadata?storyId=${storyId}`, {
+	const response = await authFetch(`/api/story-metadata?storyId=${storyId}`, {
 		method: "DELETE",
 	});
 	return response.json();

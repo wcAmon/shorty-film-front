@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as UserRouteImport } from './routes/user'
 import { Route as Podcast42RouteImport } from './routes/podcast42'
 import { Route as HistoryRouteImport } from './routes/history'
 import { Route as AssetLibraryRouteImport } from './routes/asset-library'
@@ -26,6 +27,8 @@ import { Route as ApiPodcast42GenerateVideoRouteImport } from './routes/api/podc
 import { Route as ApiPodcast42GeneratePromptsRouteImport } from './routes/api/podcast42-generate-prompts'
 import { Route as ApiPodcast42ExportVideoRouteImport } from './routes/api/podcast42-export-video'
 import { Route as ApiPodcast42DeleteSceneFilesRouteImport } from './routes/api/podcast42-delete-scene-files'
+import { Route as ApiGetMediaStatusRouteImport } from './routes/api/get-media-status'
+import { Route as ApiGetJobStatusRouteImport } from './routes/api/get-job-status'
 import { Route as ApiGenerateSceneVideoRouteImport } from './routes/api/generate-scene-video'
 import { Route as ApiGenerateSceneImageRouteImport } from './routes/api/generate-scene-image'
 import { Route as ApiGenerateSceneAudioRouteImport } from './routes/api/generate-scene-audio'
@@ -36,6 +39,11 @@ import { Route as ApiAssetLibraryRouteImport } from './routes/api/asset-library'
 import { Route as AistoryScenesRouteImport } from './routes/aistory/scenes'
 import { Route as AistoryExportRouteImport } from './routes/aistory/export'
 
+const UserRoute = UserRouteImport.update({
+  id: '/user',
+  path: '/user',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const Podcast42Route = Podcast42RouteImport.update({
   id: '/podcast42',
   path: '/podcast42',
@@ -125,6 +133,16 @@ const ApiPodcast42DeleteSceneFilesRoute =
     path: '/api/podcast42-delete-scene-files',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiGetMediaStatusRoute = ApiGetMediaStatusRouteImport.update({
+  id: '/api/get-media-status',
+  path: '/api/get-media-status',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiGetJobStatusRoute = ApiGetJobStatusRouteImport.update({
+  id: '/api/get-job-status',
+  path: '/api/get-job-status',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiGenerateSceneVideoRoute = ApiGenerateSceneVideoRouteImport.update({
   id: '/api/generate-scene-video',
   path: '/api/generate-scene-video',
@@ -177,6 +195,7 @@ export interface FileRoutesByFullPath {
   '/asset-library': typeof AssetLibraryRoute
   '/history': typeof HistoryRoute
   '/podcast42': typeof Podcast42RouteWithChildren
+  '/user': typeof UserRoute
   '/aistory/export': typeof AistoryExportRoute
   '/aistory/scenes': typeof AistoryScenesRoute
   '/api/asset-library': typeof ApiAssetLibraryRoute
@@ -186,6 +205,8 @@ export interface FileRoutesByFullPath {
   '/api/generate-scene-audio': typeof ApiGenerateSceneAudioRoute
   '/api/generate-scene-image': typeof ApiGenerateSceneImageRoute
   '/api/generate-scene-video': typeof ApiGenerateSceneVideoRoute
+  '/api/get-job-status': typeof ApiGetJobStatusRoute
+  '/api/get-media-status': typeof ApiGetMediaStatusRoute
   '/api/podcast42-delete-scene-files': typeof ApiPodcast42DeleteSceneFilesRoute
   '/api/podcast42-export-video': typeof ApiPodcast42ExportVideoRoute
   '/api/podcast42-generate-prompts': typeof ApiPodcast42GeneratePromptsRoute
@@ -203,6 +224,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/asset-library': typeof AssetLibraryRoute
   '/history': typeof HistoryRoute
+  '/user': typeof UserRoute
   '/aistory/export': typeof AistoryExportRoute
   '/aistory/scenes': typeof AistoryScenesRoute
   '/api/asset-library': typeof ApiAssetLibraryRoute
@@ -212,6 +234,8 @@ export interface FileRoutesByTo {
   '/api/generate-scene-audio': typeof ApiGenerateSceneAudioRoute
   '/api/generate-scene-image': typeof ApiGenerateSceneImageRoute
   '/api/generate-scene-video': typeof ApiGenerateSceneVideoRoute
+  '/api/get-job-status': typeof ApiGetJobStatusRoute
+  '/api/get-media-status': typeof ApiGetMediaStatusRoute
   '/api/podcast42-delete-scene-files': typeof ApiPodcast42DeleteSceneFilesRoute
   '/api/podcast42-export-video': typeof ApiPodcast42ExportVideoRoute
   '/api/podcast42-generate-prompts': typeof ApiPodcast42GeneratePromptsRoute
@@ -232,6 +256,7 @@ export interface FileRoutesById {
   '/asset-library': typeof AssetLibraryRoute
   '/history': typeof HistoryRoute
   '/podcast42': typeof Podcast42RouteWithChildren
+  '/user': typeof UserRoute
   '/aistory/export': typeof AistoryExportRoute
   '/aistory/scenes': typeof AistoryScenesRoute
   '/api/asset-library': typeof ApiAssetLibraryRoute
@@ -241,6 +266,8 @@ export interface FileRoutesById {
   '/api/generate-scene-audio': typeof ApiGenerateSceneAudioRoute
   '/api/generate-scene-image': typeof ApiGenerateSceneImageRoute
   '/api/generate-scene-video': typeof ApiGenerateSceneVideoRoute
+  '/api/get-job-status': typeof ApiGetJobStatusRoute
+  '/api/get-media-status': typeof ApiGetMediaStatusRoute
   '/api/podcast42-delete-scene-files': typeof ApiPodcast42DeleteSceneFilesRoute
   '/api/podcast42-export-video': typeof ApiPodcast42ExportVideoRoute
   '/api/podcast42-generate-prompts': typeof ApiPodcast42GeneratePromptsRoute
@@ -262,6 +289,7 @@ export interface FileRouteTypes {
     | '/asset-library'
     | '/history'
     | '/podcast42'
+    | '/user'
     | '/aistory/export'
     | '/aistory/scenes'
     | '/api/asset-library'
@@ -271,6 +299,8 @@ export interface FileRouteTypes {
     | '/api/generate-scene-audio'
     | '/api/generate-scene-image'
     | '/api/generate-scene-video'
+    | '/api/get-job-status'
+    | '/api/get-media-status'
     | '/api/podcast42-delete-scene-files'
     | '/api/podcast42-export-video'
     | '/api/podcast42-generate-prompts'
@@ -288,6 +318,7 @@ export interface FileRouteTypes {
     | '/'
     | '/asset-library'
     | '/history'
+    | '/user'
     | '/aistory/export'
     | '/aistory/scenes'
     | '/api/asset-library'
@@ -297,6 +328,8 @@ export interface FileRouteTypes {
     | '/api/generate-scene-audio'
     | '/api/generate-scene-image'
     | '/api/generate-scene-video'
+    | '/api/get-job-status'
+    | '/api/get-media-status'
     | '/api/podcast42-delete-scene-files'
     | '/api/podcast42-export-video'
     | '/api/podcast42-generate-prompts'
@@ -316,6 +349,7 @@ export interface FileRouteTypes {
     | '/asset-library'
     | '/history'
     | '/podcast42'
+    | '/user'
     | '/aistory/export'
     | '/aistory/scenes'
     | '/api/asset-library'
@@ -325,6 +359,8 @@ export interface FileRouteTypes {
     | '/api/generate-scene-audio'
     | '/api/generate-scene-image'
     | '/api/generate-scene-video'
+    | '/api/get-job-status'
+    | '/api/get-media-status'
     | '/api/podcast42-delete-scene-files'
     | '/api/podcast42-export-video'
     | '/api/podcast42-generate-prompts'
@@ -345,6 +381,7 @@ export interface RootRouteChildren {
   AssetLibraryRoute: typeof AssetLibraryRoute
   HistoryRoute: typeof HistoryRoute
   Podcast42Route: typeof Podcast42RouteWithChildren
+  UserRoute: typeof UserRoute
   ApiAssetLibraryRoute: typeof ApiAssetLibraryRoute
   ApiExportVideoRoute: typeof ApiExportVideoRoute
   ApiGenerateCharacterRoute: typeof ApiGenerateCharacterRoute
@@ -352,6 +389,8 @@ export interface RootRouteChildren {
   ApiGenerateSceneAudioRoute: typeof ApiGenerateSceneAudioRoute
   ApiGenerateSceneImageRoute: typeof ApiGenerateSceneImageRoute
   ApiGenerateSceneVideoRoute: typeof ApiGenerateSceneVideoRoute
+  ApiGetJobStatusRoute: typeof ApiGetJobStatusRoute
+  ApiGetMediaStatusRoute: typeof ApiGetMediaStatusRoute
   ApiPodcast42DeleteSceneFilesRoute: typeof ApiPodcast42DeleteSceneFilesRoute
   ApiPodcast42ExportVideoRoute: typeof ApiPodcast42ExportVideoRoute
   ApiPodcast42GeneratePromptsRoute: typeof ApiPodcast42GeneratePromptsRoute
@@ -364,6 +403,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/user': {
+      id: '/user'
+      path: '/user'
+      fullPath: '/user'
+      preLoaderRoute: typeof UserRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/podcast42': {
       id: '/podcast42'
       path: '/podcast42'
@@ -483,6 +529,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPodcast42DeleteSceneFilesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/get-media-status': {
+      id: '/api/get-media-status'
+      path: '/api/get-media-status'
+      fullPath: '/api/get-media-status'
+      preLoaderRoute: typeof ApiGetMediaStatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/get-job-status': {
+      id: '/api/get-job-status'
+      path: '/api/get-job-status'
+      fullPath: '/api/get-job-status'
+      preLoaderRoute: typeof ApiGetJobStatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/generate-scene-video': {
       id: '/api/generate-scene-video'
       path: '/api/generate-scene-video'
@@ -586,6 +646,7 @@ const rootRouteChildren: RootRouteChildren = {
   AssetLibraryRoute: AssetLibraryRoute,
   HistoryRoute: HistoryRoute,
   Podcast42Route: Podcast42RouteWithChildren,
+  UserRoute: UserRoute,
   ApiAssetLibraryRoute: ApiAssetLibraryRoute,
   ApiExportVideoRoute: ApiExportVideoRoute,
   ApiGenerateCharacterRoute: ApiGenerateCharacterRoute,
@@ -593,6 +654,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiGenerateSceneAudioRoute: ApiGenerateSceneAudioRoute,
   ApiGenerateSceneImageRoute: ApiGenerateSceneImageRoute,
   ApiGenerateSceneVideoRoute: ApiGenerateSceneVideoRoute,
+  ApiGetJobStatusRoute: ApiGetJobStatusRoute,
+  ApiGetMediaStatusRoute: ApiGetMediaStatusRoute,
   ApiPodcast42DeleteSceneFilesRoute: ApiPodcast42DeleteSceneFilesRoute,
   ApiPodcast42ExportVideoRoute: ApiPodcast42ExportVideoRoute,
   ApiPodcast42GeneratePromptsRoute: ApiPodcast42GeneratePromptsRoute,

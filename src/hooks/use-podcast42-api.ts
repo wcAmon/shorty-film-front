@@ -1,5 +1,11 @@
 import { useMutation } from "@tanstack/react-query";
-import type { ImageEngine, ImageStyle, VoiceId, WordTimestamp } from "./use-aistory-api";
+import type {
+	ImageEngine,
+	ImageStyle,
+	VoiceId,
+	WordTimestamp,
+} from "./use-aistory-api";
+import { authFetch } from "./use-auth";
 
 // Video engine type for podcast42
 export type Podcast42VideoEngine = "omnihuman" | "aurora";
@@ -81,7 +87,7 @@ async function generatePodcast42PromptsApi(params: {
 	imageStyle?: ImageStyle;
 	testMode?: boolean;
 }): Promise<GeneratePodcast42PromptsResponse> {
-	const response = await fetch("/api/podcast42-generate-prompts", {
+	const response = await authFetch("/api/podcast42-generate-prompts", {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify(params),
@@ -97,7 +103,7 @@ async function generatePodcast42CharacterApi(params: {
 	person: "person1" | "person2";
 }): Promise<GeneratePodcast42CharacterResponse> {
 	// Use existing generate-character API with 16:9 aspect ratio for podcast
-	const response = await fetch("/api/generate-character", {
+	const response = await authFetch("/api/generate-character", {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify({
@@ -118,7 +124,7 @@ async function uploadPodcast42CharacterApi(params: {
 	storyId: string;
 }): Promise<UploadPodcast42CharacterResponse> {
 	// Upload to FAL storage for OmniHuman and save to cache
-	const response = await fetch("/api/upload-podcast42-character", {
+	const response = await authFetch("/api/upload-podcast42-character", {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify(params),
@@ -133,7 +139,7 @@ async function generatePodcast42SceneAudioApi(params: {
 	voiceId?: string;
 }): Promise<GenerateSceneAudioResponse> {
 	// Use existing generate-scene-audio API
-	const response = await fetch("/api/generate-scene-audio", {
+	const response = await authFetch("/api/generate-scene-audio", {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify(params),
@@ -148,7 +154,7 @@ async function submitPodcast42VideoJobApi(params: {
 	imageUrl: string; // FAL storage URL for character image
 	videoEngine?: Podcast42VideoEngine;
 }): Promise<SubmitVideoJobResponse> {
-	const response = await fetch("/api/podcast42-generate-video", {
+	const response = await authFetch("/api/podcast42-generate-video", {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify(params),
@@ -161,7 +167,7 @@ async function checkPodcast42VideoStatusApi(params: {
 	storyId: string;
 	sceneId: string;
 }): Promise<CheckVideoStatusResponse> {
-	const response = await fetch("/api/podcast42-generate-video", {
+	const response = await authFetch("/api/podcast42-generate-video", {
 		method: "PUT",
 		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify(params),
@@ -252,7 +258,7 @@ async function exportPodcast42VideoApi(params: {
 	sceneIds?: string[];
 }): Promise<ExportVideoResponse> {
 	// Use podcast42-specific export API
-	const response = await fetch("/api/podcast42-export-video", {
+	const response = await authFetch("/api/podcast42-export-video", {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify(params),
@@ -367,7 +373,7 @@ async function updatePodcast42SettingsApi(params: {
 	const { storyId, ...settings } = params;
 
 	// First get current metadata
-	const getResponse = await fetch(`/api/story-metadata?storyId=${storyId}`);
+	const getResponse = await authFetch(`/api/story-metadata?storyId=${storyId}`);
 	const getData = await getResponse.json();
 
 	if (!getData.success || !getData.metadata) {
@@ -385,7 +391,7 @@ async function updatePodcast42SettingsApi(params: {
 	};
 
 	// Save updated metadata
-	const saveResponse = await fetch("/api/story-metadata", {
+	const saveResponse = await authFetch("/api/story-metadata", {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify({ metadata: updatedMetadata }),
@@ -418,7 +424,7 @@ async function deletePodcast42SceneFilesApi(params: {
 	storyId: string;
 	sceneId: string;
 }): Promise<DeleteSceneResponse> {
-	const response = await fetch("/api/podcast42-delete-scene-files", {
+	const response = await authFetch("/api/podcast42-delete-scene-files", {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify(params),
@@ -465,7 +471,7 @@ async function updatePodcast42SceneApi(params: {
 	const { storyId, sceneId, updates } = params;
 
 	// First get current metadata
-	const getResponse = await fetch(`/api/story-metadata?storyId=${storyId}`);
+	const getResponse = await authFetch(`/api/story-metadata?storyId=${storyId}`);
 	const getData = await getResponse.json();
 
 	if (!getData.success || !getData.metadata) {
@@ -484,7 +490,7 @@ async function updatePodcast42SceneApi(params: {
 		scenes: updatedScenes,
 	};
 
-	const saveResponse = await fetch("/api/story-metadata", {
+	const saveResponse = await authFetch("/api/story-metadata", {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify({ metadata: updatedMetadata }),
@@ -512,7 +518,7 @@ async function reorderPodcast42ScenesApi(params: {
 	const { storyId, fromIndex, toIndex } = params;
 
 	// First get current metadata
-	const getResponse = await fetch(`/api/story-metadata?storyId=${storyId}`);
+	const getResponse = await authFetch(`/api/story-metadata?storyId=${storyId}`);
 	const getData = await getResponse.json();
 
 	if (!getData.success || !getData.metadata) {
@@ -530,7 +536,7 @@ async function reorderPodcast42ScenesApi(params: {
 		scenes: newScenes,
 	};
 
-	const saveResponse = await fetch("/api/story-metadata", {
+	const saveResponse = await authFetch("/api/story-metadata", {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify({ metadata: updatedMetadata }),

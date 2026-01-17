@@ -29,7 +29,10 @@ export async function uploadToStorage(
 		});
 
 	if (error) {
-		console.error(`[supabase-storage] Upload error to ${bucket}/${path}:`, error);
+		console.error(
+			`[supabase-storage] Upload error to ${bucket}/${path}:`,
+			error,
+		);
 		throw new Error(`Failed to upload to ${bucket}: ${error.message}`);
 	}
 
@@ -107,7 +110,9 @@ export async function deleteExportVideo(storyId: string): Promise<void> {
 		await deleteFromStorage("videos", path);
 	} catch (err) {
 		// Ignore error if file doesn't exist
-		console.log(`[supabase-storage] Export video not found, skipping delete: ${path}`);
+		console.log(
+			`[supabase-storage] Export video not found, skipping delete: ${path}`,
+		);
 	}
 }
 
@@ -128,7 +133,10 @@ export async function downloadFromStorage(
 	const { data, error } = await supabase.storage.from(bucket).download(path);
 
 	if (error) {
-		console.error(`[supabase-storage] Download error from ${bucket}/${path}:`, error);
+		console.error(
+			`[supabase-storage] Download error from ${bucket}/${path}:`,
+			error,
+		);
 		throw new Error(`Failed to download from ${bucket}: ${error.message}`);
 	}
 
@@ -198,7 +206,10 @@ export async function deleteFromStorage(
 	const { error } = await supabase.storage.from(bucket).remove([path]);
 
 	if (error) {
-		console.error(`[supabase-storage] Delete error from ${bucket}/${path}:`, error);
+		console.error(
+			`[supabase-storage] Delete error from ${bucket}/${path}:`,
+			error,
+		);
 		throw new Error(`Failed to delete from ${bucket}: ${error.message}`);
 	}
 
@@ -223,7 +234,9 @@ export async function deleteMultipleFromStorage(
 		throw new Error(`Failed to delete from ${bucket}: ${error.message}`);
 	}
 
-	console.log(`[supabase-storage] Deleted ${paths.length} files from ${bucket}`);
+	console.log(
+		`[supabase-storage] Deleted ${paths.length} files from ${bucket}`,
+	);
 }
 
 /**
@@ -237,7 +250,8 @@ export async function deleteStoryFiles(
 	storyId: string,
 ): Promise<void> {
 	// Determine the media type prefix based on bucket
-	const mediaType = bucket === "audios" ? "audio" : bucket === "images" ? "image" : "video";
+	const mediaType =
+		bucket === "audios" ? "audio" : bucket === "images" ? "image" : "video";
 
 	// List all files in the bucket root
 	const { data: files, error: listError } = await supabase.storage
@@ -258,11 +272,14 @@ export async function deleteStoryFiles(
 	const prefix = `${mediaType}-${storyId}-`;
 	const exportPrefix = `export-${storyId}.`;
 	const matchingFiles = files.filter(
-		(file) => file.name.startsWith(prefix) || file.name.startsWith(exportPrefix)
+		(file) =>
+			file.name.startsWith(prefix) || file.name.startsWith(exportPrefix),
 	);
 
 	if (matchingFiles.length === 0) {
-		console.log(`[supabase-storage] No files to delete for story ${storyId} in ${bucket}`);
+		console.log(
+			`[supabase-storage] No files to delete for story ${storyId} in ${bucket}`,
+		);
 		return;
 	}
 
@@ -292,7 +309,9 @@ export function extractPathFromUrl(url: string): string | null {
 	try {
 		const urlObj = new URL(url);
 		// URL format: /storage/v1/object/public/{bucket}/{path}
-		const match = urlObj.pathname.match(/\/storage\/v1\/object\/public\/[^/]+\/(.+)/);
+		const match = urlObj.pathname.match(
+			/\/storage\/v1\/object\/public\/[^/]+\/(.+)/,
+		);
 		return match ? match[1] : null;
 	} catch {
 		return null;
@@ -326,7 +345,8 @@ export async function deleteSceneMedia(
 	storyId: string,
 	sceneId: string,
 ): Promise<void> {
-	const mediaType = bucket === "audios" ? "audio" : bucket === "images" ? "image" : "video";
+	const mediaType =
+		bucket === "audios" ? "audio" : bucket === "images" ? "image" : "video";
 	const ext = bucket === "audios" ? "mp3" : bucket === "images" ? "jpg" : "mp4";
 	const path = `${mediaType}-${storyId}-${sceneId}.${ext}`;
 

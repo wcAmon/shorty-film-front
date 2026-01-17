@@ -3,11 +3,8 @@ import { useStore } from "@tanstack/react-store";
 import { ArrowRight, Loader2, Mic } from "lucide-react";
 import { useId } from "react";
 import { useGeneratePodcast42Prompts } from "@/hooks/use-podcast42-api";
-import {
-	podcast42Actions,
-	podcast42Store,
-} from "@/stores/podcast42.store";
 import type { ImageEngine, ImageStyle, VoiceId } from "@/stores/aistory.store";
+import { podcast42Actions, podcast42Store } from "@/stores/podcast42.store";
 
 // Image style options for selection
 const IMAGE_STYLES: { id: ImageStyle; label: string; description: string }[] = [
@@ -125,8 +122,14 @@ function Podcast42InputPage() {
 	);
 	const imageEngine = useStore(podcast42Store, (state) => state.imageEngine);
 	const imageStyle = useStore(podcast42Store, (state) => state.imageStyle);
-	const person1VoiceId = useStore(podcast42Store, (state) => state.person1VoiceId);
-	const person2VoiceId = useStore(podcast42Store, (state) => state.person2VoiceId);
+	const person1VoiceId = useStore(
+		podcast42Store,
+		(state) => state.person1VoiceId,
+	);
+	const person2VoiceId = useStore(
+		podcast42Store,
+		(state) => state.person2VoiceId,
+	);
 	const testMode = useStore(podcast42Store, (state) => state.testMode);
 	const error = useStore(podcast42Store, (state) => state.error);
 
@@ -156,11 +159,16 @@ function Podcast42InputPage() {
 						podcast42Actions.setPerson1Prompt(result.person1Prompt);
 						podcast42Actions.setPerson2Prompt(result.person2Prompt);
 						podcast42Actions.setScenes(
-							result.scenes.map((scene: { speaker: string; caption: string }, index: number) => ({
-								id: `scene-${index}`,
-								speaker: scene.speaker as "person1" | "person2",
-								caption: scene.caption,
-							})),
+							result.scenes.map(
+								(
+									scene: { speaker: string; caption: string },
+									index: number,
+								) => ({
+									id: `scene-${index}`,
+									speaker: scene.speaker as "person1" | "person2",
+									caption: scene.caption,
+								}),
+							),
 						);
 						podcast42Actions.setPromptsGenerated(true);
 					} else {
@@ -204,7 +212,8 @@ function Podcast42InputPage() {
 					disabled={isGeneratingPrompts || promptsGenerated}
 				/>
 				<p className="mt-2 text-sm text-slate-400">
-					Define background, person1/person2 descriptions, then dialogue with [person1]/[person2] tags
+					Define background, person1/person2 descriptions, then dialogue with
+					[person1]/[person2] tags
 				</p>
 			</div>
 
@@ -251,7 +260,9 @@ function Podcast42InputPage() {
 							/>
 							<div>
 								<div className="text-white font-medium">{style.label}</div>
-								<div className="text-sm text-slate-400">{style.description}</div>
+								<div className="text-sm text-slate-400">
+									{style.description}
+								</div>
 							</div>
 						</label>
 					))}
@@ -284,7 +295,9 @@ function Podcast42InputPage() {
 							/>
 							<div>
 								<div className="text-white font-medium">{engine.label}</div>
-								<div className="text-sm text-slate-400">{engine.description}</div>
+								<div className="text-sm text-slate-400">
+									{engine.description}
+								</div>
 							</div>
 						</label>
 					))}
@@ -299,7 +312,8 @@ function Podcast42InputPage() {
 				<div className="p-4 rounded-lg border border-purple-500 bg-purple-500/10">
 					<div className="text-white font-medium">OmniHuman v1.5</div>
 					<div className="text-sm text-slate-400">
-						Talking-head video generation from image + audio (fixed engine for podcast)
+						Talking-head video generation from image + audio (fixed engine for
+						podcast)
 					</div>
 				</div>
 			</div>
@@ -330,7 +344,9 @@ function Podcast42InputPage() {
 							/>
 							<div>
 								<div className="text-white font-medium">{voice.label}</div>
-								<div className="text-sm text-slate-400">{voice.description}</div>
+								<div className="text-sm text-slate-400">
+									{voice.description}
+								</div>
 							</div>
 						</label>
 					))}
@@ -363,7 +379,9 @@ function Podcast42InputPage() {
 							/>
 							<div>
 								<div className="text-white font-medium">{voice.label}</div>
-								<div className="text-sm text-slate-400">{voice.description}</div>
+								<div className="text-sm text-slate-400">
+									{voice.description}
+								</div>
 							</div>
 						</label>
 					))}

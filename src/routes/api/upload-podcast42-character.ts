@@ -3,16 +3,22 @@ import { createFileRoute } from "@tanstack/react-router";
 import { generateImageId } from "@/db";
 import {
 	createImage,
-	updateImage,
 	getStoryById,
+	updateImage,
+	verifyStoryOwnership,
 } from "@/db/queries";
-import { uploadImage } from "@/lib/supabase-storage";
 import type { ImageType } from "@/db/schema";
+import { requireAuth } from "@/lib/auth-middleware";
+import { uploadImage } from "@/lib/supabase-storage";
 
 export const Route = createFileRoute("/api/upload-podcast42-character")({
 	server: {
 		handlers: {
 			POST: async ({ request }) => {
+				// Require authentication
+				const { user, error: authError } = await requireAuth(request);
+				if (authError) return authError;
+
 				try {
 					const body = (await request.json()) as {
 						imageBase64: string;
@@ -41,6 +47,15 @@ export const Route = createFileRoute("/api/upload-podcast42-character")({
 						);
 					}
 
+					// Verify user owns this story
+					const isOwner = await verifyStoryOwnership(storyId, user.id);
+					if (!isOwner) {
+						return Response.json(
+							{ success: false, error: "Story not found" },
+							{ status: 404 },
+						);
+					}
+
 					// Verify story exists
 					const story = await getStoryById(storyId);
 					if (!story) {
@@ -60,6 +75,7 @@ export const Route = createFileRoute("/api/upload-podcast42-character")({
 					const imageId = generateImageId();
 					await createImage({
 						id: imageId,
+						ownerId: user.id,
 						storyId,
 						sceneId: null, // Character images are not scene-specific
 						prompt: `Uploaded ${person} character image`,
@@ -67,12 +83,21 @@ export const Route = createFileRoute("/api/upload-podcast42-character")({
 						status: "generating",
 					});
 
-					console.log(`[upload-podcast42-character] Created image record: ${imageId}`);
+					console.log(
+						`[upload-podcast42-character] Created image record: ${imageId}`,
+					);
 
 					// Upload to Supabase Storage
-					const supabaseImageUrl = await uploadImage(storyId, imageType, imageBuffer, "jpg");
+					const supabaseImageUrl = await uploadImage(
+						storyId,
+						imageType,
+						imageBuffer,
+						"jpg",
+					);
 
-					console.log(`[upload-podcast42-character] Uploaded to Supabase: ${supabaseImageUrl}`);
+					console.log(
+						`[upload-podcast42-character] Uploaded to Supabase: ${supabaseImageUrl}`,
+					);
 
 					// Configure FAL client
 					fal.config({
@@ -93,7 +118,9 @@ export const Route = createFileRoute("/api/upload-podcast42-character")({
 						status: "completed",
 					});
 
-					console.log(`[upload-podcast42-character] Image upload completed: ${imageId}`);
+					console.log(
+						`[upload-podcast42-character] Image upload completed: ${imageId}`,
+					);
 
 					return Response.json({
 						success: true,

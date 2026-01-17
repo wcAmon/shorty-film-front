@@ -60,5 +60,7 @@ export function getCharacterStyleBlock(style: ImageStyle): string {
 	const { prompt, negativePrompt } = STYLE_PROMPTS[style];
 
 	const base = `- Art style: ${prompt}`;
-	return negativePrompt ? `${base}\n- Negative prompt: ${negativePrompt}\n` : `${base}\n`;
+	return negativePrompt
+		? `${base}\n- Negative prompt: ${negativePrompt}\n`
+		: `${base}\n`;
 }

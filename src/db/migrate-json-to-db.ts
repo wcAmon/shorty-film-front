@@ -11,8 +11,8 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { saveStoryMetadataDb, storyExistsDb } from "./queries";
 import type { StoryMetadata, StorySceneMetadata } from "@/lib/cache";
+import { saveStoryMetadataDb, storyExistsDb } from "./queries";
 
 // Initialize database (this creates tables if they don't exist)
 import "./index";
@@ -64,7 +64,11 @@ function convertScene(
 
 	// Convert hasImage flag to imageUrl
 	if (scene.hasImage) {
-		const imagePath = path.join(CACHE_BASE_DIR, storyId, `scene-${sceneIndex}-image.jpg`);
+		const imagePath = path.join(
+			CACHE_BASE_DIR,
+			storyId,
+			`scene-${sceneIndex}-image.jpg`,
+		);
 		if (fs.existsSync(imagePath)) {
 			newScene.imageUrl = `/video_cache/stories/${storyId}/scene-${sceneIndex}-image.jpg`;
 		}
@@ -72,7 +76,11 @@ function convertScene(
 
 	// Convert hasAudio flag to audioUrl
 	if (scene.hasAudio) {
-		const audioPath = path.join(CACHE_BASE_DIR, storyId, `scene-${sceneIndex}-audio.mp3`);
+		const audioPath = path.join(
+			CACHE_BASE_DIR,
+			storyId,
+			`scene-${sceneIndex}-audio.mp3`,
+		);
 		if (fs.existsSync(audioPath)) {
 			newScene.audioUrl = `/video_cache/stories/${storyId}/scene-${sceneIndex}-audio.mp3`;
 		}
@@ -80,7 +88,11 @@ function convertScene(
 
 	// Convert hasVideo flag to videoUrl
 	if (scene.hasVideo) {
-		const videoPath = path.join(CACHE_BASE_DIR, storyId, `scene-${sceneIndex}-video.mp4`);
+		const videoPath = path.join(
+			CACHE_BASE_DIR,
+			storyId,
+			`scene-${sceneIndex}-video.mp4`,
+		);
 		if (fs.existsSync(videoPath)) {
 			newScene.videoUrl = `/video_cache/stories/${storyId}/scene-${sceneIndex}-video.mp4`;
 		}
@@ -142,10 +154,15 @@ function migrateJsonToDb(): void {
 
 			// Save to database
 			saveStoryMetadataDb(newMetadata);
-			console.log(`[OK] ${oldMetadata.storyId}: Migrated (${oldMetadata.type}, ${newScenes.length} scenes)`);
+			console.log(
+				`[OK] ${oldMetadata.storyId}: Migrated (${oldMetadata.type}, ${newScenes.length} scenes)`,
+			);
 			migrated++;
 		} catch (err) {
-			console.error(`[ERROR] ${dir}:`, err instanceof Error ? err.message : err);
+			console.error(
+				`[ERROR] ${dir}:`,
+				err instanceof Error ? err.message : err,
+			);
 			errors++;
 		}
 	}

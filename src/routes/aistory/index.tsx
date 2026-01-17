@@ -160,25 +160,35 @@ function PromptsPage() {
 		aistoryActions.setError(null);
 		aistoryActions.resetPrompts();
 
-		generatePromptsMutation.mutate({ script, imageStyle, testMode }, {
-			onSuccess: (result) => {
-				if (result.success && result.storyId && result.characterPrompt && result.scenes) {
-					aistoryActions.setStoryId(result.storyId);
-					aistoryActions.setCharacterPrompt(result.characterPrompt);
-					aistoryActions.setScenes(result.scenes);
-					aistoryActions.setPromptsGenerated(true);
-				} else {
-					aistoryActions.setError(result.error || "Failed to generate prompts");
-				}
-				aistoryActions.setIsGeneratingPrompts(false);
+		generatePromptsMutation.mutate(
+			{ script, imageStyle, imageEngine, testMode },
+			{
+				onSuccess: (result) => {
+					if (
+						result.success &&
+						result.storyId &&
+						result.characterPrompt &&
+						result.scenes
+					) {
+						aistoryActions.setStoryId(result.storyId);
+						aistoryActions.setCharacterPrompt(result.characterPrompt);
+						aistoryActions.setScenes(result.scenes);
+						aistoryActions.setPromptsGenerated(true);
+					} else {
+						aistoryActions.setError(
+							result.error || "Failed to generate prompts",
+						);
+					}
+					aistoryActions.setIsGeneratingPrompts(false);
+				},
+				onError: (err) => {
+					aistoryActions.setError(
+						err instanceof Error ? err.message : "An unexpected error occurred",
+					);
+					aistoryActions.setIsGeneratingPrompts(false);
+				},
 			},
-			onError: (err) => {
-				aistoryActions.setError(
-					err instanceof Error ? err.message : "An unexpected error occurred",
-				);
-				aistoryActions.setIsGeneratingPrompts(false);
-			},
-		});
+		);
 	};
 
 	// Navigate to scenes page

@@ -1,9 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { getStoryById, deleteSceneById } from "@/db/queries";
 import {
-	deleteFromStorage,
-	deleteExportVideo,
-} from "@/lib/supabase-storage";
+	deleteSceneById,
+	getStoryById,
+	verifyStoryOwnership,
+} from "@/db/queries";
+import { requireAuth } from "@/lib/auth-middleware";
+import { deleteExportVideo, deleteFromStorage } from "@/lib/supabase-storage";
 
 // Request interface
 interface DeleteSceneFilesRequest {
@@ -21,6 +23,10 @@ export const Route = createFileRoute("/api/podcast42-delete-scene-files")({
 	server: {
 		handlers: {
 			POST: async ({ request }) => {
+				// Require authentication
+				const { user, error: authError } = await requireAuth(request);
+				if (authError) return authError;
+
 				try {
 					const body = (await request.json()) as DeleteSceneFilesRequest;
 					const { storyId, sceneId } = body;
@@ -37,6 +43,15 @@ export const Route = createFileRoute("/api/podcast42-delete-scene-files")({
 						return Response.json(
 							{ success: false, error: "Scene ID is required" },
 							{ status: 400 },
+						);
+					}
+
+					// Verify user owns this story
+					const isOwner = await verifyStoryOwnership(storyId, user.id);
+					if (!isOwner) {
+						return Response.json(
+							{ success: false, error: "Story not found" },
+							{ status: 404 },
 						);
 					}
 
@@ -70,13 +85,17 @@ export const Route = createFileRoute("/api/podcast42-delete-scene-files")({
 					try {
 						await deleteFromStorage("audios", audioPath);
 					} catch (err) {
-						console.log(`[podcast42-delete-scene-files] Audio file not found: ${audioPath}`);
+						console.log(
+							`[podcast42-delete-scene-files] Audio file not found: ${audioPath}`,
+						);
 					}
 
 					try {
 						await deleteFromStorage("videos", videoPath);
 					} catch (err) {
-						console.log(`[podcast42-delete-scene-files] Video file not found: ${videoPath}`);
+						console.log(
+							`[podcast42-delete-scene-files] Video file not found: ${videoPath}`,
+						);
 					}
 
 					// Delete scene from database (will orphan associated media records)
@@ -87,7 +106,9 @@ export const Route = createFileRoute("/api/podcast42-delete-scene-files")({
 						try {
 							await deleteExportVideo(storyId);
 						} catch (err) {
-							console.log(`[podcast42-delete-scene-files] Export video not found`);
+							console.log(
+								`[podcast42-delete-scene-files] Export video not found`,
+							);
 						}
 					}
 
@@ -101,7 +122,9 @@ export const Route = createFileRoute("/api/podcast42-delete-scene-files")({
 						{
 							success: false,
 							error:
-								err instanceof Error ? err.message : "Failed to delete scene files",
+								err instanceof Error
+									? err.message
+									: "Failed to delete scene files",
 						},
 						{ status: 500 },
 					);
