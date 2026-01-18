@@ -303,27 +303,34 @@ function ScenesPage() {
 
 					const base64 = canvas.toDataURL("image/jpeg", 0.85).split(",")[1];
 
-					uploadCharacterMutation.mutate(base64, {
-						onSuccess: (result) => {
-							if (result.success && result.imageId && result.imageUrl) {
-								aistoryActions.setCharacterImageId(result.imageId);
-								aistoryActions.setCharacterImageUrl(result.imageUrl);
-							} else {
+					uploadCharacterMutation.mutate(
+						{
+							imageBase64: base64,
+							storyId: storyId ?? undefined,
+							person: "character",
+						},
+						{
+							onSuccess: (result) => {
+								if (result.success && result.imageId && result.imageUrl) {
+									aistoryActions.setCharacterImageId(result.imageId);
+									aistoryActions.setCharacterImageUrl(result.imageUrl);
+								} else {
+									aistoryActions.setError(
+										result.error ?? "Failed to upload character image",
+									);
+								}
+								aistoryActions.setIsGeneratingCharacter(false);
+							},
+							onError: (err) => {
 								aistoryActions.setError(
-									result.error ?? "Failed to upload character image",
+									err instanceof Error
+										? err.message
+										: "Failed to upload character image",
 								);
-							}
-							aistoryActions.setIsGeneratingCharacter(false);
+								aistoryActions.setIsGeneratingCharacter(false);
+							},
 						},
-						onError: (err) => {
-							aistoryActions.setError(
-								err instanceof Error
-									? err.message
-									: "Failed to upload character image",
-							);
-							aistoryActions.setIsGeneratingCharacter(false);
-						},
-					});
+					);
 				} else {
 					aistoryActions.setIsGeneratingCharacter(false);
 				}
@@ -362,27 +369,34 @@ function ScenesPage() {
 			}
 
 			// 2. Upload processed image as character
-			uploadCharacterMutation.mutate(processResult.base64, {
-				onSuccess: (result) => {
-					if (result.success && result.imageId && result.imageUrl) {
-						aistoryActions.setCharacterImageId(result.imageId);
-						aistoryActions.setCharacterImageUrl(result.imageUrl);
-					} else {
+			uploadCharacterMutation.mutate(
+				{
+					imageBase64: processResult.base64,
+					storyId: storyId ?? undefined,
+					person: "character",
+				},
+				{
+					onSuccess: (result) => {
+						if (result.success && result.imageId && result.imageUrl) {
+							aistoryActions.setCharacterImageId(result.imageId);
+							aistoryActions.setCharacterImageUrl(result.imageUrl);
+						} else {
+							aistoryActions.setError(
+								result.error ?? "Failed to upload character image",
+							);
+						}
+						aistoryActions.setIsGeneratingCharacter(false);
+					},
+					onError: (err) => {
 						aistoryActions.setError(
-							result.error ?? "Failed to upload character image",
+							err instanceof Error
+								? err.message
+								: "Failed to upload character image",
 						);
-					}
-					aistoryActions.setIsGeneratingCharacter(false);
+						aistoryActions.setIsGeneratingCharacter(false);
+					},
 				},
-				onError: (err) => {
-					aistoryActions.setError(
-						err instanceof Error
-							? err.message
-							: "Failed to upload character image",
-					);
-					aistoryActions.setIsGeneratingCharacter(false);
-				},
-			});
+			);
 		} catch (err) {
 			aistoryActions.setError(
 				err instanceof Error ? err.message : "Failed to import from assets",

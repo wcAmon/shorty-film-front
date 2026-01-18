@@ -529,13 +529,15 @@ async function generateCharacterApi(params: {
 	};
 }
 
-async function uploadCharacterApi(
-	imageBase64: string,
-): Promise<UploadCharacterResponse> {
+async function uploadCharacterApi(params: {
+	imageBase64: string;
+	storyId?: string;
+	person?: "character" | "person1" | "person2";
+}): Promise<UploadCharacterResponse> {
 	const response = await authFetch("/api/upload-character", {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({ imageBase64 }),
+		body: JSON.stringify(params),
 	});
 	return response.json();
 }

@@ -11,8 +11,12 @@ export const Route = createFileRoute("/api/upload-character")({
 				if (authError) return authError;
 
 				try {
-					const body = (await request.json()) as { imageBase64: string };
-					const { imageBase64 } = body;
+					const body = (await request.json()) as {
+						imageBase64: string;
+						storyId?: string;
+						person?: "character" | "person1" | "person2";
+					};
+					const { imageBase64, storyId, person } = body;
 
 					if (!imageBase64) {
 						return Response.json(
@@ -27,6 +31,8 @@ export const Route = createFileRoute("/api/upload-character")({
 						body: {
 							imageBase64,
 							ownerId: user.id,
+							storyId,
+							person,
 						},
 					});
 				} catch (err) {
