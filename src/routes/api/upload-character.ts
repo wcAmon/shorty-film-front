@@ -1,13 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { requireAuth } from "@/lib/auth-middleware";
-import { OpenAI, openai, toFile } from "@/lib/openai-client";
+import { proxyToBackend } from "@/lib/backend-proxy";
 
 export const Route = createFileRoute("/api/upload-character")({
 	server: {
 		handlers: {
 			POST: async ({ request }) => {
 				// Require authentication
-				const { error: authError } = await requireAuth(request);
+				const { user, error: authError } = await requireAuth(request);
 				if (authError) return authError;
 
 				try {
@@ -21,31 +21,16 @@ export const Route = createFileRoute("/api/upload-character")({
 						);
 					}
 
-					// Convert base64 to file for OpenAI API (supports both JPEG and PNG)
-					const imageBuffer = Buffer.from(imageBase64, "base64");
-					const imageFile = await toFile(imageBuffer, "character.jpg", {
-						type: "image/jpeg",
-					});
-
-					// Upload to OpenAI Files
-					const uploadedFile = await openai.files.create({
-						file: imageFile,
-						purpose: "vision",
-					});
-
-					return Response.json({
-						success: true,
-						fileId: uploadedFile.id,
+					// Proxy to backend
+					return proxyToBackend("/api/generation/upload/character", {
+						method: "POST",
+						body: {
+							imageBase64,
+							ownerId: user.id,
+						},
 					});
 				} catch (err) {
-					console.error("OpenAI Files API error:", err);
-
-					if (err instanceof OpenAI.APIError) {
-						return Response.json(
-							{ success: false, error: `OpenAI API error: ${err.message}` },
-							{ status: 500 },
-						);
-					}
+					console.error("[upload-character] Error:", err);
 
 					return Response.json(
 						{

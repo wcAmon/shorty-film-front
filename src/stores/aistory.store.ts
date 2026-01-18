@@ -1,8 +1,8 @@
 import { Store } from "@tanstack/store";
 import type { Scene, WordTimestamp } from "@/hooks/use-aistory-api";
 
-// Image engine options for generation
-export type ImageEngine = "gpt-image" | "flux-pro";
+// Image engine options for generation (all via FAL AI)
+export type ImageEngine = "flux-pro" | "gpt-image-1.5";
 
 // Image style options for prompt + image generation
 export type ImageStyle =
@@ -24,10 +24,9 @@ export type VoiceId =
 
 // Video engine options for FAL-AI
 export type VideoEngine =
-	| "fal-ai/kling-video/v2.6/pro/image-to-video"
-	| "fal-ai/kling-video/v2.6/pro/image-to-video:no-audio"
-	| "fal-ai/kling-video/o1/reference-to-video"
-	| "fal-ai/ltx-2-19b/image-to-video";
+	| "kling-video"
+	| "sora-2"
+	| "ltx-2-19b";
 
 // Media status type (matches database enum)
 export type MediaStatus = "ready" | "generating" | "completed";
@@ -70,9 +69,7 @@ export interface AIStoryState {
 	// Character data
 	characterPrompt: string | null;
 	characterImageId: string | null; // Database image ID
-	characterImageUrl: string | null; // Supabase Storage URL
-	characterFileId: string | null; // OpenAI file_id for character reference (for GPT Image)
-	characterFalImageUrl: string | null; // FAL storage URL for character reference (for Flux Pro)
+	characterImageUrl: string | null; // Supabase Storage URL (used by all FAL engines)
 
 	// Character generation state
 	isGeneratingCharacter: boolean;
@@ -103,9 +100,6 @@ export interface AIStoryState {
 
 	// Voice selection
 	voiceId: VoiceId;
-
-	// Test mode for faster testing (generates only 2 scenes)
-	testMode: boolean;
 }
 
 // Initial state
@@ -116,8 +110,6 @@ const initialState: AIStoryState = {
 	characterPrompt: null,
 	characterImageId: null,
 	characterImageUrl: null,
-	characterFileId: null,
-	characterFalImageUrl: null,
 	isGeneratingCharacter: false,
 	scenes: [],
 	isGeneratingPrompts: false,
@@ -129,10 +121,9 @@ const initialState: AIStoryState = {
 	exportedVideoUrl: null,
 	exportError: null,
 	imageEngine: "flux-pro",
-	videoEngine: "fal-ai/kling-video/v2.6/pro/image-to-video",
+	videoEngine: "kling-video",
 	imageStyle: "cinematic",
 	voiceId: "PIGsltMj3gFMR34aFDI3", // Default: Jonathan
-	testMode: false,
 };
 
 // Create the store
@@ -168,14 +159,6 @@ export const aistoryActions = {
 
 	setCharacterImageUrl: (characterImageUrl: string | null) => {
 		aistoryStore.setState((state) => ({ ...state, characterImageUrl }));
-	},
-
-	setCharacterFileId: (characterFileId: string | null) => {
-		aistoryStore.setState((state) => ({ ...state, characterFileId }));
-	},
-
-	setCharacterFalImageUrl: (characterFalImageUrl: string | null) => {
-		aistoryStore.setState((state) => ({ ...state, characterFalImageUrl }));
 	},
 
 	setIsGeneratingCharacter: (isGeneratingCharacter: boolean) => {
@@ -284,10 +267,6 @@ export const aistoryActions = {
 		aistoryStore.setState((state) => ({ ...state, voiceId }));
 	},
 
-	setTestMode: (testMode: boolean) => {
-		aistoryStore.setState((state) => ({ ...state, testMode }));
-	},
-
 	// Reset all state except script
 	resetPrompts: () => {
 		aistoryStore.setState((state) => ({
@@ -297,8 +276,6 @@ export const aistoryActions = {
 			characterPrompt: null,
 			characterImageId: null,
 			characterImageUrl: null,
-			characterFileId: null,
-			characterFalImageUrl: null,
 			scenes: [],
 			promptsGenerated: false,
 			error: null,

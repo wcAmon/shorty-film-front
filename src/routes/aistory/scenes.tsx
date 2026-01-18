@@ -57,21 +57,9 @@ function ScenesPage() {
 		aistoryStore,
 		(state) => state.characterPrompt,
 	);
-	const characterImageId = useStore(
-		aistoryStore,
-		(state) => state.characterImageId,
-	);
 	const characterImageUrl = useStore(
 		aistoryStore,
 		(state) => state.characterImageUrl,
-	);
-	const characterFileId = useStore(
-		aistoryStore,
-		(state) => state.characterFileId,
-	);
-	const characterFalImageUrl = useStore(
-		aistoryStore,
-		(state) => state.characterFalImageUrl,
 	);
 	const isGeneratingCharacter = useStore(
 		aistoryStore,
@@ -286,12 +274,12 @@ function ScenesPage() {
 					);
 
 					const base64 = canvas.toDataURL("image/jpeg", 0.85).split(",")[1];
-					aistoryActions.setCharacterImage(base64);
 
 					uploadCharacterMutation.mutate(base64, {
 						onSuccess: (result) => {
-							if (result.success && result.fileId) {
-								aistoryActions.setCharacterFileId(result.fileId);
+							if (result.success && result.imageId && result.imageUrl) {
+								aistoryActions.setCharacterImageId(result.imageId);
+								aistoryActions.setCharacterImageUrl(result.imageUrl);
 							} else {
 								aistoryActions.setError(
 									result.error ?? "Failed to upload character image",
@@ -331,17 +319,9 @@ function ScenesPage() {
 			{
 				onSuccess: (result) => {
 					if (result.success && result.imageId && result.imageUrl) {
-						// Store the image ID and Supabase Storage URL
+						// Store the image ID and Supabase Storage URL (used by all FAL engines)
 						aistoryActions.setCharacterImageId(result.imageId);
 						aistoryActions.setCharacterImageUrl(result.imageUrl);
-						// GPT Image returns fileId (OpenAI file_id for reference)
-						if (result.fileId) {
-							aistoryActions.setCharacterFileId(result.fileId);
-						}
-						// Flux Pro returns falImageUrl (FAL storage URL for video generation)
-						if (result.falImageUrl) {
-							aistoryActions.setCharacterFalImageUrl(result.falImageUrl);
-						}
 					} else {
 						aistoryActions.setError(
 							result.error || "Failed to generate character image",
@@ -434,16 +414,9 @@ function ScenesPage() {
 				storyId,
 				sceneId,
 				isCharacter: scene.isCharacter,
-				// GPT Image uses characterFileId (OpenAI file_id)
-				characterFileId:
-					imageEngine === "gpt-image" && scene.isCharacter
-						? (characterFileId ?? undefined)
-						: undefined,
-				// Flux Pro uses characterImageUrl (FAL storage URL) for image-to-image with kontext/max
+				// All FAL engines use characterImageUrl (Supabase Storage URL)
 				characterImageUrl:
-					imageEngine === "flux-pro" && scene.isCharacter
-						? (characterImageUrl ?? undefined)
-						: undefined,
+					scene.isCharacter ? (characterImageUrl ?? undefined) : undefined,
 				imageEngine,
 			},
 			{

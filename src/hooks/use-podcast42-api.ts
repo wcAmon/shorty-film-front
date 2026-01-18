@@ -6,15 +6,215 @@ import type {
 	WordTimestamp,
 } from "./use-aistory-api";
 import { authFetch } from "./use-auth";
+import { supabaseClient } from "@/lib/supabase-client";
 
-// Video engine type for podcast42
-export type Podcast42VideoEngine = "omnihuman" | "aurora";
+// Avatar engine type for podcast42 (renamed from videoEngine)
+export type Podcast42AvatarEngine = "omnihuman" | "aurora";
+
+// Job status type
+type JobStatus = "pending" | "processing" | "completed" | "failed";
+
+// ============================================================================
+// Job Polling Utilities
+// ============================================================================
+
+interface JobRowFromRealtime {
+	id: string;
+	status: JobStatus;
+	media_type: string;
+	media_id: string;
+	story_id: string;
+	scene_id: string;
+	error_message: string | null;
+}
+
+interface JobRecord {
+	id: string;
+	status: JobStatus;
+	mediaId: string;
+	storyId?: string;
+	sceneId?: string;
+	errorMessage: string | null;
+	mediaUrl?: string | null;
+	// Podcast42-specific fields from job metadata
+	person1Prompt?: string;
+	person2Prompt?: string;
+	scenes?: Podcast42Scene[];
+}
+
+function normalizeJobRow(row: JobRowFromRealtime): JobRecord {
+	return {
+		id: row.id,
+		status: row.status,
+		mediaId: row.media_id,
+		storyId: row.story_id,
+		sceneId: row.scene_id,
+		errorMessage: row.error_message,
+	};
+}
+
+async function fetchJobStatus(
+	jobId: string,
+): Promise<{ success: boolean; job?: JobRecord; error?: string }> {
+	try {
+		const response = await authFetch(`/api/get-job-status?jobId=${jobId}`);
+		const result = await response.json();
+
+		if (!result.success) {
+			return { success: false, error: result.error };
+		}
+
+		return {
+			success: true,
+			job: {
+				id: result.job.id,
+				status: result.job.status,
+				mediaId: result.job.mediaId,
+				storyId: result.job.storyId,
+				errorMessage: result.job.errorMessage,
+				mediaUrl: result.job.mediaUrl,
+				// Podcast42-specific: extract from job metadata
+				person1Prompt: result.job.person1Prompt,
+				person2Prompt: result.job.person2Prompt,
+				scenes: result.job.scenes,
+			},
+		};
+	} catch (err) {
+		console.error("[podcast42:fetchJobStatus] Error:", err);
+		return {
+			success: false,
+			error: err instanceof Error ? err.message : "Failed to fetch job status",
+		};
+	}
+}
+
+async function waitForJobCompletion(
+	jobId: string,
+	options: {
+		timeoutMs?: number;
+		onStatusUpdate?: (status: JobStatus) => void;
+	} = {},
+): Promise<{ success: boolean; job?: JobRecord; error?: string }> {
+	const { timeoutMs = 300000, onStatusUpdate } = options;
+
+	return new Promise((resolve) => {
+		let resolved = false;
+		let pollingInterval: ReturnType<typeof setInterval> | null = null;
+
+		console.log(`[podcast42:waitForJobCompletion:${jobId}] Creating channel`);
+
+		const channel = supabaseClient.channel(`job-${jobId}`);
+
+		const cleanup = () => {
+			if (pollingInterval) {
+				clearInterval(pollingInterval);
+				pollingInterval = null;
+			}
+			channel.unsubscribe();
+		};
+
+		const handleJobStatus = (job: JobRecord) => {
+			console.log(
+				`[podcast42:waitForJobCompletion:${jobId}] handleJobStatus:`,
+				job.status,
+			);
+			onStatusUpdate?.(job.status);
+
+			if (job.status === "completed") {
+				if (!resolved) {
+					resolved = true;
+					clearTimeout(timeoutId);
+					cleanup();
+					resolve({ success: true, job });
+				}
+			} else if (job.status === "failed") {
+				if (!resolved) {
+					resolved = true;
+					clearTimeout(timeoutId);
+					cleanup();
+					resolve({
+						success: false,
+						error: job.errorMessage || "Job failed",
+						job,
+					});
+				}
+			}
+		};
+
+		const pollJobStatus = async () => {
+			if (resolved) return;
+
+			const result = await fetchJobStatus(jobId);
+			if (result.success && result.job) {
+				handleJobStatus(result.job);
+			}
+		};
+
+		const timeoutId = setTimeout(() => {
+			if (!resolved) {
+				resolved = true;
+				cleanup();
+				resolve({ success: false, error: "Job completion timed out" });
+			}
+		}, timeoutMs);
+
+		let realtimeActive = false;
+
+		channel.on(
+			"postgres_changes",
+			{
+				event: "*",
+				schema: "shorty",
+				table: "jobs",
+				filter: `id=eq.${jobId}`,
+			},
+			async (payload) => {
+				realtimeActive = true;
+				const row = payload.new as JobRowFromRealtime;
+				if (row) {
+					if (row.status === "completed" || row.status === "failed") {
+						const fullStatus = await fetchJobStatus(jobId);
+						if (fullStatus.success && fullStatus.job) {
+							handleJobStatus(fullStatus.job);
+						} else {
+							handleJobStatus(normalizeJobRow(row));
+						}
+					} else {
+						handleJobStatus(normalizeJobRow(row));
+					}
+				}
+			},
+		);
+
+		channel.subscribe(async (status) => {
+			if (status === "SUBSCRIBED") {
+				const initialStatus = await fetchJobStatus(jobId);
+				if (initialStatus.success && initialStatus.job) {
+					handleJobStatus(initialStatus.job);
+				}
+
+				if (!resolved) {
+					setTimeout(() => {
+						if (!resolved && !realtimeActive && !pollingInterval) {
+							pollingInterval = setInterval(pollJobStatus, 5000);
+						}
+					}, 15000);
+				}
+			} else if (status === "CHANNEL_ERROR") {
+				if (!pollingInterval && !resolved) {
+					pollingInterval = setInterval(pollJobStatus, 5000);
+				}
+			}
+		});
+	});
+}
 
 // ============================================================================
 // Type Definitions
 // ============================================================================
 
 export interface Podcast42Scene {
+	id?: string;
 	speaker: "person1" | "person2";
 	caption: string;
 }
@@ -78,6 +278,15 @@ interface ExportVideoResponse {
 	error?: string;
 }
 
+// Backend job submission response
+interface SubmitJobResponse {
+	success: boolean;
+	jobId?: string;
+	mediaId?: string;
+	status?: string;
+	error?: string;
+}
+
 // ============================================================================
 // API Functions
 // ============================================================================
@@ -85,20 +294,69 @@ interface ExportVideoResponse {
 async function generatePodcast42PromptsApi(params: {
 	playScript: string;
 	imageStyle?: ImageStyle;
-	testMode?: boolean;
+	imageEngine?: ImageEngine;
+	person1VoiceId?: VoiceId;
+	person2VoiceId?: VoiceId;
+	avatarEngine?: Podcast42AvatarEngine;
+	onStatusUpdate?: (status: JobStatus) => void;
 }): Promise<GeneratePodcast42PromptsResponse> {
+	const { onStatusUpdate, ...submitParams } = params;
+
+	// Step 1: Submit job to backend
 	const response = await authFetch("/api/podcast42-generate-prompts", {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify(params),
+		body: JSON.stringify(submitParams),
 	});
-	return response.json();
+
+	const submitResult: SubmitJobResponse = await response.json();
+
+	if (!submitResult.success || !submitResult.jobId) {
+		return {
+			success: false,
+			error: submitResult.error || "Failed to submit podcast42 story job",
+		};
+	}
+
+	console.log(
+		`[generatePodcast42PromptsApi] Job submitted: ${submitResult.jobId}, storyId: ${submitResult.mediaId}`,
+	);
+
+	// Step 2: Wait for job completion via Supabase Realtime
+	const jobResult = await waitForJobCompletion(submitResult.jobId, {
+		timeoutMs: 120000, // 2 minutes max for prompt generation
+		onStatusUpdate,
+	});
+
+	if (!jobResult.success) {
+		return {
+			success: false,
+			error: jobResult.error || "Podcast42 story generation failed",
+		};
+	}
+
+	// Step 3: Fetch full job status to get story data
+	const fullStatus = await fetchJobStatus(submitResult.jobId);
+	if (!fullStatus.success || !fullStatus.job) {
+		return {
+			success: false,
+			error: fullStatus.error || "Failed to get story data",
+		};
+	}
+
+	return {
+		success: true,
+		storyId: fullStatus.job.storyId || submitResult.mediaId,
+		person1Prompt: fullStatus.job.person1Prompt,
+		person2Prompt: fullStatus.job.person2Prompt,
+		scenes: fullStatus.job.scenes,
+	};
 }
 
 async function generatePodcast42CharacterApi(params: {
 	prompt: string;
 	storyId: string;
-	imageEngine?: "gpt-image" | "flux-pro";
+	imageEngine?: "flux-pro" | "gpt-image-1.5";
 	imageStyle?: ImageStyle;
 	person: "person1" | "person2";
 }): Promise<GeneratePodcast42CharacterResponse> {
@@ -152,7 +410,7 @@ async function submitPodcast42VideoJobApi(params: {
 	storyId: string;
 	sceneId: string;
 	imageUrl: string; // FAL storage URL for character image
-	videoEngine?: Podcast42VideoEngine;
+	avatarEngine?: Podcast42AvatarEngine;
 }): Promise<SubmitVideoJobResponse> {
 	const response = await authFetch("/api/podcast42-generate-video", {
 		method: "POST",
@@ -180,7 +438,7 @@ async function generatePodcast42SceneVideoWithPolling(params: {
 	storyId: string;
 	sceneId: string;
 	imageUrl: string; // FAL storage URL for character image
-	videoEngine?: Podcast42VideoEngine;
+	avatarEngine?: Podcast42AvatarEngine;
 	onStatusUpdate?: (
 		status: "pending" | "processing" | "completed" | "failed",
 	) => void;
@@ -191,7 +449,7 @@ async function generatePodcast42SceneVideoWithPolling(params: {
 		storyId,
 		sceneId,
 		imageUrl,
-		videoEngine = "omnihuman",
+		avatarEngine = "omnihuman",
 		onStatusUpdate,
 		pollInterval = 5000, // 5 seconds
 		maxAttempts = 120, // 10 minutes max (120 * 5s)
@@ -202,7 +460,7 @@ async function generatePodcast42SceneVideoWithPolling(params: {
 		storyId,
 		sceneId,
 		imageUrl,
-		videoEngine,
+		avatarEngine,
 	});
 
 	if (!submitResult.success) {
@@ -288,7 +546,7 @@ export function useGeneratePodcast42Character() {
 		mutationFn: (params: {
 			prompt: string;
 			storyId: string;
-			imageEngine?: "gpt-image" | "flux-pro";
+			imageEngine?: "flux-pro" | "gpt-image-1.5";
 			imageStyle?: ImageStyle;
 			person: "person1" | "person2";
 		}) => generatePodcast42CharacterApi(params),
@@ -331,7 +589,7 @@ export function useGeneratePodcast42SceneVideo() {
 			storyId: string;
 			sceneId: string;
 			imageUrl: string; // FAL storage URL for character image
-			videoEngine?: Podcast42VideoEngine;
+			avatarEngine?: Podcast42AvatarEngine;
 			onStatusUpdate?: (
 				status: "pending" | "processing" | "completed" | "failed",
 			) => void;
@@ -368,7 +626,7 @@ async function updatePodcast42SettingsApi(params: {
 	imageStyle?: ImageStyle;
 	person1VoiceId?: VoiceId;
 	person2VoiceId?: VoiceId;
-	videoEngine?: Podcast42VideoEngine;
+	avatarEngine?: Podcast42AvatarEngine;
 }): Promise<UpdateSettingsResponse> {
 	const { storyId, ...settings } = params;
 
@@ -381,13 +639,14 @@ async function updatePodcast42SettingsApi(params: {
 	}
 
 	// Update metadata with new settings
+	// Note: avatarEngine is stored as podcast42VideoEngine in DB for backward compatibility
 	const updatedMetadata = {
 		...getData.metadata,
 		...(settings.imageEngine && { imageEngine: settings.imageEngine }),
 		...(settings.imageStyle && { imageStyle: settings.imageStyle }),
 		...(settings.person1VoiceId && { person1VoiceId: settings.person1VoiceId }),
 		...(settings.person2VoiceId && { person2VoiceId: settings.person2VoiceId }),
-		...(settings.videoEngine && { podcast42VideoEngine: settings.videoEngine }),
+		...(settings.avatarEngine && { podcast42VideoEngine: settings.avatarEngine }),
 	};
 
 	// Save updated metadata

@@ -12,13 +12,6 @@ const runtimeEnv = {
 export const env = createEnv({
 	server: {
 		SERVER_URL: z.string().url().optional(),
-		// OpenAI API 金鑰，用於 AI 圖片生成功能
-		OPENAI_API_KEY: z.string().min(1),
-		// ElevenLabs API for voice generation with timestamps
-		ELEVEN_API_KEY: z.string().min(1),
-		ELEVEN_VOICE_ID: z.string().min(1).optional(),
-		// FAL-AI API key for video generation
-		FAL_API_KEY: z.string().min(1),
 		// Supabase configuration
 		SUPABASE_URL: z.string().url(),
 		SUPABASE_SECRET_KEY: z.string().min(1),

@@ -1,7 +1,7 @@
 import { useStore } from "@tanstack/react-store";
 import { useEffect, useRef } from "react";
 import {
-	type Podcast42VideoEngine,
+	type Podcast42AvatarEngine,
 	podcast42Actions,
 	podcast42Store,
 } from "@/stores/podcast42.store";
@@ -27,7 +27,7 @@ async function submitPodcast42VideoJobApi(params: {
 	sceneIndex: number;
 	imageUrl: string;
 	audioBase64: string;
-	videoEngine?: Podcast42VideoEngine;
+	avatarEngine?: Podcast42AvatarEngine;
 }): Promise<SubmitVideoJobResponse> {
 	const response = await authFetch("/api/podcast42-generate-video", {
 		method: "POST",
@@ -69,7 +69,7 @@ export function useVideoQueueProcessor() {
 		podcast42Store,
 		(state) => state.person2ImageUrl,
 	);
-	const videoEngine = useStore(podcast42Store, (state) => state.videoEngine);
+	const avatarEngine = useStore(podcast42Store, (state) => state.avatarEngine);
 
 	// Ref to track if we're currently processing
 	const isProcessingRef = useRef(false);
@@ -135,7 +135,7 @@ export function useVideoQueueProcessor() {
 					sceneIndex,
 					imageUrl,
 					audioBase64: scene.audioBase64,
-					videoEngine,
+					avatarEngine,
 				});
 
 				if (!submitResult.success) {
@@ -205,7 +205,7 @@ export function useVideoQueueProcessor() {
 		storyId,
 		person1ImageUrl,
 		person2ImageUrl,
-		videoEngine,
+		avatarEngine,
 	]);
 
 	return {

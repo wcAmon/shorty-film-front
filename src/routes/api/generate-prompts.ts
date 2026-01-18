@@ -37,10 +37,9 @@ export const Route = createFileRoute("/api/generate-prompts")({
 					const body = (await request.json()) as {
 						script: string;
 						imageStyle?: ImageStyle;
-						imageEngine?: "gpt-image" | "flux-pro";
+						imageEngine?: "flux-pro" | "gpt-image-1.5";
 						voiceId?: string;
 						videoEngine?: string;
-						testMode?: boolean;
 					};
 
 					// Validate input is not empty
@@ -57,10 +56,9 @@ export const Route = createFileRoute("/api/generate-prompts")({
 						body: {
 							script: body.script,
 							imageStyle: body.imageStyle || "cinematic",
-							imageEngine: body.imageEngine || "gpt-image",
+							imageEngine: body.imageEngine || "flux-pro",
 							voiceId: body.voiceId,
 							videoEngine: body.videoEngine,
-							testMode: body.testMode || false,
 							ownerId: user.id,
 						},
 					});

@@ -28,9 +28,8 @@ export const Route = createFileRoute("/api/generate-scene-image")({
 						storyId: string;
 						sceneId: string;
 						isCharacter: boolean;
-						characterFileId?: string;
-						characterImageUrl?: string;
-						imageEngine?: "gpt-image" | "flux-pro";
+						characterImageUrl?: string; // Supabase Storage URL (used by all FAL engines)
+						imageEngine?: "flux-pro" | "gpt-image-1.5";
 					};
 
 					// Proxy to backend with owner ID

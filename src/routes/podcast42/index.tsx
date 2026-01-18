@@ -44,9 +44,9 @@ const IMAGE_ENGINES: { id: ImageEngine; label: string; description: string }[] =
 			description: "Fast, high quality images (recommended)",
 		},
 		{
-			id: "gpt-image",
-			label: "GPT Image",
-			description: "OpenAI native image generation",
+			id: "gpt-image-1.5",
+			label: "GPT Image 1.5",
+			description: "OpenAI GPT-Image via FAL AI, with character consistency",
 		},
 	];
 
@@ -130,7 +130,6 @@ function Podcast42InputPage() {
 		podcast42Store,
 		(state) => state.person2VoiceId,
 	);
-	const testMode = useStore(podcast42Store, (state) => state.testMode);
 	const error = useStore(podcast42Store, (state) => state.error);
 
 	// Generate unique ID for form elements
@@ -145,7 +144,7 @@ function Podcast42InputPage() {
 		podcast42Actions.resetPrompts();
 
 		generatePromptsMutation.mutate(
-			{ playScript, imageStyle, testMode },
+			{ playScript, imageStyle },
 			{
 				onSuccess: (result) => {
 					if (
@@ -215,25 +214,6 @@ function Podcast42InputPage() {
 					Define background, person1/person2 descriptions, then dialogue with
 					[person1]/[person2] tags
 				</p>
-			</div>
-
-			{/* Test Mode Toggle */}
-			<div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700">
-				<label className="flex items-center gap-3 cursor-pointer">
-					<input
-						type="checkbox"
-						checked={testMode}
-						onChange={(e) => podcast42Actions.setTestMode(e.target.checked)}
-						className="w-5 h-5 accent-yellow-500"
-						disabled={promptsGenerated}
-					/>
-					<div>
-						<div className="text-white font-medium">Test Mode</div>
-						<div className="text-sm text-slate-400">
-							Generate only 2 scenes for faster testing
-						</div>
-					</div>
-				</label>
 			</div>
 
 			{/* Image Style Selection */}

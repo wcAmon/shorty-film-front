@@ -1,15 +1,7 @@
-import { fal } from "@fal-ai/client";
 import { createFileRoute } from "@tanstack/react-router";
-import { generateImageId } from "@/db";
-import {
-	createImage,
-	getStoryById,
-	updateImage,
-	verifyStoryOwnership,
-} from "@/db/queries";
-import type { ImageType } from "@/db/schema";
+import { verifyStoryOwnership } from "@/db/queries";
 import { requireAuth } from "@/lib/auth-middleware";
-import { uploadImage } from "@/lib/supabase-storage";
+import { proxyToBackend } from "@/lib/backend-proxy";
 
 export const Route = createFileRoute("/api/upload-podcast42-character")({
 	server: {
@@ -56,77 +48,15 @@ export const Route = createFileRoute("/api/upload-podcast42-character")({
 						);
 					}
 
-					// Verify story exists
-					const story = await getStoryById(storyId);
-					if (!story) {
-						return Response.json(
-							{ success: false, error: "Story not found" },
-							{ status: 404 },
-						);
-					}
-
-					// Convert base64 to buffer
-					const imageBuffer = Buffer.from(imageBase64, "base64");
-
-					// Determine image type
-					const imageType: ImageType = person;
-
-					// Create image record with status "generating"
-					const imageId = generateImageId();
-					await createImage({
-						id: imageId,
-						ownerId: user.id,
-						storyId,
-						sceneId: null, // Character images are not scene-specific
-						prompt: `Uploaded ${person} character image`,
-						imageType,
-						status: "generating",
-					});
-
-					console.log(
-						`[upload-podcast42-character] Created image record: ${imageId}`,
-					);
-
-					// Upload to Supabase Storage
-					const supabaseImageUrl = await uploadImage(
-						storyId,
-						imageType,
-						imageBuffer,
-						"jpg",
-					);
-
-					console.log(
-						`[upload-podcast42-character] Uploaded to Supabase: ${supabaseImageUrl}`,
-					);
-
-					// Configure FAL client
-					fal.config({
-						credentials: process.env.FAL_API_KEY,
-					});
-
-					// Upload to FAL storage for OmniHuman
-					const imageBlob = new Blob([imageBuffer], { type: "image/jpeg" });
-					const falImageUrl = await fal.storage.upload(imageBlob);
-
-					console.log(
-						`[upload-podcast42-character] Uploaded to FAL storage: ${falImageUrl}`,
-					);
-
-					// Update image record with URL and status "completed"
-					await updateImage(imageId, {
-						imageUrl: supabaseImageUrl,
-						status: "completed",
-					});
-
-					console.log(
-						`[upload-podcast42-character] Image upload completed: ${imageId}`,
-					);
-
-					return Response.json({
-						success: true,
-						imageId,
-						imageUrl: supabaseImageUrl,
-						falImageUrl, // FAL storage URL for video generation
+					// Proxy to backend
+					return proxyToBackend("/api/generation/upload/podcast42-character", {
+						method: "POST",
+						body: {
+							imageBase64,
+							storyId,
+							person,
+							ownerId: user.id,
+						},
 					});
 				} catch (err) {
 					console.error("[upload-podcast42-character] Error:", err);

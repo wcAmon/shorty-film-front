@@ -5,8 +5,8 @@ import type { ImageEngine, ImageStyle, VoiceId } from "./aistory.store";
 // Speaker type for podcast42
 export type Podcast42Speaker = "person1" | "person2";
 
-// Video engine type for podcast42
-export type Podcast42VideoEngine = "omnihuman" | "aurora";
+// Avatar engine type for podcast42 (for talking-head animation, not image-to-video)
+export type Podcast42AvatarEngine = "omnihuman" | "aurora";
 
 // Scene interface for podcast42
 export interface Podcast42Scene {
@@ -71,14 +71,11 @@ export interface Podcast42State {
 	// Engine selections
 	imageEngine: ImageEngine;
 	imageStyle: ImageStyle;
-	videoEngine: Podcast42VideoEngine;
+	avatarEngine: Podcast42AvatarEngine;
 
 	// Voice selections for each person
 	person1VoiceId: VoiceId;
 	person2VoiceId: VoiceId;
-
-	// Test mode for faster testing (generates only 2 scenes)
-	testMode: boolean;
 
 	// Video generation queue
 	videoQueue: string[]; // Scene IDs waiting to be processed
@@ -110,10 +107,9 @@ const initialState: Podcast42State = {
 	exportError: null,
 	imageEngine: "flux-pro",
 	imageStyle: "cinematic",
-	videoEngine: "omnihuman",
+	avatarEngine: "omnihuman",
 	person1VoiceId: "PIGsltMj3gFMR34aFDI3", // Default: Jonathan
 	person2VoiceId: "Z3R5wn05IrDiVCyEkUrK", // Default: Arabella
-	testMode: false,
 	videoQueue: [],
 	currentProcessingSceneId: null,
 };
@@ -271,8 +267,8 @@ export const podcast42Actions = {
 		podcast42Store.setState((state) => ({ ...state, imageStyle }));
 	},
 
-	setVideoEngine: (videoEngine: Podcast42VideoEngine) => {
-		podcast42Store.setState((state) => ({ ...state, videoEngine }));
+	setAvatarEngine: (avatarEngine: Podcast42AvatarEngine) => {
+		podcast42Store.setState((state) => ({ ...state, avatarEngine }));
 	},
 
 	setPerson1VoiceId: (person1VoiceId: VoiceId) => {
@@ -281,10 +277,6 @@ export const podcast42Actions = {
 
 	setPerson2VoiceId: (person2VoiceId: VoiceId) => {
 		podcast42Store.setState((state) => ({ ...state, person2VoiceId }));
-	},
-
-	setTestMode: (testMode: boolean) => {
-		podcast42Store.setState((state) => ({ ...state, testMode }));
 	},
 
 	// Video queue actions

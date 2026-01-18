@@ -65,7 +65,7 @@ export interface StoryMetadata {
 	playScript?: string | null; // for podcast42
 
 	// Engine settings
-	imageEngine?: "gpt-image" | "flux-pro" | string | null;
+	imageEngine?: "flux-pro" | "gpt-image-1.5" | string | null;
 	imageStyle?:
 		| "cinematic"
 		| "comic"
@@ -257,7 +257,7 @@ export function dbToStoryMetadata(
 		updatedAt: story.updatedAt?.toISOString() ?? new Date().toISOString(),
 		script: story.script ?? undefined,
 		playScript: story.playScript ?? undefined,
-		imageEngine: story.imageEngine as "gpt-image" | "flux-pro",
+		imageEngine: story.imageEngine as "flux-pro" | "gpt-image-1.5",
 		imageStyle: story.imageStyle as
 			| "cinematic"
 			| "comic"

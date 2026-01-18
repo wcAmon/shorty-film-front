@@ -3,8 +3,8 @@ import type { ImageStyle } from "@/lib/style-prompts";
 import { requireAuth } from "@/lib/auth-middleware";
 import { isBackendConfigured, proxyToBackend } from "@/lib/backend-proxy";
 
-// Image engine type
-type ImageEngine = "gpt-image" | "flux-pro";
+// Image engine type (all via FAL AI)
+type ImageEngine = "flux-pro" | "gpt-image-1.5";
 
 export const Route = createFileRoute("/api/generate-character")({
 	server: {
@@ -52,7 +52,7 @@ export const Route = createFileRoute("/api/generate-character")({
 							storyId: body.storyId,
 							sceneId: imageType, // Use imageType as sceneId for character images
 							isCharacter: false, // Character generation doesn't use reference image
-							imageEngine: body.imageEngine || "gpt-image",
+							imageEngine: body.imageEngine || "flux-pro",
 							imageStyle: body.imageStyle,
 							aspectRatio: body.aspectRatio || "9:16",
 							imageType,

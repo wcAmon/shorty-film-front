@@ -2,8 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { requireAuth } from "@/lib/auth-middleware";
 import { isBackendConfigured, proxyToBackend } from "@/lib/backend-proxy";
 
-// Video engine type
-type Podcast42VideoEngine = "omnihuman" | "aurora";
+// Avatar engine type (for talking-head animation, not image-to-video)
+type Podcast42AvatarEngine = "omnihuman" | "aurora";
 
 export const Route = createFileRoute("/api/podcast42-generate-video")({
 	server: {
@@ -31,7 +31,7 @@ export const Route = createFileRoute("/api/podcast42-generate-video")({
 						storyId: string;
 						sceneId: string;
 						imageUrl: string; // FAL storage URL for character image
-						videoEngine?: Podcast42VideoEngine;
+						avatarEngine?: Podcast42AvatarEngine;
 					};
 
 					// Proxy to backend podcast42 endpoint

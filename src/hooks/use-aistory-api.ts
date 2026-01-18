@@ -329,8 +329,8 @@ export interface WordTimestamp {
 	endTime: number;
 }
 
-// Image engine type
-export type ImageEngine = "gpt-image" | "flux-pro";
+// Image engine type - now only FAL-based engines
+export type ImageEngine = "flux-pro" | "gpt-image-1.5";
 
 // Voice ID type
 export type VoiceId = string;
@@ -347,15 +347,14 @@ interface GeneratePromptsResponse {
 interface GenerateCharacterResponse {
 	success: boolean;
 	imageId?: string; // Database image ID
-	imageUrl?: string; // Supabase Storage URL
-	fileId?: string; // OpenAI file_id (for GPT Image)
-	falImageUrl?: string; // FAL storage URL (for Flux Pro)
+	imageUrl?: string; // Supabase Storage URL (used by all FAL engines)
 	error?: string;
 }
 
 interface UploadCharacterResponse {
 	success: boolean;
-	fileId?: string;
+	imageId?: string; // Database image ID
+	imageUrl?: string; // Supabase Storage URL (can be used directly by FAL AI)
 	error?: string;
 }
 
@@ -417,7 +416,6 @@ async function generatePromptsApi(params: {
 	script: string;
 	imageStyle?: ImageStyle;
 	imageEngine?: ImageEngine;
-	testMode?: boolean;
 	onStatusUpdate?: (status: JobStatus) => void;
 }): Promise<GeneratePromptsResponse> {
 	const { onStatusUpdate, ...submitParams } = params;
@@ -482,7 +480,7 @@ async function generatePromptsApi(params: {
 async function generateCharacterApi(params: {
 	prompt: string;
 	storyId: string;
-	imageEngine?: "gpt-image" | "flux-pro";
+	imageEngine?: ImageEngine;
 	imageStyle?: ImageStyle;
 	onStatusUpdate?: (status: JobStatus) => void;
 }): Promise<GenerateCharacterResponse> {
@@ -545,8 +543,7 @@ async function generateSceneImageApi(params: {
 	storyId: string;
 	sceneId: string;
 	isCharacter: boolean;
-	characterFileId?: string; // OpenAI file_id (for GPT Image)
-	characterImageUrl?: string; // FAL storage URL (for Flux Pro)
+	characterImageUrl?: string; // Supabase Storage URL (used by all FAL engines)
 	imageEngine?: ImageEngine;
 	onStatusUpdate?: (status: JobStatus) => void;
 }): Promise<GenerateSceneImageResponse> {
@@ -791,21 +788,22 @@ export function useGeneratePrompts() {
 
 /**
  * Hook to generate a character image from a prompt
- * Supports both GPT Image and Flux Pro engines
+ * Supports Flux Pro and GPT-Image-1.5 engines (both via FAL AI)
  */
 export function useGenerateCharacter() {
 	return useMutation({
 		mutationFn: (params: {
 			prompt: string;
 			storyId: string;
-			imageEngine?: "gpt-image" | "flux-pro";
+			imageEngine?: ImageEngine;
 			imageStyle?: ImageStyle;
 		}) => generateCharacterApi(params),
 	});
 }
 
 /**
- * Hook to upload a character image to OpenAI
+ * Hook to upload a character image to Supabase Storage
+ * Returns imageId and imageUrl that can be used directly by FAL AI
  */
 export function useUploadCharacter() {
 	return useMutation({
@@ -815,7 +813,7 @@ export function useUploadCharacter() {
 
 /**
  * Hook to generate a scene image
- * Supports both GPT Image and Flux Pro engines
+ * Supports Flux Pro and GPT-Image-1.5 engines (both via FAL AI)
  * Returns imageId and imageUrl (Supabase Storage)
  */
 export function useGenerateSceneImage() {
@@ -825,8 +823,7 @@ export function useGenerateSceneImage() {
 			storyId: string;
 			sceneId: string;
 			isCharacter: boolean;
-			characterFileId?: string; // OpenAI file_id (for GPT Image)
-			characterImageUrl?: string; // FAL storage URL (for Flux Pro)
+			characterImageUrl?: string; // Supabase Storage URL (used by all FAL engines)
 			imageEngine?: ImageEngine;
 		}) => generateSceneImageApi(params),
 	});

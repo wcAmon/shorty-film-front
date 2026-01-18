@@ -33,7 +33,7 @@ import { useVideoQueueProcessor } from "@/hooks/use-video-queue-processor";
 import type { ImageEngine, ImageStyle, VoiceId } from "@/stores/aistory.store";
 import {
 	type Podcast42Speaker,
-	type Podcast42VideoEngine,
+	type Podcast42AvatarEngine,
 	podcast42Actions,
 	podcast42Store,
 } from "@/stores/podcast42.store";
@@ -129,7 +129,7 @@ function Podcast42ScenesPage() {
 		(state) => state.person2VoiceId,
 	);
 	const storyId = useStore(podcast42Store, (state) => state.storyId);
-	const videoEngine = useStore(podcast42Store, (state) => state.videoEngine);
+	const avatarEngine = useStore(podcast42Store, (state) => state.avatarEngine);
 	const videoQueue = useStore(podcast42Store, (state) => state.videoQueue);
 	const currentProcessingSceneId = useStore(
 		podcast42Store,
@@ -558,10 +558,10 @@ function Podcast42ScenesPage() {
 		}
 	};
 
-	const handleVideoEngineChange = (engine: Podcast42VideoEngine) => {
-		podcast42Actions.setVideoEngine(engine);
+	const handleAvatarEngineChange = (engine: Podcast42AvatarEngine) => {
+		podcast42Actions.setAvatarEngine(engine);
 		if (storyId) {
-			updateSettingsMutation.mutate({ storyId, videoEngine: engine });
+			updateSettingsMutation.mutate({ storyId, avatarEngine: engine });
 		}
 	};
 
@@ -725,14 +725,14 @@ function Podcast42ScenesPage() {
 							</button>
 							<button
 								type="button"
-								onClick={() => handleImageEngineChange("gpt-image")}
+								onClick={() => handleImageEngineChange("gpt-image-1.5")}
 								className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-									imageEngine === "gpt-image"
+									imageEngine === "gpt-image-1.5"
 										? "bg-amber-500 text-white"
 										: "bg-slate-700 text-slate-300 hover:bg-slate-600"
 								}`}
 							>
-								GPT Image
+								GPT Image 1.5
 							</button>
 						</div>
 					</div>
@@ -757,17 +757,17 @@ function Podcast42ScenesPage() {
 						</select>
 					</div>
 
-					{/* Video Engine */}
+					{/* Avatar Engine (for talking-head animation) */}
 					<div>
 						<label className="block text-sm font-medium text-slate-300 mb-2">
-							Video Engine
+							Avatar Engine
 						</label>
 						<div className="flex gap-2">
 							<button
 								type="button"
-								onClick={() => handleVideoEngineChange("omnihuman")}
+								onClick={() => handleAvatarEngineChange("omnihuman")}
 								className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-									videoEngine === "omnihuman"
+									avatarEngine === "omnihuman"
 										? "bg-amber-500 text-white"
 										: "bg-slate-700 text-slate-300 hover:bg-slate-600"
 								}`}
@@ -776,9 +776,9 @@ function Podcast42ScenesPage() {
 							</button>
 							<button
 								type="button"
-								onClick={() => handleVideoEngineChange("aurora")}
+								onClick={() => handleAvatarEngineChange("aurora")}
 								className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-									videoEngine === "aurora"
+									avatarEngine === "aurora"
 										? "bg-amber-500 text-white"
 										: "bg-slate-700 text-slate-300 hover:bg-slate-600"
 								}`}

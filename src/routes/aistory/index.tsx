@@ -50,9 +50,9 @@ const IMAGE_ENGINES: { id: ImageEngine; label: string; description: string }[] =
 			description: "Fast, high quality images (recommended)",
 		},
 		{
-			id: "gpt-image",
-			label: "GPT Image",
-			description: "OpenAI native image generation",
+			id: "gpt-image-1.5",
+			label: "GPT Image 1.5",
+			description: "OpenAI GPT-Image via FAL AI, with character consistency",
 		},
 	];
 
@@ -99,24 +99,19 @@ const VOICE_OPTIONS: { id: VoiceId; label: string; description: string }[] = [
 const VIDEO_ENGINES: { id: VideoEngine; label: string; description: string }[] =
 	[
 		{
-			id: "fal-ai/kling-video/v2.6/pro/image-to-video",
-			label: "Kling v2.6 Pro Image-to-Video",
+			id: "kling-video",
+			label: "Kling v2.6 Pro",
 			description:
 				"Direct image animation, better quality, generates audio (recommended)",
 		},
 		{
-			id: "fal-ai/kling-video/v2.6/pro/image-to-video:no-audio",
-			label: "Kling v2.6 Pro Image-to-Video (No Audio)",
-			description: "Same quality, no audio generation, 50% cheaper",
+			id: "sora-2",
+			label: "Sora 2",
+			description: "OpenAI Sora 2 via FAL AI, high quality video generation",
 		},
 		{
-			id: "fal-ai/kling-video/o1/reference-to-video",
-			label: "Kling Reference-to-Video",
-			description: "Uses character reference for consistency",
-		},
-		{
-			id: "fal-ai/ltx-2-19b/image-to-video",
-			label: "LTX-2 19B Image-to-Video",
+			id: "ltx-2-19b",
+			label: "LTX-2 19B",
 			description: "Fast generation with good motion quality",
 		},
 	];
@@ -146,7 +141,6 @@ function PromptsPage() {
 	const imageStyle = useStore(aistoryStore, (state) => state.imageStyle);
 	const videoEngine = useStore(aistoryStore, (state) => state.videoEngine);
 	const voiceId = useStore(aistoryStore, (state) => state.voiceId);
-	const testMode = useStore(aistoryStore, (state) => state.testMode);
 	const error = useStore(aistoryStore, (state) => state.error);
 
 	// Generate unique ID for form elements
@@ -161,7 +155,7 @@ function PromptsPage() {
 		aistoryActions.resetPrompts();
 
 		generatePromptsMutation.mutate(
-			{ script, imageStyle, imageEngine, testMode },
+			{ script, imageStyle, imageEngine },
 			{
 				onSuccess: (result) => {
 					if (
@@ -214,25 +208,6 @@ function PromptsPage() {
 					className="w-full h-48 px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-colors resize-none"
 					disabled={isGeneratingPrompts || promptsGenerated}
 				/>
-			</div>
-
-			{/* Test Mode Toggle */}
-			<div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700">
-				<label className="flex items-center gap-3 cursor-pointer">
-					<input
-						type="checkbox"
-						checked={testMode}
-						onChange={(e) => aistoryActions.setTestMode(e.target.checked)}
-						className="w-5 h-5 accent-yellow-500"
-						disabled={promptsGenerated}
-					/>
-					<div>
-						<div className="text-white font-medium">Test Mode</div>
-						<div className="text-sm text-slate-400">
-							Generate only 2 scenes for faster testing
-						</div>
-					</div>
-				</label>
 			</div>
 
 			{/* Image Style Selection */}
