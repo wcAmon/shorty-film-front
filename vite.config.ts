@@ -33,8 +33,20 @@ const config = defineConfig(({ mode }) => {
               'Connection': 'keep-alive',
             },
           },
+          // Increase body size limit for upload routes
+          '/api/upload-character': {
+            headers: {
+              'Connection': 'keep-alive',
+            },
+          },
+          '/api/podcast42-upload-character': {
+            headers: {
+              'Connection': 'keep-alive',
+            },
+          },
         },
-        // Increase body size limit for base64 image payloads
+        // Increase body size limit for base64 image payloads (50MB)
+        maxBodySize: 50 * 1024 * 1024,
         experimental: {
           payloadExtraction: false,
         },

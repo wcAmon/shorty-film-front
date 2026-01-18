@@ -427,6 +427,8 @@ async function generatePromptsApi(params: {
 	imageStyle?: ImageStyle;
 	imageEngine?: ImageEngine;
 	llmEngine?: LLMEngine;
+	voiceId?: string;
+	videoEngine?: string;
 	onStatusUpdate?: (status: JobStatus) => void;
 }): Promise<GeneratePromptsResponse> {
 	const { onStatusUpdate, ...submitParams } = params;
@@ -960,6 +962,39 @@ export function useUpdateSceneCaption() {
 	return useMutation({
 		mutationFn: (params: { sceneId: string; caption: string }) =>
 			updateSceneCaptionApi(params),
+	});
+}
+
+// ============================================================================
+// Story Settings API
+// ============================================================================
+
+interface UpdateStorySettingsResponse {
+	success: boolean;
+	error?: string;
+}
+
+async function updateStorySettingsApi(params: {
+	storyId: string;
+	imageEngine?: string;
+	videoEngine?: string;
+	voiceId?: string;
+}): Promise<UpdateStorySettingsResponse> {
+	const response = await authFetch("/api/update-story-settings", {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify(params),
+	});
+	return response.json();
+}
+
+/**
+ * Hook to update story settings (imageEngine, videoEngine, voiceId)
+ * Used when user changes settings in the scene editor
+ */
+export function useUpdateStorySettings() {
+	return useMutation({
+		mutationFn: updateStorySettingsApi,
 	});
 }
 

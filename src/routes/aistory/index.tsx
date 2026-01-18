@@ -181,7 +181,7 @@ function PromptsPage() {
 		aistoryActions.resetPrompts();
 
 		generatePromptsMutation.mutate(
-			{ script, imageStyle, imageEngine, llmEngine },
+			{ script, imageStyle, imageEngine, llmEngine, voiceId, videoEngine },
 			{
 				onSuccess: (result) => {
 					if (

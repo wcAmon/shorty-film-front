@@ -13,6 +13,7 @@ import {
 	Play,
 	Plus,
 	Save,
+	Settings,
 	Trash2,
 	Upload,
 	User,
@@ -28,10 +29,53 @@ import {
 	useGenerateSceneVideo,
 	useUpdateSceneCaption,
 	useUploadCharacter,
+	useUpdateStorySettings,
 	pollMediaUntilReady,
 } from "@/hooks/use-aistory-api";
-import { aistoryActions, aistoryStore } from "@/stores/aistory.store";
+import {
+	aistoryActions,
+	aistoryStore,
+	type ImageEngine,
+	type VideoEngine,
+	type VoiceId,
+} from "@/stores/aistory.store";
 import { authFetch } from "@/hooks/use-auth";
+
+// Image engine options
+const IMAGE_ENGINES: { id: ImageEngine; label: string }[] = [
+	{ id: "flux-pro", label: "Flux Pro" },
+	{ id: "gpt-image-1.5", label: "GPT Image 1.5" },
+];
+
+// Video engine options
+const VIDEO_ENGINES: { id: VideoEngine; label: string }[] = [
+	{ id: "kling-video", label: "Kling v2.6 Pro" },
+	{ id: "sora-2", label: "Sora 2" },
+	{ id: "ltx-2-19b", label: "LTX-2 19B" },
+	{ id: "veo3.1", label: "Veo 3.1" },
+	{ id: "veo3.1-fast", label: "Veo 3.1 Fast" },
+];
+
+// Voice options
+const VOICE_OPTIONS: { id: VoiceId; label: string }[] = [
+	{ id: "PIGsltMj3gFMR34aFDI3", label: "Jonathan" },
+	{ id: "Z3R5wn05IrDiVCyEkUrK", label: "Arabella" },
+	{ id: "n1PvBOwxb8X6m7tahp2h", label: "Michael" },
+	{ id: "ZF6FPAbjXT4488VcRRnw", label: "Amelia" },
+	{ id: "ICwKbPHDHAM3eal5tHEZ", label: "Tony" },
+	{ id: "cgLpYGyXZhkyalKZ0xeZ", label: "Knox" },
+	{ id: "YKrm0N1EAM9Bw27j8kuD", label: "Leonidas" },
+];
+
+// Helper function to get video engine label
+function getVideoEngineLabel(engine: VideoEngine): string {
+	return VIDEO_ENGINES.find((e) => e.id === engine)?.label || engine;
+}
+
+// Helper function to get voice label
+function getVoiceLabel(voiceId: VoiceId): string {
+	return VOICE_OPTIONS.find((v) => v.id === voiceId)?.label || voiceId;
+}
 
 export const Route = createFileRoute("/aistory/scenes")({
 	beforeLoad: () => {
@@ -54,6 +98,7 @@ function ScenesPage() {
 	const generateSceneAudioMutation = useGenerateSceneAudio();
 	const generateSceneVideoMutation = useGenerateSceneVideo();
 	const updateSceneCaptionMutation = useUpdateSceneCaption();
+	const updateStorySettingsMutation = useUpdateStorySettings();
 
 	// Subscribe to store state
 	const characterPrompt = useStore(
@@ -77,6 +122,7 @@ function ScenesPage() {
 	const videoEngine = useStore(aistoryStore, (state) => state.videoEngine);
 	const imageEngine = useStore(aistoryStore, (state) => state.imageEngine);
 	const imageStyle = useStore(aistoryStore, (state) => state.imageStyle);
+	const llmEngine = useStore(aistoryStore, (state) => state.llmEngine);
 	const voiceId = useStore(aistoryStore, (state) => state.voiceId);
 	const storyId = useStore(aistoryStore, (state) => state.storyId);
 	const exportedVideoUrl = useStore(
@@ -96,6 +142,9 @@ function ScenesPage() {
 	// State for asset picker modal and upload dropdown
 	const [isAssetPickerOpen, setIsAssetPickerOpen] = useState(false);
 	const [isUploadMenuOpen, setIsUploadMenuOpen] = useState(false);
+
+	// State for settings panel expansion
+	const [isSettingsExpanded, setIsSettingsExpanded] = useState(false);
 
 	// Refs
 	const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -343,60 +392,42 @@ function ScenesPage() {
 	};
 
 	// Handle import character from asset library
-	const handleImportFromAssets = async (imageUrl: string) => {
+	const handleImportFromAssets = async (imageUrl: string, imageId: string) => {
 		aistoryActions.setError(null);
 		aistoryActions.setIsGeneratingCharacter(true);
 
+		if (!storyId) {
+			aistoryActions.setError("Story ID is required");
+			aistoryActions.setIsGeneratingCharacter(false);
+			return;
+		}
+
 		try {
-			// 1. Call process-image API to resize/crop to 9:16
-			const processResponse = await authFetch("/api/process-image", {
+			// Use link-character endpoint to directly link existing image to story
+			const linkResponse = await authFetch("/api/link-character", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
-					sourceUrl: imageUrl,
-					targetAspectRatio: "9:16",
+					imageId,
+					storyId,
+					person: "character",
 				}),
 			});
 
-			if (!processResponse.ok) {
-				const errorData = await processResponse.json();
-				throw new Error(errorData.error || "Failed to process image");
+			if (!linkResponse.ok) {
+				const errorData = await linkResponse.json();
+				throw new Error(errorData.error || "Failed to link character image");
 			}
 
-			const processResult = await processResponse.json();
-			if (!processResult.success || !processResult.base64) {
-				throw new Error("Failed to process image");
+			const linkResult = await linkResponse.json();
+			if (!linkResult.success) {
+				throw new Error(linkResult.error || "Failed to link character image");
 			}
 
-			// 2. Upload processed image as character
-			uploadCharacterMutation.mutate(
-				{
-					imageBase64: processResult.base64,
-					storyId: storyId ?? undefined,
-					person: "character",
-				},
-				{
-					onSuccess: (result) => {
-						if (result.success && result.imageId && result.imageUrl) {
-							aistoryActions.setCharacterImageId(result.imageId);
-							aistoryActions.setCharacterImageUrl(result.imageUrl);
-						} else {
-							aistoryActions.setError(
-								result.error ?? "Failed to upload character image",
-							);
-						}
-						aistoryActions.setIsGeneratingCharacter(false);
-					},
-					onError: (err) => {
-						aistoryActions.setError(
-							err instanceof Error
-								? err.message
-								: "Failed to upload character image",
-						);
-						aistoryActions.setIsGeneratingCharacter(false);
-					},
-				},
-			);
+			// Update store with the linked image
+			aistoryActions.setCharacterImageId(imageId);
+			aistoryActions.setCharacterImageUrl(linkResult.imageUrl || imageUrl);
+			aistoryActions.setIsGeneratingCharacter(false);
 		} catch (err) {
 			aistoryActions.setError(
 				err instanceof Error ? err.message : "Failed to import from assets",
@@ -748,36 +779,21 @@ function ScenesPage() {
 
 			{/* Engine Settings Display */}
 			<div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
+				{/* Header with toggle */}
 				<div className="flex items-center justify-between">
-					<div>
-						<h3 className="text-sm font-semibold text-slate-400 mb-3 uppercase tracking-wide">
-							Engine Settings
-						</h3>
-						<div className="flex flex-wrap gap-3">
-							<div className="px-3 py-1.5 bg-cyan-500/20 border border-cyan-500/30 rounded-lg">
-								<span className="text-xs text-cyan-400 font-medium">
-									Image: {imageEngine === "flux-pro" ? "Flux Pro" : "GPT Image"}
-								</span>
-							</div>
-							<div className="px-3 py-1.5 bg-amber-500/20 border border-amber-500/30 rounded-lg">
-								<span className="text-xs text-amber-400 font-medium">
-									Style: {imageStyle.charAt(0).toUpperCase() + imageStyle.slice(1).replace("-", " ")}
-								</span>
-							</div>
-							<div className="px-3 py-1.5 bg-purple-500/20 border border-purple-500/30 rounded-lg">
-								<span className="text-xs text-purple-400 font-medium">
-									Video:{" "}
-									{videoEngine.includes("kling")
-										? videoEngine.includes("no-audio")
-											? "Kling (No Audio)"
-											: videoEngine.includes("reference")
-											? "Kling Reference"
-											: "Kling v2.6"
-										: "LTX-2"}
-								</span>
-							</div>
-						</div>
-					</div>
+					<button
+						type="button"
+						onClick={() => setIsSettingsExpanded(!isSettingsExpanded)}
+						className="flex items-center gap-2 text-sm font-semibold text-slate-400 uppercase tracking-wide hover:text-slate-300 transition-colors"
+					>
+						<Settings className="w-4 h-4" />
+						Engine Settings
+						{isSettingsExpanded ? (
+							<ChevronUp className="w-4 h-4" />
+						) : (
+							<ChevronDown className="w-4 h-4" />
+						)}
+					</button>
 
 					{/* Exported Video Download Link */}
 					{exportedVideoUrl && (
@@ -793,6 +809,141 @@ function ScenesPage() {
 						</button>
 					)}
 				</div>
+
+				{/* Summary tags (always visible) */}
+				<div className="flex flex-wrap gap-2 mt-3">
+					<div className="px-3 py-1.5 bg-cyan-500/20 border border-cyan-500/30 rounded-lg">
+						<span className="text-xs text-cyan-400 font-medium">
+							Image: {IMAGE_ENGINES.find((e) => e.id === imageEngine)?.label || imageEngine}
+						</span>
+					</div>
+					<div className="px-3 py-1.5 bg-amber-500/20 border border-amber-500/30 rounded-lg">
+						<span className="text-xs text-amber-400 font-medium">
+							Style: {imageStyle.charAt(0).toUpperCase() + imageStyle.slice(1).replace("-", " ")}
+						</span>
+					</div>
+					<div className="px-3 py-1.5 bg-purple-500/20 border border-purple-500/30 rounded-lg">
+						<span className="text-xs text-purple-400 font-medium">
+							Video: {getVideoEngineLabel(videoEngine)}
+						</span>
+					</div>
+					<div className="px-3 py-1.5 bg-emerald-500/20 border border-emerald-500/30 rounded-lg">
+						<span className="text-xs text-emerald-400 font-medium">
+							Voice: {getVoiceLabel(voiceId)}
+						</span>
+					</div>
+					<div className="px-3 py-1.5 bg-slate-500/20 border border-slate-500/30 rounded-lg">
+						<span className="text-xs text-slate-400 font-medium">
+							LLM: {llmEngine === "gpt-4.1" ? "GPT-4.1" : "Claude Opus 4.5"}
+						</span>
+					</div>
+				</div>
+
+				{/* Expanded settings panel */}
+				{isSettingsExpanded && (
+					<div className="mt-4 pt-4 border-t border-slate-700 grid grid-cols-1 md:grid-cols-3 gap-4">
+						{/* Image Engine (editable) */}
+						<div>
+							<label className="block text-xs text-slate-400 mb-2 font-medium">
+								Image Engine
+							</label>
+							<select
+								value={imageEngine}
+								onChange={(e) => {
+									const newEngine = e.target.value as ImageEngine;
+									aistoryActions.setImageEngine(newEngine);
+									if (storyId) {
+										updateStorySettingsMutation.mutate({
+											storyId,
+											imageEngine: newEngine,
+										});
+									}
+								}}
+								className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
+							>
+								{IMAGE_ENGINES.map((engine) => (
+									<option key={engine.id} value={engine.id}>
+										{engine.label}
+									</option>
+								))}
+							</select>
+						</div>
+
+						{/* Video Engine (editable) */}
+						<div>
+							<label className="block text-xs text-slate-400 mb-2 font-medium">
+								Video Engine
+							</label>
+							<select
+								value={videoEngine}
+								onChange={(e) => {
+									const newEngine = e.target.value as VideoEngine;
+									aistoryActions.setVideoEngine(newEngine);
+									if (storyId) {
+										updateStorySettingsMutation.mutate({
+											storyId,
+											videoEngine: newEngine,
+										});
+									}
+								}}
+								className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
+							>
+								{VIDEO_ENGINES.map((engine) => (
+									<option key={engine.id} value={engine.id}>
+										{engine.label}
+									</option>
+								))}
+							</select>
+						</div>
+
+						{/* Voice (editable) */}
+						<div>
+							<label className="block text-xs text-slate-400 mb-2 font-medium">
+								Voice
+							</label>
+							<select
+								value={voiceId}
+								onChange={(e) => {
+									const newVoiceId = e.target.value as VoiceId;
+									aistoryActions.setVoiceId(newVoiceId);
+									if (storyId) {
+										updateStorySettingsMutation.mutate({
+											storyId,
+											voiceId: newVoiceId,
+										});
+									}
+								}}
+								className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+							>
+								{VOICE_OPTIONS.map((voice) => (
+									<option key={voice.id} value={voice.id}>
+										{voice.label}
+									</option>
+								))}
+							</select>
+						</div>
+
+						{/* Style (read-only) */}
+						<div>
+							<label className="block text-xs text-slate-400 mb-2 font-medium">
+								Style <span className="text-slate-500">(prompt-level)</span>
+							</label>
+							<div className="px-3 py-2 bg-slate-900/30 border border-slate-700 rounded-lg text-slate-400 text-sm">
+								{imageStyle.charAt(0).toUpperCase() + imageStyle.slice(1).replace("-", " ")}
+							</div>
+						</div>
+
+						{/* LLM Engine (read-only) */}
+						<div>
+							<label className="block text-xs text-slate-400 mb-2 font-medium">
+								LLM Engine <span className="text-slate-500">(prompt-level)</span>
+							</label>
+							<div className="px-3 py-2 bg-slate-900/30 border border-slate-700 rounded-lg text-slate-400 text-sm">
+								{llmEngine === "gpt-4.1" ? "GPT-4.1" : "Claude Opus 4.5"}
+							</div>
+						</div>
+					</div>
+				)}
 			</div>
 
 			{/* Character Card */}

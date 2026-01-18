@@ -297,76 +297,51 @@ function Podcast42ScenesPage() {
 	const handleImportFromAssets = async (
 		person: "person1" | "person2",
 		imageUrl: string,
+		imageId: string,
 	) => {
 		const setIsGenerating =
 			person === "person1"
 				? podcast42Actions.setIsGeneratingPerson1
 				: podcast42Actions.setIsGeneratingPerson2;
-		const setImage =
+		const setImageUrl =
 			person === "person1"
-				? podcast42Actions.setPerson1Image
-				: podcast42Actions.setPerson2Image;
+				? podcast42Actions.setPerson1ImageUrl
+				: podcast42Actions.setPerson2ImageUrl;
 
 		podcast42Actions.setError(null);
 		setIsGenerating(true);
 
+		if (!storyId) {
+			podcast42Actions.setError("Story ID is required");
+			setIsGenerating(false);
+			return;
+		}
+
 		try {
-			// 1. Call process-image API to resize/crop to 16:9
-			const processResponse = await authFetch("/api/process-image", {
+			// Use link-character endpoint to directly link existing image to story
+			const linkResponse = await authFetch("/api/link-character", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
-					sourceUrl: imageUrl,
-					targetAspectRatio: "16:9",
+					imageId,
+					storyId,
+					person,
 				}),
 			});
 
-			if (!processResponse.ok) {
-				const errorData = await processResponse.json();
-				throw new Error(errorData.error || "Failed to process image");
+			if (!linkResponse.ok) {
+				const errorData = await linkResponse.json();
+				throw new Error(errorData.error || "Failed to link character image");
 			}
 
-			const processResult = await processResponse.json();
-			if (!processResult.success || !processResult.base64) {
-				throw new Error("Failed to process image");
+			const linkResult = await linkResponse.json();
+			if (!linkResult.success) {
+				throw new Error(linkResult.error || "Failed to link character image");
 			}
 
-			// 2. Set the image in store and upload to backend
-			setImage(processResult.base64);
-
-			if (!storyId) {
-				podcast42Actions.setError("Story ID is required");
-				setIsGenerating(false);
-				return;
-			}
-
-			uploadCharacterMutation.mutate(
-				{ imageBase64: processResult.base64, person, storyId },
-				{
-					onSuccess: (result) => {
-						if (result.success && result.imageUrl) {
-							if (person === "person1") {
-								podcast42Actions.setPerson1ImageUrl(result.imageUrl);
-							} else {
-								podcast42Actions.setPerson2ImageUrl(result.imageUrl);
-							}
-						} else {
-							podcast42Actions.setError(
-								result.error ?? "Failed to upload character image",
-							);
-						}
-						setIsGenerating(false);
-					},
-					onError: (err) => {
-						podcast42Actions.setError(
-							err instanceof Error
-								? err.message
-								: "Failed to upload character image",
-						);
-						setIsGenerating(false);
-					},
-				},
-			);
+			// Update store with the image URL
+			setImageUrl(linkResult.imageUrl || imageUrl);
+			setIsGenerating(false);
 		} catch (err) {
 			podcast42Actions.setError(
 				err instanceof Error ? err.message : "Failed to import from assets",
@@ -1406,7 +1381,9 @@ function Podcast42ScenesPage() {
 			<AssetPickerModal
 				isOpen={isAssetPickerOpen === "person1"}
 				onClose={() => setIsAssetPickerOpen(null)}
-				onSelect={(imageUrl) => handleImportFromAssets("person1", imageUrl)}
+				onSelect={(imageUrl, imageId) =>
+					handleImportFromAssets("person1", imageUrl, imageId)
+				}
 				title="Select Person 1 Image"
 			/>
 
@@ -1414,7 +1391,9 @@ function Podcast42ScenesPage() {
 			<AssetPickerModal
 				isOpen={isAssetPickerOpen === "person2"}
 				onClose={() => setIsAssetPickerOpen(null)}
-				onSelect={(imageUrl) => handleImportFromAssets("person2", imageUrl)}
+				onSelect={(imageUrl, imageId) =>
+					handleImportFromAssets("person2", imageUrl, imageId)
+				}
 				title="Select Person 2 Image"
 			/>
 		</div>

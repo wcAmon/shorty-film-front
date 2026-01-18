@@ -16,7 +16,7 @@ interface AssetImage {
 interface AssetPickerModalProps {
 	isOpen: boolean;
 	onClose: () => void;
-	onSelect: (imageUrl: string) => void;
+	onSelect: (imageUrl: string, imageId: string) => void;
 	title?: string;
 }
 
@@ -52,8 +52,8 @@ export function AssetPickerModal({
 	};
 
 	const handleConfirm = () => {
-		if (selectedUrl) {
-			onSelect(selectedUrl);
+		if (selectedUrl && selectedId) {
+			onSelect(selectedUrl, selectedId);
 			onClose();
 			// Reset selection
 			setSelectedId(null);
