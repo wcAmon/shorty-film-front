@@ -50,6 +50,7 @@ export const Route = createFileRoute("/api/podcast42-generate-prompts")({
 						playScript: string;
 						imageStyle?: ImageStyle;
 						imageEngine?: ImageEngine;
+						llmEngine?: "gpt-4.1" | "claude-opus-4-5";
 						person1VoiceId?: VoiceId;
 						person2VoiceId?: VoiceId;
 						avatarEngine?: Podcast42AvatarEngine;
@@ -70,6 +71,7 @@ export const Route = createFileRoute("/api/podcast42-generate-prompts")({
 							playScript: body.playScript,
 							imageStyle: body.imageStyle || "cinematic",
 							imageEngine: body.imageEngine || "flux-pro",
+							llmEngine: body.llmEngine || "gpt-4.1",
 							person1VoiceId: body.person1VoiceId || "PIGsltMj3gFMR34aFDI3",
 							person2VoiceId: body.person2VoiceId || "Z3R5wn05IrDiVCyEkUrK",
 							avatarEngine: body.avatarEngine || "omnihuman",

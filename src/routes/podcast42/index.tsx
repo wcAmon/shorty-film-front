@@ -3,7 +3,7 @@ import { useStore } from "@tanstack/react-store";
 import { ArrowRight, Loader2, Mic } from "lucide-react";
 import { useId } from "react";
 import { useGeneratePodcast42Prompts } from "@/hooks/use-podcast42-api";
-import type { ImageEngine, ImageStyle, VoiceId } from "@/stores/aistory.store";
+import type { ImageEngine, ImageStyle, LLMEngine, VoiceId } from "@/stores/aistory.store";
 import { podcast42Actions, podcast42Store } from "@/stores/podcast42.store";
 
 // Image style options for selection
@@ -89,6 +89,20 @@ const VOICE_OPTIONS: { id: VoiceId; label: string; description: string }[] = [
 	},
 ];
 
+// LLM engine options for prompt generation
+const LLM_ENGINES: { id: LLMEngine; label: string; description: string }[] = [
+	{
+		id: "gpt-4.1",
+		label: "GPT-4.1",
+		description: "OpenAI GPT-4.1, fast and reliable (recommended)",
+	},
+	{
+		id: "claude-opus-4-5",
+		label: "Claude Opus 4.5",
+		description: "Anthropic Claude Opus 4.5, excellent at creative writing",
+	},
+];
+
 // Placeholder for play script format
 const PLAY_SCRIPT_PLACEHOLDER = `---
 background: A cozy podcast studio with warm lighting and vintage microphones
@@ -130,6 +144,7 @@ function Podcast42InputPage() {
 		podcast42Store,
 		(state) => state.person2VoiceId,
 	);
+	const llmEngine = useStore(podcast42Store, (state) => state.llmEngine);
 	const error = useStore(podcast42Store, (state) => state.error);
 
 	// Generate unique ID for form elements
@@ -144,7 +159,7 @@ function Podcast42InputPage() {
 		podcast42Actions.resetPrompts();
 
 		generatePromptsMutation.mutate(
-			{ playScript, imageStyle },
+			{ playScript, imageStyle, llmEngine },
 			{
 				onSuccess: (result) => {
 					if (
@@ -361,6 +376,41 @@ function Podcast42InputPage() {
 								<div className="text-white font-medium">{voice.label}</div>
 								<div className="text-sm text-slate-400">
 									{voice.description}
+								</div>
+							</div>
+						</label>
+					))}
+				</div>
+			</div>
+
+			{/* LLM Engine Selection */}
+			<div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700">
+				<h2 className="text-xl font-semibold text-white mb-4">
+					LLM Engine (for Prompts Generation)
+				</h2>
+				<div className="space-y-3">
+					{LLM_ENGINES.map((engine) => (
+						<label
+							key={engine.id}
+							className={`flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-all ${
+								llmEngine === engine.id
+									? "border-indigo-500 bg-indigo-500/10"
+									: "border-slate-600 hover:border-slate-500"
+							} ${promptsGenerated ? "opacity-50 pointer-events-none" : ""}`}
+						>
+							<input
+								type="radio"
+								name="llmEngine"
+								value={engine.id}
+								checked={llmEngine === engine.id}
+								onChange={() => podcast42Actions.setLLMEngine(engine.id)}
+								className="mt-1 accent-indigo-500"
+								disabled={promptsGenerated}
+							/>
+							<div>
+								<div className="text-white font-medium">{engine.label}</div>
+								<div className="text-sm text-slate-400">
+									{engine.description}
 								</div>
 							</div>
 						</label>

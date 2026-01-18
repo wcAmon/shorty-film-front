@@ -8,6 +8,7 @@ import {
 	aistoryStore,
 	type ImageEngine,
 	type ImageStyle,
+	type LLMEngine,
 	type VideoEngine,
 	type VoiceId,
 } from "@/stores/aistory.store";
@@ -114,7 +115,31 @@ const VIDEO_ENGINES: { id: VideoEngine; label: string; description: string }[] =
 			label: "LTX-2 19B",
 			description: "Fast generation with good motion quality",
 		},
+		{
+			id: "veo3.1",
+			label: "Veo 3.1",
+			description: "Google Veo 3.1 via FAL AI, high quality with audio generation",
+		},
+		{
+			id: "veo3.1-fast",
+			label: "Veo 3.1 Fast",
+			description: "Faster Veo 3.1 generation, good for testing",
+		},
 	];
+
+// LLM engine options for prompt generation
+const LLM_ENGINES: { id: LLMEngine; label: string; description: string }[] = [
+	{
+		id: "gpt-4.1",
+		label: "GPT-4.1",
+		description: "OpenAI GPT-4.1, fast and reliable (recommended)",
+	},
+	{
+		id: "claude-opus-4-5",
+		label: "Claude Opus 4.5",
+		description: "Anthropic Claude Opus 4.5, excellent at creative writing",
+	},
+];
 
 export const Route = createFileRoute("/aistory/")({
 	component: PromptsPage,
@@ -140,6 +165,7 @@ function PromptsPage() {
 	const imageEngine = useStore(aistoryStore, (state) => state.imageEngine);
 	const imageStyle = useStore(aistoryStore, (state) => state.imageStyle);
 	const videoEngine = useStore(aistoryStore, (state) => state.videoEngine);
+	const llmEngine = useStore(aistoryStore, (state) => state.llmEngine);
 	const voiceId = useStore(aistoryStore, (state) => state.voiceId);
 	const error = useStore(aistoryStore, (state) => state.error);
 
@@ -155,7 +181,7 @@ function PromptsPage() {
 		aistoryActions.resetPrompts();
 
 		generatePromptsMutation.mutate(
-			{ script, imageStyle, imageEngine },
+			{ script, imageStyle, imageEngine, llmEngine },
 			{
 				onSuccess: (result) => {
 					if (
@@ -341,6 +367,41 @@ function PromptsPage() {
 								<div className="text-white font-medium">{voice.label}</div>
 								<div className="text-sm text-slate-400">
 									{voice.description}
+								</div>
+							</div>
+						</label>
+					))}
+				</div>
+			</div>
+
+			{/* LLM Engine Selection */}
+			<div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700">
+				<h2 className="text-xl font-semibold text-white mb-4">
+					LLM Engine (for Prompts Generation)
+				</h2>
+				<div className="space-y-3">
+					{LLM_ENGINES.map((engine) => (
+						<label
+							key={engine.id}
+							className={`flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-all ${
+								llmEngine === engine.id
+									? "border-indigo-500 bg-indigo-500/10"
+									: "border-slate-600 hover:border-slate-500"
+							} ${promptsGenerated ? "opacity-50 pointer-events-none" : ""}`}
+						>
+							<input
+								type="radio"
+								name="llmEngine"
+								value={engine.id}
+								checked={llmEngine === engine.id}
+								onChange={() => aistoryActions.setLLMEngine(engine.id)}
+								className="mt-1 accent-indigo-500"
+								disabled={promptsGenerated}
+							/>
+							<div>
+								<div className="text-white font-medium">{engine.label}</div>
+								<div className="text-sm text-slate-400">
+									{engine.description}
 								</div>
 							</div>
 						</label>

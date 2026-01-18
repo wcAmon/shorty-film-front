@@ -2,6 +2,7 @@ import { useMutation } from "@tanstack/react-query";
 import type {
 	ImageEngine,
 	ImageStyle,
+	LLMEngine,
 	VoiceId,
 	WordTimestamp,
 } from "./use-aistory-api";
@@ -295,6 +296,7 @@ async function generatePodcast42PromptsApi(params: {
 	playScript: string;
 	imageStyle?: ImageStyle;
 	imageEngine?: ImageEngine;
+	llmEngine?: LLMEngine;
 	person1VoiceId?: VoiceId;
 	person2VoiceId?: VoiceId;
 	avatarEngine?: Podcast42AvatarEngine;

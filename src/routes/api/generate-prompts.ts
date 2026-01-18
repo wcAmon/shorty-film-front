@@ -38,6 +38,7 @@ export const Route = createFileRoute("/api/generate-prompts")({
 						script: string;
 						imageStyle?: ImageStyle;
 						imageEngine?: "flux-pro" | "gpt-image-1.5";
+						llmEngine?: "gpt-4.1" | "claude-opus-4-5";
 						voiceId?: string;
 						videoEngine?: string;
 					};
@@ -57,6 +58,7 @@ export const Route = createFileRoute("/api/generate-prompts")({
 							script: body.script,
 							imageStyle: body.imageStyle || "cinematic",
 							imageEngine: body.imageEngine || "flux-pro",
+							llmEngine: body.llmEngine || "gpt-4.1",
 							voiceId: body.voiceId,
 							videoEngine: body.videoEngine,
 							ownerId: user.id,

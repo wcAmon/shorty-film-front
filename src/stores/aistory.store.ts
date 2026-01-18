@@ -26,7 +26,12 @@ export type VoiceId =
 export type VideoEngine =
 	| "kling-video"
 	| "sora-2"
-	| "ltx-2-19b";
+	| "ltx-2-19b"
+	| "veo3.1"
+	| "veo3.1-fast";
+
+// LLM engine options for prompt generation
+export type LLMEngine = "gpt-4.1" | "claude-opus-4-5";
 
 // Media status type (matches database enum)
 export type MediaStatus = "ready" | "generating" | "completed";
@@ -97,6 +102,7 @@ export interface AIStoryState {
 	imageEngine: ImageEngine;
 	videoEngine: VideoEngine;
 	imageStyle: ImageStyle;
+	llmEngine: LLMEngine;
 
 	// Voice selection
 	voiceId: VoiceId;
@@ -123,6 +129,7 @@ const initialState: AIStoryState = {
 	imageEngine: "flux-pro",
 	videoEngine: "kling-video",
 	imageStyle: "cinematic",
+	llmEngine: "gpt-4.1",
 	voiceId: "PIGsltMj3gFMR34aFDI3", // Default: Jonathan
 };
 
@@ -261,6 +268,10 @@ export const aistoryActions = {
 
 	setImageStyle: (imageStyle: ImageStyle) => {
 		aistoryStore.setState((state) => ({ ...state, imageStyle }));
+	},
+
+	setLLMEngine: (llmEngine: LLMEngine) => {
+		aistoryStore.setState((state) => ({ ...state, llmEngine }));
 	},
 
 	setVoiceId: (voiceId: VoiceId) => {

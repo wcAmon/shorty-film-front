@@ -339,6 +339,9 @@ export interface WordTimestamp {
 // Image engine type - now only FAL-based engines
 export type ImageEngine = "flux-pro" | "gpt-image-1.5";
 
+// LLM engine type for prompt generation
+export type LLMEngine = "gpt-4.1" | "claude-opus-4-5";
+
 // Voice ID type
 export type VoiceId = string;
 
@@ -423,6 +426,7 @@ async function generatePromptsApi(params: {
 	script: string;
 	imageStyle?: ImageStyle;
 	imageEngine?: ImageEngine;
+	llmEngine?: LLMEngine;
 	onStatusUpdate?: (status: JobStatus) => void;
 }): Promise<GeneratePromptsResponse> {
 	const { onStatusUpdate, ...submitParams } = params;

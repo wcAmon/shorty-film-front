@@ -1,6 +1,6 @@
 import { Store } from "@tanstack/store";
 import type { WordTimestamp } from "@/hooks/use-aistory-api";
-import type { ImageEngine, ImageStyle, VoiceId } from "./aistory.store";
+import type { ImageEngine, ImageStyle, LLMEngine, VoiceId } from "./aistory.store";
 
 // Speaker type for podcast42
 export type Podcast42Speaker = "person1" | "person2";
@@ -72,6 +72,7 @@ export interface Podcast42State {
 	imageEngine: ImageEngine;
 	imageStyle: ImageStyle;
 	avatarEngine: Podcast42AvatarEngine;
+	llmEngine: LLMEngine;
 
 	// Voice selections for each person
 	person1VoiceId: VoiceId;
@@ -108,6 +109,7 @@ const initialState: Podcast42State = {
 	imageEngine: "flux-pro",
 	imageStyle: "cinematic",
 	avatarEngine: "omnihuman",
+	llmEngine: "gpt-4.1",
 	person1VoiceId: "PIGsltMj3gFMR34aFDI3", // Default: Jonathan
 	person2VoiceId: "Z3R5wn05IrDiVCyEkUrK", // Default: Arabella
 	videoQueue: [],
@@ -269,6 +271,10 @@ export const podcast42Actions = {
 
 	setAvatarEngine: (avatarEngine: Podcast42AvatarEngine) => {
 		podcast42Store.setState((state) => ({ ...state, avatarEngine }));
+	},
+
+	setLLMEngine: (llmEngine: LLMEngine) => {
+		podcast42Store.setState((state) => ({ ...state, llmEngine }));
 	},
 
 	setPerson1VoiceId: (person1VoiceId: VoiceId) => {
