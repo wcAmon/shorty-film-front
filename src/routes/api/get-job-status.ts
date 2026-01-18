@@ -55,6 +55,13 @@ export const Route = createFileRoute("/api/get-job-status")({
 							duration: result.duration,
 							wordTimestamps: result.wordTimestamps,
 							errorMessage: result.error,
+							// Story-specific data (for aistory and podcast42 story generation)
+							storyId: result.storyId,
+							characterPrompt: result.characterPrompt,
+							scenes: result.scenes,
+							// Podcast42-specific data
+							person1Prompt: result.person1Prompt,
+							person2Prompt: result.person2Prompt,
 						},
 					});
 				} catch (err) {

@@ -35,6 +35,9 @@ interface JobRecord {
 	mediaUrl?: string | null;
 	duration?: number | null;
 	wordTimestamps?: string | null;
+	// Story-specific data (for aistory story generation)
+	characterPrompt?: string;
+	scenes?: Scene[];
 }
 
 // Backend job submission response
@@ -81,11 +84,15 @@ async function fetchJobStatus(
 				id: result.job.id,
 				status: result.job.status,
 				mediaId: result.job.mediaId,
+				storyId: result.job.storyId,
 				errorMessage: result.job.errorMessage,
 				// Media data from backend (when job is completed)
 				mediaUrl: result.job.mediaUrl,
 				duration: result.job.duration,
 				wordTimestamps: result.job.wordTimestamps,
+				// Story-specific data (for aistory story generation)
+				characterPrompt: result.job.characterPrompt,
+				scenes: result.job.scenes,
 			},
 		};
 	} catch (err) {
@@ -462,18 +469,13 @@ async function generatePromptsApi(params: {
 		};
 	}
 
-	// The job metadata contains the story data
-	const jobData = fullStatus.job as unknown as {
-		storyId?: string;
-		characterPrompt?: string;
-		scenes?: Scene[];
-	};
+	const job = fullStatus.job;
 
 	return {
 		success: true,
-		storyId: jobData.storyId || submitResult.mediaId,
-		characterPrompt: jobData.characterPrompt,
-		scenes: jobData.scenes,
+		storyId: job.storyId || submitResult.mediaId,
+		characterPrompt: job.characterPrompt,
+		scenes: job.scenes,
 	};
 }
 
