@@ -18,6 +18,13 @@ export const Route = createFileRoute("/api/link-character")({
 					};
 					const { imageId, storyId, person } = body;
 
+					console.log("[link-character] Received request:", {
+						imageId,
+						storyId,
+						person,
+						ownerId: user.id,
+					});
+
 					if (!imageId) {
 						return Response.json(
 							{ success: false, error: "Image ID is required" },

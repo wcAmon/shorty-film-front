@@ -55,7 +55,25 @@ export async function proxyToBackend(
 	});
 
 	// Return the response from backend
-	const data = await response.json();
+	const text = await response.text();
+	let data: unknown;
+	try {
+		data = JSON.parse(text);
+	} catch {
+		// Backend returned non-JSON response (likely HTML error page)
+		console.error(
+			"[backend-proxy] Non-JSON response from backend:",
+			response.status,
+			text.substring(0, 500),
+		);
+		return Response.json(
+			{
+				success: false,
+				error: `Backend error (${response.status}): ${text.substring(0, 200)}`,
+			},
+			{ status: response.status },
+		);
+	}
 	console.log(
 		"[backend-proxy] Response status:",
 		response.status,

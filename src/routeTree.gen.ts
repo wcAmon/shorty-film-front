@@ -21,6 +21,7 @@ import { Route as Podcast42ScenesRouteImport } from './routes/podcast42/scenes'
 import { Route as Podcast42ExportRouteImport } from './routes/podcast42/export'
 import { Route as ApiUploadPodcast42CharacterRouteImport } from './routes/api/upload-podcast42-character'
 import { Route as ApiUploadCharacterRouteImport } from './routes/api/upload-character'
+import { Route as ApiUpdateStorySettingsRouteImport } from './routes/api/update-story-settings'
 import { Route as ApiUpdateSceneCaptionRouteImport } from './routes/api/update-scene-caption'
 import { Route as ApiStoryMetadataRouteImport } from './routes/api/story-metadata'
 import { Route as ApiProcessImageRouteImport } from './routes/api/process-image'
@@ -28,6 +29,7 @@ import { Route as ApiPodcast42GenerateVideoRouteImport } from './routes/api/podc
 import { Route as ApiPodcast42GeneratePromptsRouteImport } from './routes/api/podcast42-generate-prompts'
 import { Route as ApiPodcast42ExportVideoRouteImport } from './routes/api/podcast42-export-video'
 import { Route as ApiPodcast42DeleteSceneFilesRouteImport } from './routes/api/podcast42-delete-scene-files'
+import { Route as ApiLinkCharacterRouteImport } from './routes/api/link-character'
 import { Route as ApiGetMediaStatusRouteImport } from './routes/api/get-media-status'
 import { Route as ApiGetJobStatusRouteImport } from './routes/api/get-job-status'
 import { Route as ApiGenerateSceneVideoRouteImport } from './routes/api/generate-scene-video'
@@ -101,6 +103,11 @@ const ApiUploadCharacterRoute = ApiUploadCharacterRouteImport.update({
   path: '/api/upload-character',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiUpdateStorySettingsRoute = ApiUpdateStorySettingsRouteImport.update({
+  id: '/api/update-story-settings',
+  path: '/api/update-story-settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiUpdateSceneCaptionRoute = ApiUpdateSceneCaptionRouteImport.update({
   id: '/api/update-scene-caption',
   path: '/api/update-scene-caption',
@@ -139,6 +146,11 @@ const ApiPodcast42DeleteSceneFilesRoute =
     path: '/api/podcast42-delete-scene-files',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiLinkCharacterRoute = ApiLinkCharacterRouteImport.update({
+  id: '/api/link-character',
+  path: '/api/link-character',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiGetMediaStatusRoute = ApiGetMediaStatusRouteImport.update({
   id: '/api/get-media-status',
   path: '/api/get-media-status',
@@ -213,6 +225,7 @@ export interface FileRoutesByFullPath {
   '/api/generate-scene-video': typeof ApiGenerateSceneVideoRoute
   '/api/get-job-status': typeof ApiGetJobStatusRoute
   '/api/get-media-status': typeof ApiGetMediaStatusRoute
+  '/api/link-character': typeof ApiLinkCharacterRoute
   '/api/podcast42-delete-scene-files': typeof ApiPodcast42DeleteSceneFilesRoute
   '/api/podcast42-export-video': typeof ApiPodcast42ExportVideoRoute
   '/api/podcast42-generate-prompts': typeof ApiPodcast42GeneratePromptsRoute
@@ -220,6 +233,7 @@ export interface FileRoutesByFullPath {
   '/api/process-image': typeof ApiProcessImageRoute
   '/api/story-metadata': typeof ApiStoryMetadataRoute
   '/api/update-scene-caption': typeof ApiUpdateSceneCaptionRoute
+  '/api/update-story-settings': typeof ApiUpdateStorySettingsRoute
   '/api/upload-character': typeof ApiUploadCharacterRoute
   '/api/upload-podcast42-character': typeof ApiUploadPodcast42CharacterRoute
   '/podcast42/export': typeof Podcast42ExportRoute
@@ -243,6 +257,7 @@ export interface FileRoutesByTo {
   '/api/generate-scene-video': typeof ApiGenerateSceneVideoRoute
   '/api/get-job-status': typeof ApiGetJobStatusRoute
   '/api/get-media-status': typeof ApiGetMediaStatusRoute
+  '/api/link-character': typeof ApiLinkCharacterRoute
   '/api/podcast42-delete-scene-files': typeof ApiPodcast42DeleteSceneFilesRoute
   '/api/podcast42-export-video': typeof ApiPodcast42ExportVideoRoute
   '/api/podcast42-generate-prompts': typeof ApiPodcast42GeneratePromptsRoute
@@ -250,6 +265,7 @@ export interface FileRoutesByTo {
   '/api/process-image': typeof ApiProcessImageRoute
   '/api/story-metadata': typeof ApiStoryMetadataRoute
   '/api/update-scene-caption': typeof ApiUpdateSceneCaptionRoute
+  '/api/update-story-settings': typeof ApiUpdateStorySettingsRoute
   '/api/upload-character': typeof ApiUploadCharacterRoute
   '/api/upload-podcast42-character': typeof ApiUploadPodcast42CharacterRoute
   '/podcast42/export': typeof Podcast42ExportRoute
@@ -276,6 +292,7 @@ export interface FileRoutesById {
   '/api/generate-scene-video': typeof ApiGenerateSceneVideoRoute
   '/api/get-job-status': typeof ApiGetJobStatusRoute
   '/api/get-media-status': typeof ApiGetMediaStatusRoute
+  '/api/link-character': typeof ApiLinkCharacterRoute
   '/api/podcast42-delete-scene-files': typeof ApiPodcast42DeleteSceneFilesRoute
   '/api/podcast42-export-video': typeof ApiPodcast42ExportVideoRoute
   '/api/podcast42-generate-prompts': typeof ApiPodcast42GeneratePromptsRoute
@@ -283,6 +300,7 @@ export interface FileRoutesById {
   '/api/process-image': typeof ApiProcessImageRoute
   '/api/story-metadata': typeof ApiStoryMetadataRoute
   '/api/update-scene-caption': typeof ApiUpdateSceneCaptionRoute
+  '/api/update-story-settings': typeof ApiUpdateStorySettingsRoute
   '/api/upload-character': typeof ApiUploadCharacterRoute
   '/api/upload-podcast42-character': typeof ApiUploadPodcast42CharacterRoute
   '/podcast42/export': typeof Podcast42ExportRoute
@@ -310,6 +328,7 @@ export interface FileRouteTypes {
     | '/api/generate-scene-video'
     | '/api/get-job-status'
     | '/api/get-media-status'
+    | '/api/link-character'
     | '/api/podcast42-delete-scene-files'
     | '/api/podcast42-export-video'
     | '/api/podcast42-generate-prompts'
@@ -317,6 +336,7 @@ export interface FileRouteTypes {
     | '/api/process-image'
     | '/api/story-metadata'
     | '/api/update-scene-caption'
+    | '/api/update-story-settings'
     | '/api/upload-character'
     | '/api/upload-podcast42-character'
     | '/podcast42/export'
@@ -340,6 +360,7 @@ export interface FileRouteTypes {
     | '/api/generate-scene-video'
     | '/api/get-job-status'
     | '/api/get-media-status'
+    | '/api/link-character'
     | '/api/podcast42-delete-scene-files'
     | '/api/podcast42-export-video'
     | '/api/podcast42-generate-prompts'
@@ -347,6 +368,7 @@ export interface FileRouteTypes {
     | '/api/process-image'
     | '/api/story-metadata'
     | '/api/update-scene-caption'
+    | '/api/update-story-settings'
     | '/api/upload-character'
     | '/api/upload-podcast42-character'
     | '/podcast42/export'
@@ -372,6 +394,7 @@ export interface FileRouteTypes {
     | '/api/generate-scene-video'
     | '/api/get-job-status'
     | '/api/get-media-status'
+    | '/api/link-character'
     | '/api/podcast42-delete-scene-files'
     | '/api/podcast42-export-video'
     | '/api/podcast42-generate-prompts'
@@ -379,6 +402,7 @@ export interface FileRouteTypes {
     | '/api/process-image'
     | '/api/story-metadata'
     | '/api/update-scene-caption'
+    | '/api/update-story-settings'
     | '/api/upload-character'
     | '/api/upload-podcast42-character'
     | '/podcast42/export'
@@ -403,6 +427,7 @@ export interface RootRouteChildren {
   ApiGenerateSceneVideoRoute: typeof ApiGenerateSceneVideoRoute
   ApiGetJobStatusRoute: typeof ApiGetJobStatusRoute
   ApiGetMediaStatusRoute: typeof ApiGetMediaStatusRoute
+  ApiLinkCharacterRoute: typeof ApiLinkCharacterRoute
   ApiPodcast42DeleteSceneFilesRoute: typeof ApiPodcast42DeleteSceneFilesRoute
   ApiPodcast42ExportVideoRoute: typeof ApiPodcast42ExportVideoRoute
   ApiPodcast42GeneratePromptsRoute: typeof ApiPodcast42GeneratePromptsRoute
@@ -410,6 +435,7 @@ export interface RootRouteChildren {
   ApiProcessImageRoute: typeof ApiProcessImageRoute
   ApiStoryMetadataRoute: typeof ApiStoryMetadataRoute
   ApiUpdateSceneCaptionRoute: typeof ApiUpdateSceneCaptionRoute
+  ApiUpdateStorySettingsRoute: typeof ApiUpdateStorySettingsRoute
   ApiUploadCharacterRoute: typeof ApiUploadCharacterRoute
   ApiUploadPodcast42CharacterRoute: typeof ApiUploadPodcast42CharacterRoute
 }
@@ -500,6 +526,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiUploadCharacterRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/update-story-settings': {
+      id: '/api/update-story-settings'
+      path: '/api/update-story-settings'
+      fullPath: '/api/update-story-settings'
+      preLoaderRoute: typeof ApiUpdateStorySettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/update-scene-caption': {
       id: '/api/update-scene-caption'
       path: '/api/update-scene-caption'
@@ -547,6 +580,13 @@ declare module '@tanstack/react-router' {
       path: '/api/podcast42-delete-scene-files'
       fullPath: '/api/podcast42-delete-scene-files'
       preLoaderRoute: typeof ApiPodcast42DeleteSceneFilesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/link-character': {
+      id: '/api/link-character'
+      path: '/api/link-character'
+      fullPath: '/api/link-character'
+      preLoaderRoute: typeof ApiLinkCharacterRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/get-media-status': {
@@ -676,6 +716,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiGenerateSceneVideoRoute: ApiGenerateSceneVideoRoute,
   ApiGetJobStatusRoute: ApiGetJobStatusRoute,
   ApiGetMediaStatusRoute: ApiGetMediaStatusRoute,
+  ApiLinkCharacterRoute: ApiLinkCharacterRoute,
   ApiPodcast42DeleteSceneFilesRoute: ApiPodcast42DeleteSceneFilesRoute,
   ApiPodcast42ExportVideoRoute: ApiPodcast42ExportVideoRoute,
   ApiPodcast42GeneratePromptsRoute: ApiPodcast42GeneratePromptsRoute,
@@ -683,6 +724,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiProcessImageRoute: ApiProcessImageRoute,
   ApiStoryMetadataRoute: ApiStoryMetadataRoute,
   ApiUpdateSceneCaptionRoute: ApiUpdateSceneCaptionRoute,
+  ApiUpdateStorySettingsRoute: ApiUpdateStorySettingsRoute,
   ApiUploadCharacterRoute: ApiUploadCharacterRoute,
   ApiUploadPodcast42CharacterRoute: ApiUploadPodcast42CharacterRoute,
 }
