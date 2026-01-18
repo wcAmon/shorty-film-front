@@ -5,6 +5,7 @@ import {
 	ChevronUp,
 	Download,
 	Film,
+	FolderOpen,
 	ImageIcon,
 	Loader2,
 	Mic,
@@ -18,8 +19,10 @@ import {
 	Users,
 	Volume2,
 } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CountdownProgress } from "@/components/countdown-progress";
+import { AssetPickerModal } from "@/components/asset-picker-modal";
+import { authFetch } from "@/hooks/use-auth";
 import {
 	useDeletePodcast42Scene,
 	useGeneratePodcast42Character,
@@ -144,6 +147,38 @@ function Podcast42ScenesPage() {
 	const audioRef = useRef<HTMLAudioElement | null>(null);
 	const person1FileInputRef = useRef<HTMLInputElement>(null);
 	const person2FileInputRef = useRef<HTMLInputElement>(null);
+	const person1UploadMenuRef = useRef<HTMLDivElement>(null);
+	const person2UploadMenuRef = useRef<HTMLDivElement>(null);
+
+	// State for asset picker modal and upload dropdown
+	const [isAssetPickerOpen, setIsAssetPickerOpen] = useState<
+		"person1" | "person2" | null
+	>(null);
+	const [isUploadMenuOpen, setIsUploadMenuOpen] = useState<
+		"person1" | "person2" | null
+	>(null);
+
+	// Effect: Close upload menu when clicking outside
+	useEffect(() => {
+		const handleClickOutside = (event: MouseEvent) => {
+			if (
+				person1UploadMenuRef.current &&
+				!person1UploadMenuRef.current.contains(event.target as Node) &&
+				person2UploadMenuRef.current &&
+				!person2UploadMenuRef.current.contains(event.target as Node)
+			) {
+				setIsUploadMenuOpen(null);
+			}
+		};
+
+		if (isUploadMenuOpen) {
+			document.addEventListener("mousedown", handleClickOutside);
+		}
+
+		return () => {
+			document.removeEventListener("mousedown", handleClickOutside);
+		};
+	}, [isUploadMenuOpen]);
 
 	// Handle character image upload
 	const handleUploadCharacter = (
@@ -256,6 +291,88 @@ function Podcast42ScenesPage() {
 		reader.readAsDataURL(file);
 
 		event.target.value = "";
+	};
+
+	// Handle import character from asset library
+	const handleImportFromAssets = async (
+		person: "person1" | "person2",
+		imageUrl: string,
+	) => {
+		const setIsGenerating =
+			person === "person1"
+				? podcast42Actions.setIsGeneratingPerson1
+				: podcast42Actions.setIsGeneratingPerson2;
+		const setImage =
+			person === "person1"
+				? podcast42Actions.setPerson1Image
+				: podcast42Actions.setPerson2Image;
+
+		podcast42Actions.setError(null);
+		setIsGenerating(true);
+
+		try {
+			// 1. Call process-image API to resize/crop to 16:9
+			const processResponse = await authFetch("/api/process-image", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					sourceUrl: imageUrl,
+					targetAspectRatio: "16:9",
+				}),
+			});
+
+			if (!processResponse.ok) {
+				const errorData = await processResponse.json();
+				throw new Error(errorData.error || "Failed to process image");
+			}
+
+			const processResult = await processResponse.json();
+			if (!processResult.success || !processResult.base64) {
+				throw new Error("Failed to process image");
+			}
+
+			// 2. Set the image in store and upload to backend
+			setImage(processResult.base64);
+
+			if (!storyId) {
+				podcast42Actions.setError("Story ID is required");
+				setIsGenerating(false);
+				return;
+			}
+
+			uploadCharacterMutation.mutate(
+				{ imageBase64: processResult.base64, person, storyId },
+				{
+					onSuccess: (result) => {
+						if (result.success && result.imageUrl) {
+							if (person === "person1") {
+								podcast42Actions.setPerson1ImageUrl(result.imageUrl);
+							} else {
+								podcast42Actions.setPerson2ImageUrl(result.imageUrl);
+							}
+						} else {
+							podcast42Actions.setError(
+								result.error ?? "Failed to upload character image",
+							);
+						}
+						setIsGenerating(false);
+					},
+					onError: (err) => {
+						podcast42Actions.setError(
+							err instanceof Error
+								? err.message
+								: "Failed to upload character image",
+						);
+						setIsGenerating(false);
+					},
+				},
+			);
+		} catch (err) {
+			podcast42Actions.setError(
+				err instanceof Error ? err.message : "Failed to import from assets",
+			);
+			setIsGenerating(false);
+		}
 	};
 
 	// Handle character generation from prompt
@@ -643,15 +760,56 @@ function Podcast42ScenesPage() {
 								</>
 							)}
 						</button>
-						<button
-							type="button"
-							onClick={() => fileInputRef.current?.click()}
-							disabled={isGenerating}
-							className="flex-1 py-3 bg-gradient-to-r from-slate-600 to-slate-500 hover:from-slate-500 hover:to-slate-400 disabled:from-slate-700 disabled:to-slate-700 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-all duration-300 shadow-md shadow-slate-500/20 hover:shadow-slate-500/40 disabled:shadow-none flex items-center justify-center gap-2"
+						{/* Upload/Import dropdown */}
+						<div
+							ref={
+								person === "person1"
+									? person1UploadMenuRef
+									: person2UploadMenuRef
+							}
+							className="relative flex-1"
 						>
-							<Upload className="w-5 h-5" />
-							UPLOAD
-						</button>
+							<button
+								type="button"
+								onClick={() =>
+									setIsUploadMenuOpen(
+										isUploadMenuOpen === person ? null : person,
+									)
+								}
+								disabled={isGenerating}
+								className="w-full py-3 bg-gradient-to-r from-slate-600 to-slate-500 hover:from-slate-500 hover:to-slate-400 disabled:from-slate-700 disabled:to-slate-700 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-all duration-300 shadow-md shadow-slate-500/20 hover:shadow-slate-500/40 disabled:shadow-none flex items-center justify-center gap-2"
+							>
+								<Upload className="w-5 h-5" />
+								UPLOAD / IMPORT
+								<ChevronDown className="w-4 h-4" />
+							</button>
+							{isUploadMenuOpen === person && (
+								<div className="absolute top-full left-0 right-0 mt-1 bg-slate-800 border border-slate-600 rounded-lg shadow-xl z-10 overflow-hidden">
+									<button
+										type="button"
+										onClick={() => {
+											fileInputRef.current?.click();
+											setIsUploadMenuOpen(null);
+										}}
+										className="w-full px-4 py-3 text-left text-sm text-white hover:bg-slate-700 transition-colors flex items-center gap-3"
+									>
+										<Upload className="w-4 h-4 text-slate-400" />
+										From Local File
+									</button>
+									<button
+										type="button"
+										onClick={() => {
+											setIsAssetPickerOpen(person);
+											setIsUploadMenuOpen(null);
+										}}
+										className="w-full px-4 py-3 text-left text-sm text-white hover:bg-slate-700 transition-colors flex items-center gap-3 border-t border-slate-700"
+									>
+										<FolderOpen className="w-4 h-4 text-purple-400" />
+										From Asset Library
+									</button>
+								</div>
+							)}
+						</div>
 					</div>
 				</div>
 
@@ -1243,6 +1401,22 @@ function Podcast42ScenesPage() {
 					</button>
 				</div>
 			)}
+
+			{/* Asset Picker Modal for Person 1 */}
+			<AssetPickerModal
+				isOpen={isAssetPickerOpen === "person1"}
+				onClose={() => setIsAssetPickerOpen(null)}
+				onSelect={(imageUrl) => handleImportFromAssets("person1", imageUrl)}
+				title="Select Person 1 Image"
+			/>
+
+			{/* Asset Picker Modal for Person 2 */}
+			<AssetPickerModal
+				isOpen={isAssetPickerOpen === "person2"}
+				onClose={() => setIsAssetPickerOpen(null)}
+				onSelect={(imageUrl) => handleImportFromAssets("person2", imageUrl)}
+				title="Select Person 2 Image"
+			/>
 		</div>
 	);
 }

@@ -23,6 +23,7 @@ import { Route as ApiUploadPodcast42CharacterRouteImport } from './routes/api/up
 import { Route as ApiUploadCharacterRouteImport } from './routes/api/upload-character'
 import { Route as ApiUpdateSceneCaptionRouteImport } from './routes/api/update-scene-caption'
 import { Route as ApiStoryMetadataRouteImport } from './routes/api/story-metadata'
+import { Route as ApiProcessImageRouteImport } from './routes/api/process-image'
 import { Route as ApiPodcast42GenerateVideoRouteImport } from './routes/api/podcast42-generate-video'
 import { Route as ApiPodcast42GeneratePromptsRouteImport } from './routes/api/podcast42-generate-prompts'
 import { Route as ApiPodcast42ExportVideoRouteImport } from './routes/api/podcast42-export-video'
@@ -108,6 +109,11 @@ const ApiUpdateSceneCaptionRoute = ApiUpdateSceneCaptionRouteImport.update({
 const ApiStoryMetadataRoute = ApiStoryMetadataRouteImport.update({
   id: '/api/story-metadata',
   path: '/api/story-metadata',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiProcessImageRoute = ApiProcessImageRouteImport.update({
+  id: '/api/process-image',
+  path: '/api/process-image',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPodcast42GenerateVideoRoute =
@@ -211,6 +217,7 @@ export interface FileRoutesByFullPath {
   '/api/podcast42-export-video': typeof ApiPodcast42ExportVideoRoute
   '/api/podcast42-generate-prompts': typeof ApiPodcast42GeneratePromptsRoute
   '/api/podcast42-generate-video': typeof ApiPodcast42GenerateVideoRoute
+  '/api/process-image': typeof ApiProcessImageRoute
   '/api/story-metadata': typeof ApiStoryMetadataRoute
   '/api/update-scene-caption': typeof ApiUpdateSceneCaptionRoute
   '/api/upload-character': typeof ApiUploadCharacterRoute
@@ -240,6 +247,7 @@ export interface FileRoutesByTo {
   '/api/podcast42-export-video': typeof ApiPodcast42ExportVideoRoute
   '/api/podcast42-generate-prompts': typeof ApiPodcast42GeneratePromptsRoute
   '/api/podcast42-generate-video': typeof ApiPodcast42GenerateVideoRoute
+  '/api/process-image': typeof ApiProcessImageRoute
   '/api/story-metadata': typeof ApiStoryMetadataRoute
   '/api/update-scene-caption': typeof ApiUpdateSceneCaptionRoute
   '/api/upload-character': typeof ApiUploadCharacterRoute
@@ -272,6 +280,7 @@ export interface FileRoutesById {
   '/api/podcast42-export-video': typeof ApiPodcast42ExportVideoRoute
   '/api/podcast42-generate-prompts': typeof ApiPodcast42GeneratePromptsRoute
   '/api/podcast42-generate-video': typeof ApiPodcast42GenerateVideoRoute
+  '/api/process-image': typeof ApiProcessImageRoute
   '/api/story-metadata': typeof ApiStoryMetadataRoute
   '/api/update-scene-caption': typeof ApiUpdateSceneCaptionRoute
   '/api/upload-character': typeof ApiUploadCharacterRoute
@@ -305,6 +314,7 @@ export interface FileRouteTypes {
     | '/api/podcast42-export-video'
     | '/api/podcast42-generate-prompts'
     | '/api/podcast42-generate-video'
+    | '/api/process-image'
     | '/api/story-metadata'
     | '/api/update-scene-caption'
     | '/api/upload-character'
@@ -334,6 +344,7 @@ export interface FileRouteTypes {
     | '/api/podcast42-export-video'
     | '/api/podcast42-generate-prompts'
     | '/api/podcast42-generate-video'
+    | '/api/process-image'
     | '/api/story-metadata'
     | '/api/update-scene-caption'
     | '/api/upload-character'
@@ -365,6 +376,7 @@ export interface FileRouteTypes {
     | '/api/podcast42-export-video'
     | '/api/podcast42-generate-prompts'
     | '/api/podcast42-generate-video'
+    | '/api/process-image'
     | '/api/story-metadata'
     | '/api/update-scene-caption'
     | '/api/upload-character'
@@ -395,6 +407,7 @@ export interface RootRouteChildren {
   ApiPodcast42ExportVideoRoute: typeof ApiPodcast42ExportVideoRoute
   ApiPodcast42GeneratePromptsRoute: typeof ApiPodcast42GeneratePromptsRoute
   ApiPodcast42GenerateVideoRoute: typeof ApiPodcast42GenerateVideoRoute
+  ApiProcessImageRoute: typeof ApiProcessImageRoute
   ApiStoryMetadataRoute: typeof ApiStoryMetadataRoute
   ApiUpdateSceneCaptionRoute: typeof ApiUpdateSceneCaptionRoute
   ApiUploadCharacterRoute: typeof ApiUploadCharacterRoute
@@ -499,6 +512,13 @@ declare module '@tanstack/react-router' {
       path: '/api/story-metadata'
       fullPath: '/api/story-metadata'
       preLoaderRoute: typeof ApiStoryMetadataRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/process-image': {
+      id: '/api/process-image'
+      path: '/api/process-image'
+      fullPath: '/api/process-image'
+      preLoaderRoute: typeof ApiProcessImageRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/podcast42-generate-video': {
@@ -660,6 +680,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPodcast42ExportVideoRoute: ApiPodcast42ExportVideoRoute,
   ApiPodcast42GeneratePromptsRoute: ApiPodcast42GeneratePromptsRoute,
   ApiPodcast42GenerateVideoRoute: ApiPodcast42GenerateVideoRoute,
+  ApiProcessImageRoute: ApiProcessImageRoute,
   ApiStoryMetadataRoute: ApiStoryMetadataRoute,
   ApiUpdateSceneCaptionRoute: ApiUpdateSceneCaptionRoute,
   ApiUploadCharacterRoute: ApiUploadCharacterRoute,

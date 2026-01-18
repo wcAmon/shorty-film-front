@@ -7,6 +7,7 @@ import {
 	Clapperboard,
 	Download,
 	Film,
+	FolderOpen,
 	ImageIcon,
 	Loader2,
 	Play,
@@ -19,6 +20,7 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { CountdownProgress } from "@/components/countdown-progress";
+import { AssetPickerModal } from "@/components/asset-picker-modal";
 import {
 	useGenerateCharacter,
 	useGenerateSceneAudio,
@@ -29,6 +31,7 @@ import {
 	pollMediaUntilReady,
 } from "@/hooks/use-aistory-api";
 import { aistoryActions, aistoryStore } from "@/stores/aistory.store";
+import { authFetch } from "@/hooks/use-auth";
 
 export const Route = createFileRoute("/aistory/scenes")({
 	beforeLoad: () => {
@@ -90,12 +93,37 @@ function ScenesPage() {
 	);
 	const [savingCaptionId, setSavingCaptionId] = useState<string | null>(null);
 
+	// State for asset picker modal and upload dropdown
+	const [isAssetPickerOpen, setIsAssetPickerOpen] = useState(false);
+	const [isUploadMenuOpen, setIsUploadMenuOpen] = useState(false);
+
 	// Refs
 	const audioRef = useRef<HTMLAudioElement | null>(null);
 	const fileInputRef = useRef<HTMLInputElement>(null);
+	const uploadMenuRef = useRef<HTMLDivElement>(null);
 
 	// Track which media are being polled to avoid duplicate polling
 	const pollingRef = useRef<Set<string>>(new Set());
+
+	// Effect: Close upload menu when clicking outside
+	useEffect(() => {
+		const handleClickOutside = (event: MouseEvent) => {
+			if (
+				uploadMenuRef.current &&
+				!uploadMenuRef.current.contains(event.target as Node)
+			) {
+				setIsUploadMenuOpen(false);
+			}
+		};
+
+		if (isUploadMenuOpen) {
+			document.addEventListener("mousedown", handleClickOutside);
+		}
+
+		return () => {
+			document.removeEventListener("mousedown", handleClickOutside);
+		};
+	}, [isUploadMenuOpen]);
 
 	// Effect: Resume monitoring for any media that's still generating when page loads
 	useEffect(() => {
@@ -305,6 +333,62 @@ function ScenesPage() {
 		reader.readAsDataURL(file);
 
 		event.target.value = "";
+	};
+
+	// Handle import character from asset library
+	const handleImportFromAssets = async (imageUrl: string) => {
+		aistoryActions.setError(null);
+		aistoryActions.setIsGeneratingCharacter(true);
+
+		try {
+			// 1. Call process-image API to resize/crop to 9:16
+			const processResponse = await authFetch("/api/process-image", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					sourceUrl: imageUrl,
+					targetAspectRatio: "9:16",
+				}),
+			});
+
+			if (!processResponse.ok) {
+				const errorData = await processResponse.json();
+				throw new Error(errorData.error || "Failed to process image");
+			}
+
+			const processResult = await processResponse.json();
+			if (!processResult.success || !processResult.base64) {
+				throw new Error("Failed to process image");
+			}
+
+			// 2. Upload processed image as character
+			uploadCharacterMutation.mutate(processResult.base64, {
+				onSuccess: (result) => {
+					if (result.success && result.imageId && result.imageUrl) {
+						aistoryActions.setCharacterImageId(result.imageId);
+						aistoryActions.setCharacterImageUrl(result.imageUrl);
+					} else {
+						aistoryActions.setError(
+							result.error ?? "Failed to upload character image",
+						);
+					}
+					aistoryActions.setIsGeneratingCharacter(false);
+				},
+				onError: (err) => {
+					aistoryActions.setError(
+						err instanceof Error
+							? err.message
+							: "Failed to upload character image",
+					);
+					aistoryActions.setIsGeneratingCharacter(false);
+				},
+			});
+		} catch (err) {
+			aistoryActions.setError(
+				err instanceof Error ? err.message : "Failed to import from assets",
+			);
+			aistoryActions.setIsGeneratingCharacter(false);
+		}
 	};
 
 	// Handle character generation from prompt
@@ -735,15 +819,45 @@ function ScenesPage() {
 									</>
 								)}
 							</button>
-							<button
-								type="button"
-								onClick={() => fileInputRef.current?.click()}
-								disabled={isGeneratingCharacter}
-								className="flex-1 py-3 bg-gradient-to-r from-slate-600 to-slate-500 hover:from-slate-500 hover:to-slate-400 disabled:from-slate-700 disabled:to-slate-700 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-all duration-300 shadow-md shadow-slate-500/20 hover:shadow-slate-500/40 disabled:shadow-none flex items-center justify-center gap-2"
-							>
-								<Upload className="w-5 h-5" />
-								UPLOAD CHARACTER
-							</button>
+							{/* Upload/Import dropdown */}
+							<div ref={uploadMenuRef} className="relative flex-1">
+								<button
+									type="button"
+									onClick={() => setIsUploadMenuOpen(!isUploadMenuOpen)}
+									disabled={isGeneratingCharacter}
+									className="w-full py-3 bg-gradient-to-r from-slate-600 to-slate-500 hover:from-slate-500 hover:to-slate-400 disabled:from-slate-700 disabled:to-slate-700 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-all duration-300 shadow-md shadow-slate-500/20 hover:shadow-slate-500/40 disabled:shadow-none flex items-center justify-center gap-2"
+								>
+									<Upload className="w-5 h-5" />
+									UPLOAD / IMPORT
+									<ChevronDown className="w-4 h-4" />
+								</button>
+								{isUploadMenuOpen && (
+									<div className="absolute top-full left-0 right-0 mt-1 bg-slate-800 border border-slate-600 rounded-lg shadow-xl z-10 overflow-hidden">
+										<button
+											type="button"
+											onClick={() => {
+												fileInputRef.current?.click();
+												setIsUploadMenuOpen(false);
+											}}
+											className="w-full px-4 py-3 text-left text-sm text-white hover:bg-slate-700 transition-colors flex items-center gap-3"
+										>
+											<Upload className="w-4 h-4 text-slate-400" />
+											From Local File
+										</button>
+										<button
+											type="button"
+											onClick={() => {
+												setIsAssetPickerOpen(true);
+												setIsUploadMenuOpen(false);
+											}}
+											className="w-full px-4 py-3 text-left text-sm text-white hover:bg-slate-700 transition-colors flex items-center gap-3 border-t border-slate-700"
+										>
+											<FolderOpen className="w-4 h-4 text-purple-400" />
+											From Asset Library
+										</button>
+									</div>
+								)}
+							</div>
 						</div>
 					</div>
 
@@ -1185,6 +1299,14 @@ function ScenesPage() {
 					</button>
 				</div>
 			)}
+
+			{/* Asset Picker Modal */}
+			<AssetPickerModal
+				isOpen={isAssetPickerOpen}
+				onClose={() => setIsAssetPickerOpen(false)}
+				onSelect={handleImportFromAssets}
+				title="Select Character Image"
+			/>
 		</div>
 	);
 }

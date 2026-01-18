@@ -20,6 +20,7 @@ import { useState } from "react";
 import { authFetch, useAuth } from "@/hooks/use-auth";
 import { useDeleteStory, useListStories } from "@/hooks/use-story-history";
 import type { StoryMetadata } from "@/lib/cache";
+import { getThumbnailUrl } from "@/lib/image-utils";
 import { authStore } from "@/stores/auth.store";
 import { aistoryActions } from "@/stores/aistory.store";
 import { podcast42Actions } from "@/stores/podcast42.store";
@@ -537,10 +538,11 @@ function AssetsTab() {
 							>
 								{image.imageUrl ? (
 									<img
-										src={image.imageUrl}
+										src={getThumbnailUrl(image.imageUrl, 300)}
 										alt={image.prompt}
 										className="w-full object-cover"
 										style={{ aspectRatio: "9/16" }}
+										loading="lazy"
 									/>
 								) : (
 									<div
