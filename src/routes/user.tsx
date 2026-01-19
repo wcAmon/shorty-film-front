@@ -295,9 +295,7 @@ function HistoryTab() {
 				aistoryActions.setImageEngine(storyData.imageEngine);
 				aistoryActions.setImageStyle(storyData.imageStyle);
 
-				if (storyData.voiceId) {
-					aistoryActions.setVoiceId(storyData.voiceId as any);
-				}
+				// Note: voiceId is now per-scene, stored in scene data
 				if (storyData.videoEngine) {
 					aistoryActions.setVideoEngine(storyData.videoEngine as any);
 				}
@@ -310,7 +308,7 @@ function HistoryTab() {
 					);
 				}
 
-				// Restore scenes with URL-based media
+				// Restore scenes with URL-based media and per-scene voice settings
 				const restoredScenes = scenes.map((scene: any) => ({
 					id: scene.id,
 					title: scene.title || "Untitled",
@@ -326,6 +324,9 @@ function HistoryTab() {
 					videoId: scene.videoId,
 					videoUrl: scene.videoUrl,
 					videoDuration: scene.videoDuration,
+					// Per-scene voice settings
+					voiceId: scene.voiceId,
+					voiceSpeed: scene.voiceSpeed ?? 1.0,
 				}));
 				aistoryActions.setScenes(restoredScenes as any);
 				aistoryActions.setPromptsGenerated(true);
