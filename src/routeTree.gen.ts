@@ -26,6 +26,7 @@ import { Route as ApiUpdateSceneVoiceRouteImport } from './routes/api/update-sce
 import { Route as ApiUpdateScenePromptRouteImport } from './routes/api/update-scene-prompt'
 import { Route as ApiUpdateSceneCaptionRouteImport } from './routes/api/update-scene-caption'
 import { Route as ApiStoryMetadataRouteImport } from './routes/api/story-metadata'
+import { Route as ApiReorderScenesRouteImport } from './routes/api/reorder-scenes'
 import { Route as ApiProcessImageRouteImport } from './routes/api/process-image'
 import { Route as ApiPodcast42GenerateVideoRouteImport } from './routes/api/podcast42-generate-video'
 import { Route as ApiPodcast42GeneratePromptsRouteImport } from './routes/api/podcast42-generate-prompts'
@@ -128,6 +129,11 @@ const ApiUpdateSceneCaptionRoute = ApiUpdateSceneCaptionRouteImport.update({
 const ApiStoryMetadataRoute = ApiStoryMetadataRouteImport.update({
   id: '/api/story-metadata',
   path: '/api/story-metadata',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiReorderScenesRoute = ApiReorderScenesRouteImport.update({
+  id: '/api/reorder-scenes',
+  path: '/api/reorder-scenes',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiProcessImageRoute = ApiProcessImageRouteImport.update({
@@ -243,6 +249,7 @@ export interface FileRoutesByFullPath {
   '/api/podcast42-generate-prompts': typeof ApiPodcast42GeneratePromptsRoute
   '/api/podcast42-generate-video': typeof ApiPodcast42GenerateVideoRoute
   '/api/process-image': typeof ApiProcessImageRoute
+  '/api/reorder-scenes': typeof ApiReorderScenesRoute
   '/api/story-metadata': typeof ApiStoryMetadataRoute
   '/api/update-scene-caption': typeof ApiUpdateSceneCaptionRoute
   '/api/update-scene-prompt': typeof ApiUpdateScenePromptRoute
@@ -277,6 +284,7 @@ export interface FileRoutesByTo {
   '/api/podcast42-generate-prompts': typeof ApiPodcast42GeneratePromptsRoute
   '/api/podcast42-generate-video': typeof ApiPodcast42GenerateVideoRoute
   '/api/process-image': typeof ApiProcessImageRoute
+  '/api/reorder-scenes': typeof ApiReorderScenesRoute
   '/api/story-metadata': typeof ApiStoryMetadataRoute
   '/api/update-scene-caption': typeof ApiUpdateSceneCaptionRoute
   '/api/update-scene-prompt': typeof ApiUpdateScenePromptRoute
@@ -314,6 +322,7 @@ export interface FileRoutesById {
   '/api/podcast42-generate-prompts': typeof ApiPodcast42GeneratePromptsRoute
   '/api/podcast42-generate-video': typeof ApiPodcast42GenerateVideoRoute
   '/api/process-image': typeof ApiProcessImageRoute
+  '/api/reorder-scenes': typeof ApiReorderScenesRoute
   '/api/story-metadata': typeof ApiStoryMetadataRoute
   '/api/update-scene-caption': typeof ApiUpdateSceneCaptionRoute
   '/api/update-scene-prompt': typeof ApiUpdateScenePromptRoute
@@ -352,6 +361,7 @@ export interface FileRouteTypes {
     | '/api/podcast42-generate-prompts'
     | '/api/podcast42-generate-video'
     | '/api/process-image'
+    | '/api/reorder-scenes'
     | '/api/story-metadata'
     | '/api/update-scene-caption'
     | '/api/update-scene-prompt'
@@ -386,6 +396,7 @@ export interface FileRouteTypes {
     | '/api/podcast42-generate-prompts'
     | '/api/podcast42-generate-video'
     | '/api/process-image'
+    | '/api/reorder-scenes'
     | '/api/story-metadata'
     | '/api/update-scene-caption'
     | '/api/update-scene-prompt'
@@ -422,6 +433,7 @@ export interface FileRouteTypes {
     | '/api/podcast42-generate-prompts'
     | '/api/podcast42-generate-video'
     | '/api/process-image'
+    | '/api/reorder-scenes'
     | '/api/story-metadata'
     | '/api/update-scene-caption'
     | '/api/update-scene-prompt'
@@ -457,6 +469,7 @@ export interface RootRouteChildren {
   ApiPodcast42GeneratePromptsRoute: typeof ApiPodcast42GeneratePromptsRoute
   ApiPodcast42GenerateVideoRoute: typeof ApiPodcast42GenerateVideoRoute
   ApiProcessImageRoute: typeof ApiProcessImageRoute
+  ApiReorderScenesRoute: typeof ApiReorderScenesRoute
   ApiStoryMetadataRoute: typeof ApiStoryMetadataRoute
   ApiUpdateSceneCaptionRoute: typeof ApiUpdateSceneCaptionRoute
   ApiUpdateScenePromptRoute: typeof ApiUpdateScenePromptRoute
@@ -585,6 +598,13 @@ declare module '@tanstack/react-router' {
       path: '/api/story-metadata'
       fullPath: '/api/story-metadata'
       preLoaderRoute: typeof ApiStoryMetadataRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/reorder-scenes': {
+      id: '/api/reorder-scenes'
+      path: '/api/reorder-scenes'
+      fullPath: '/api/reorder-scenes'
+      preLoaderRoute: typeof ApiReorderScenesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/process-image': {
@@ -762,6 +782,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPodcast42GeneratePromptsRoute: ApiPodcast42GeneratePromptsRoute,
   ApiPodcast42GenerateVideoRoute: ApiPodcast42GenerateVideoRoute,
   ApiProcessImageRoute: ApiProcessImageRoute,
+  ApiReorderScenesRoute: ApiReorderScenesRoute,
   ApiStoryMetadataRoute: ApiStoryMetadataRoute,
   ApiUpdateSceneCaptionRoute: ApiUpdateSceneCaptionRoute,
   ApiUpdateScenePromptRoute: ApiUpdateScenePromptRoute,

@@ -1158,3 +1158,37 @@ export function useUpdateScenePrompt() {
 		}) => updateScenePromptApi(params),
 	});
 }
+
+// ============================================================================
+// Scene Reorder API
+// ============================================================================
+
+interface ReorderScenesResponse {
+	success: boolean;
+	error?: string;
+}
+
+async function reorderScenesApi(params: {
+	storyId: string;
+	sceneOrder: Array<{ sceneId: string; orderIndex: number }>;
+}): Promise<ReorderScenesResponse> {
+	const response = await authFetch("/api/reorder-scenes", {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify(params),
+	});
+	return response.json();
+}
+
+/**
+ * Hook to reorder scenes in database
+ * Used with debounce when user reorders scenes in the scene editor
+ */
+export function useReorderScenes() {
+	return useMutation({
+		mutationFn: (params: {
+			storyId: string;
+			sceneOrder: Array<{ sceneId: string; orderIndex: number }>;
+		}) => reorderScenesApi(params),
+	});
+}

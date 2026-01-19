@@ -1,7 +1,6 @@
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { useStore } from "@tanstack/react-store";
 import {
-	Check,
 	ChevronDown,
 	ChevronUp,
 	Clapperboard,
@@ -12,7 +11,6 @@ import {
 	Loader2,
 	Play,
 	Plus,
-	Save,
 	Settings,
 	Trash2,
 	Upload,
@@ -32,6 +30,7 @@ import {
 	useUpdateSceneVoice,
 	useUploadCharacter,
 	useUpdateStorySettings,
+	useReorderScenes,
 	pollMediaUntilReady,
 } from "@/hooks/use-aistory-api";
 import { useDebouncedCallback } from "use-debounce";
@@ -99,6 +98,7 @@ function ScenesPage() {
 	const updateScenePromptMutation = useUpdateScenePrompt();
 	const updateSceneVoiceMutation = useUpdateSceneVoice();
 	const updateStorySettingsMutation = useUpdateStorySettings();
+	const reorderScenesMutation = useReorderScenes();
 
 	// Debounced callback for saving scene prompts (1.5 second delay)
 	const debouncedSavePrompt = useDebouncedCallback(
@@ -108,6 +108,41 @@ function ScenesPage() {
 				{
 					onError: (err) => {
 						console.error("Failed to save prompt:", err);
+						// Don't show error to user - silent save
+					},
+				},
+			);
+		},
+		1500, // 1.5 seconds
+	);
+
+	// Debounced callback for saving scene caption (1.5 second delay)
+	const debouncedSaveCaption = useDebouncedCallback(
+		(sceneId: string, caption: string) => {
+			updateSceneCaptionMutation.mutate(
+				{ sceneId, caption },
+				{
+					onError: (err) => {
+						console.error("Failed to save caption:", err);
+						// Don't show error to user - silent save
+					},
+				},
+			);
+		},
+		1500, // 1.5 seconds
+	);
+
+	// Debounced callback for saving scene order (1.5 second delay)
+	const debouncedSaveOrder = useDebouncedCallback(
+		(sceneOrder: Array<{ sceneId: string; orderIndex: number }>) => {
+			const currentStoryId = aistoryStore.state.storyId;
+			if (!currentStoryId) return;
+
+			reorderScenesMutation.mutate(
+				{ storyId: currentStoryId, sceneOrder },
+				{
+					onError: (err) => {
+						console.error("Failed to save scene order:", err);
 						// Don't show error to user - silent save
 					},
 				},
@@ -150,12 +185,6 @@ function ScenesPage() {
 
 	// State for word-by-word caption display during audio playback
 	const [currentWordIndex, setCurrentWordIndex] = useState<number | null>(null);
-
-	// State for tracking which scenes have unsaved caption changes
-	const [savedCaptions, setSavedCaptions] = useState<Record<string, string>>(
-		{},
-	);
-	const [savingCaptionId, setSavingCaptionId] = useState<string | null>(null);
 
 	// State for asset picker modal and upload dropdown
 	const [isAssetPickerOpen, setIsAssetPickerOpen] = useState(false);
@@ -499,48 +528,12 @@ function ScenesPage() {
 		debouncedSavePrompt(sceneId, newPrompt, undefined);
 	};
 
-	// Update scene caption (editable) - local state only
+	// Update scene caption (editable) - updates local state immediately and debounce saves to database
 	const handleUpdateSceneCaption = (sceneId: string, newCaption: string) => {
+		// 1. Immediately update local state for responsive UI
 		aistoryActions.updateScene(sceneId, { caption: newCaption });
-	};
-
-	// Save scene caption to database
-	const handleSaveSceneCaption = (sceneId: string) => {
-		const scene = scenes.find((s) => s.id === sceneId);
-		if (!scene) return;
-
-		setSavingCaptionId(sceneId);
-
-		updateSceneCaptionMutation.mutate(
-			{ sceneId, caption: scene.caption },
-			{
-				onSuccess: (result) => {
-					if (result.success) {
-						setSavedCaptions((prev) => ({ ...prev, [sceneId]: scene.caption }));
-					} else {
-						aistoryActions.setSceneError(
-							result.error || "Failed to save caption",
-						);
-					}
-					setSavingCaptionId(null);
-				},
-				onError: (err) => {
-					aistoryActions.setSceneError(
-						err instanceof Error ? err.message : "Failed to save caption",
-					);
-					setSavingCaptionId(null);
-				},
-			},
-		);
-	};
-
-	// Check if caption has unsaved changes
-	const hasCaptionChanged = (sceneId: string, currentCaption: string) => {
-		const lastSaved = savedCaptions[sceneId];
-		// If never saved locally, we don't know if it differs from DB
-		// So we show the save button to allow explicit save
-		if (lastSaved === undefined) return true;
-		return lastSaved !== currentCaption;
+		// 2. Debounce save to database
+		debouncedSaveCaption(sceneId, newCaption);
 	};
 
 	// Update scene voice settings and persist to database
@@ -576,6 +569,23 @@ function ScenesPage() {
 		aistoryActions.updateScene(sceneId, { video_prompt: newVideoPrompt });
 		// 2. Debounce save to database
 		debouncedSavePrompt(sceneId, undefined, newVideoPrompt);
+	};
+
+	// Handle scene reorder - updates local state immediately and debounce saves to database
+	const handleReorderScenes = (fromIndex: number, toIndex: number) => {
+		// 1. Immediately update local state for responsive UI
+		aistoryActions.reorderScenes(fromIndex, toIndex);
+
+		// 2. Get the new order from store after reorder and debounce save
+		// Need to use setTimeout to ensure store is updated first
+		setTimeout(() => {
+			const currentScenes = aistoryStore.state.scenes;
+			const sceneOrder = currentScenes.map((scene, index) => ({
+				sceneId: scene.id,
+				orderIndex: index,
+			}));
+			debouncedSaveOrder(sceneOrder);
+		}, 0);
 	};
 
 	// Handle single scene image generation
@@ -1131,9 +1141,7 @@ function ScenesPage() {
 									<div className="flex items-center gap-1">
 										<button
 											type="button"
-											onClick={() =>
-												aistoryActions.reorderScenes(index, index - 1)
-											}
+											onClick={() => handleReorderScenes(index, index - 1)}
 											disabled={index === 0 || scenesDisabled}
 											className="p-1 text-slate-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
 											title="Move up"
@@ -1142,9 +1150,7 @@ function ScenesPage() {
 										</button>
 										<button
 											type="button"
-											onClick={() =>
-												aistoryActions.reorderScenes(index, index + 1)
-											}
+											onClick={() => handleReorderScenes(index, index + 1)}
 											disabled={index === scenes.length - 1 || scenesDisabled}
 											className="p-1 text-slate-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
 											title="Move down"
@@ -1207,47 +1213,9 @@ function ScenesPage() {
 									</button>
 									{/* Caption editor */}
 									<div className="mt-3">
-										<div className="flex items-center justify-between">
-											<span className="text-xs text-slate-400 font-medium uppercase tracking-wide">
-												Caption
-											</span>
-											<button
-												type="button"
-												onClick={() => handleSaveSceneCaption(scene.id)}
-												disabled={
-													savingCaptionId === scene.id ||
-													!scene.caption.trim() ||
-													scenesDisabled
-												}
-												className={`px-3 py-1 text-xs font-medium rounded-md transition-all duration-200 flex items-center gap-1 ${
-													!hasCaptionChanged(scene.id, scene.caption)
-														? "bg-emerald-500/20 text-emerald-400 cursor-default"
-														: "bg-slate-700 text-slate-300 hover:bg-slate-600 hover:text-white"
-												} disabled:opacity-50 disabled:cursor-not-allowed`}
-												title={
-													!hasCaptionChanged(scene.id, scene.caption)
-														? "Caption saved"
-														: "Save caption to database"
-												}
-											>
-												{savingCaptionId === scene.id ? (
-													<>
-														<Loader2 className="w-3 h-3 animate-spin" />
-														Saving...
-													</>
-												) : !hasCaptionChanged(scene.id, scene.caption) ? (
-													<>
-														<Check className="w-3 h-3" />
-														Saved
-													</>
-												) : (
-													<>
-														<Save className="w-3 h-3" />
-														Save
-													</>
-												)}
-											</button>
-										</div>
+										<span className="text-xs text-slate-400 font-medium uppercase tracking-wide">
+											Caption
+										</span>
 										<textarea
 											value={scene.caption}
 											onChange={(e) =>
