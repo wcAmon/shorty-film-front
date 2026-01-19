@@ -606,7 +606,8 @@ function ScenesPage() {
 
 		// Use scene-level voiceId/voiceSpeed if set, otherwise fall back to default voice
 		const sceneVoiceId = scene.voiceId || DEFAULT_VOICE_ID;
-		const sceneVoiceSpeed = scene.voiceSpeed ?? 1.0;
+		// Ensure voiceSpeed is a number (may come as string from database/history)
+		const sceneVoiceSpeed = Number(scene.voiceSpeed) || 1.0;
 
 		generateSceneAudioMutation.mutate(
 			{

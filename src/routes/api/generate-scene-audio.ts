@@ -35,14 +35,24 @@ export const Route = createFileRoute("/api/generate-scene-audio")({
 						storyId: string;
 						sceneId: string;
 						voiceId?: string;
-						voiceSpeed?: number;
+						voiceSpeed?: number | string;
 					};
+
+					// Ensure voiceSpeed is a number (may come as string from frontend/database)
+					const voiceSpeed =
+						body.voiceSpeed !== undefined
+							? Number(body.voiceSpeed)
+							: undefined;
 
 					// Proxy to backend with owner ID
 					return proxyToBackend("/api/generation/audio", {
 						method: "POST",
 						body: {
-							...body,
+							caption: body.caption,
+							storyId: body.storyId,
+							sceneId: body.sceneId,
+							voiceId: body.voiceId,
+							voiceSpeed,
 							ownerId: user.id,
 						},
 					});

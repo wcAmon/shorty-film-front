@@ -326,7 +326,8 @@ function HistoryTab() {
 					videoDuration: scene.videoDuration,
 					// Per-scene voice settings
 					voiceId: scene.voiceId,
-					voiceSpeed: scene.voiceSpeed ?? 1.0,
+					// Ensure voiceSpeed is a number (may come as string from database)
+					voiceSpeed: Number(scene.voiceSpeed) || 1.0,
 				}));
 				aistoryActions.setScenes(restoredScenes as any);
 				aistoryActions.setPromptsGenerated(true);

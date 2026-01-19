@@ -20,9 +20,14 @@ export const Route = createFileRoute("/api/update-scene-voice")({
 					const body = (await request.json()) as {
 						sceneId: string;
 						voiceId?: string;
-						voiceSpeed?: number;
+						voiceSpeed?: number | string;
 					};
-					const { sceneId, voiceId, voiceSpeed } = body;
+					const { sceneId, voiceId } = body;
+					// Ensure voiceSpeed is a number (may come as string from frontend)
+					const voiceSpeed =
+						body.voiceSpeed !== undefined
+							? Number(body.voiceSpeed)
+							: undefined;
 
 					if (!sceneId) {
 						return Response.json(
@@ -33,7 +38,7 @@ export const Route = createFileRoute("/api/update-scene-voice")({
 
 					// Validate voiceSpeed if provided
 					if (voiceSpeed !== undefined) {
-						if (voiceSpeed < 0.7 || voiceSpeed > 1.2) {
+						if (isNaN(voiceSpeed) || voiceSpeed < 0.7 || voiceSpeed > 1.2) {
 							return Response.json(
 								{
 									success: false,
