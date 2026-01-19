@@ -29,6 +29,7 @@ export const Route = createFileRoute("/api/generate-scene-video")({
 						sceneId: string;
 						videoPrompt: string;
 						imageUrl: string;
+						audioUrl: string;
 						audioDuration: number;
 						imageId: string;
 						audioId: string;

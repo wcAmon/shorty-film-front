@@ -22,6 +22,8 @@ import { Route as Podcast42ExportRouteImport } from './routes/podcast42/export'
 import { Route as ApiUploadPodcast42CharacterRouteImport } from './routes/api/upload-podcast42-character'
 import { Route as ApiUploadCharacterRouteImport } from './routes/api/upload-character'
 import { Route as ApiUpdateStorySettingsRouteImport } from './routes/api/update-story-settings'
+import { Route as ApiUpdateSceneVoiceRouteImport } from './routes/api/update-scene-voice'
+import { Route as ApiUpdateScenePromptRouteImport } from './routes/api/update-scene-prompt'
 import { Route as ApiUpdateSceneCaptionRouteImport } from './routes/api/update-scene-caption'
 import { Route as ApiStoryMetadataRouteImport } from './routes/api/story-metadata'
 import { Route as ApiProcessImageRouteImport } from './routes/api/process-image'
@@ -106,6 +108,16 @@ const ApiUploadCharacterRoute = ApiUploadCharacterRouteImport.update({
 const ApiUpdateStorySettingsRoute = ApiUpdateStorySettingsRouteImport.update({
   id: '/api/update-story-settings',
   path: '/api/update-story-settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiUpdateSceneVoiceRoute = ApiUpdateSceneVoiceRouteImport.update({
+  id: '/api/update-scene-voice',
+  path: '/api/update-scene-voice',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiUpdateScenePromptRoute = ApiUpdateScenePromptRouteImport.update({
+  id: '/api/update-scene-prompt',
+  path: '/api/update-scene-prompt',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiUpdateSceneCaptionRoute = ApiUpdateSceneCaptionRouteImport.update({
@@ -233,6 +245,8 @@ export interface FileRoutesByFullPath {
   '/api/process-image': typeof ApiProcessImageRoute
   '/api/story-metadata': typeof ApiStoryMetadataRoute
   '/api/update-scene-caption': typeof ApiUpdateSceneCaptionRoute
+  '/api/update-scene-prompt': typeof ApiUpdateScenePromptRoute
+  '/api/update-scene-voice': typeof ApiUpdateSceneVoiceRoute
   '/api/update-story-settings': typeof ApiUpdateStorySettingsRoute
   '/api/upload-character': typeof ApiUploadCharacterRoute
   '/api/upload-podcast42-character': typeof ApiUploadPodcast42CharacterRoute
@@ -265,6 +279,8 @@ export interface FileRoutesByTo {
   '/api/process-image': typeof ApiProcessImageRoute
   '/api/story-metadata': typeof ApiStoryMetadataRoute
   '/api/update-scene-caption': typeof ApiUpdateSceneCaptionRoute
+  '/api/update-scene-prompt': typeof ApiUpdateScenePromptRoute
+  '/api/update-scene-voice': typeof ApiUpdateSceneVoiceRoute
   '/api/update-story-settings': typeof ApiUpdateStorySettingsRoute
   '/api/upload-character': typeof ApiUploadCharacterRoute
   '/api/upload-podcast42-character': typeof ApiUploadPodcast42CharacterRoute
@@ -300,6 +316,8 @@ export interface FileRoutesById {
   '/api/process-image': typeof ApiProcessImageRoute
   '/api/story-metadata': typeof ApiStoryMetadataRoute
   '/api/update-scene-caption': typeof ApiUpdateSceneCaptionRoute
+  '/api/update-scene-prompt': typeof ApiUpdateScenePromptRoute
+  '/api/update-scene-voice': typeof ApiUpdateSceneVoiceRoute
   '/api/update-story-settings': typeof ApiUpdateStorySettingsRoute
   '/api/upload-character': typeof ApiUploadCharacterRoute
   '/api/upload-podcast42-character': typeof ApiUploadPodcast42CharacterRoute
@@ -336,6 +354,8 @@ export interface FileRouteTypes {
     | '/api/process-image'
     | '/api/story-metadata'
     | '/api/update-scene-caption'
+    | '/api/update-scene-prompt'
+    | '/api/update-scene-voice'
     | '/api/update-story-settings'
     | '/api/upload-character'
     | '/api/upload-podcast42-character'
@@ -368,6 +388,8 @@ export interface FileRouteTypes {
     | '/api/process-image'
     | '/api/story-metadata'
     | '/api/update-scene-caption'
+    | '/api/update-scene-prompt'
+    | '/api/update-scene-voice'
     | '/api/update-story-settings'
     | '/api/upload-character'
     | '/api/upload-podcast42-character'
@@ -402,6 +424,8 @@ export interface FileRouteTypes {
     | '/api/process-image'
     | '/api/story-metadata'
     | '/api/update-scene-caption'
+    | '/api/update-scene-prompt'
+    | '/api/update-scene-voice'
     | '/api/update-story-settings'
     | '/api/upload-character'
     | '/api/upload-podcast42-character'
@@ -435,6 +459,8 @@ export interface RootRouteChildren {
   ApiProcessImageRoute: typeof ApiProcessImageRoute
   ApiStoryMetadataRoute: typeof ApiStoryMetadataRoute
   ApiUpdateSceneCaptionRoute: typeof ApiUpdateSceneCaptionRoute
+  ApiUpdateScenePromptRoute: typeof ApiUpdateScenePromptRoute
+  ApiUpdateSceneVoiceRoute: typeof ApiUpdateSceneVoiceRoute
   ApiUpdateStorySettingsRoute: typeof ApiUpdateStorySettingsRoute
   ApiUploadCharacterRoute: typeof ApiUploadCharacterRoute
   ApiUploadPodcast42CharacterRoute: typeof ApiUploadPodcast42CharacterRoute
@@ -531,6 +557,20 @@ declare module '@tanstack/react-router' {
       path: '/api/update-story-settings'
       fullPath: '/api/update-story-settings'
       preLoaderRoute: typeof ApiUpdateStorySettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/update-scene-voice': {
+      id: '/api/update-scene-voice'
+      path: '/api/update-scene-voice'
+      fullPath: '/api/update-scene-voice'
+      preLoaderRoute: typeof ApiUpdateSceneVoiceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/update-scene-prompt': {
+      id: '/api/update-scene-prompt'
+      path: '/api/update-scene-prompt'
+      fullPath: '/api/update-scene-prompt'
+      preLoaderRoute: typeof ApiUpdateScenePromptRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/update-scene-caption': {
@@ -724,6 +764,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiProcessImageRoute: ApiProcessImageRoute,
   ApiStoryMetadataRoute: ApiStoryMetadataRoute,
   ApiUpdateSceneCaptionRoute: ApiUpdateSceneCaptionRoute,
+  ApiUpdateScenePromptRoute: ApiUpdateScenePromptRoute,
+  ApiUpdateSceneVoiceRoute: ApiUpdateSceneVoiceRoute,
   ApiUpdateStorySettingsRoute: ApiUpdateStorySettingsRoute,
   ApiUploadCharacterRoute: ApiUploadCharacterRoute,
   ApiUploadPodcast42CharacterRoute: ApiUploadPodcast42CharacterRoute,

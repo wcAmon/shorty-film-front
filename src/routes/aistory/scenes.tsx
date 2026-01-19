@@ -28,11 +28,13 @@ import {
 	useGenerateSceneImage,
 	useGenerateSceneVideo,
 	useUpdateSceneCaption,
+	useUpdateScenePrompt,
 	useUpdateSceneVoice,
 	useUploadCharacter,
 	useUpdateStorySettings,
 	pollMediaUntilReady,
 } from "@/hooks/use-aistory-api";
+import { useDebouncedCallback } from "use-debounce";
 import {
 	aistoryActions,
 	aistoryStore,
@@ -94,8 +96,25 @@ function ScenesPage() {
 	const generateSceneAudioMutation = useGenerateSceneAudio();
 	const generateSceneVideoMutation = useGenerateSceneVideo();
 	const updateSceneCaptionMutation = useUpdateSceneCaption();
+	const updateScenePromptMutation = useUpdateScenePrompt();
 	const updateSceneVoiceMutation = useUpdateSceneVoice();
 	const updateStorySettingsMutation = useUpdateStorySettings();
+
+	// Debounced callback for saving scene prompts (1.5 second delay)
+	const debouncedSavePrompt = useDebouncedCallback(
+		(sceneId: string, prompt?: string, videoPrompt?: string) => {
+			updateScenePromptMutation.mutate(
+				{ sceneId, prompt, videoPrompt },
+				{
+					onError: (err) => {
+						console.error("Failed to save prompt:", err);
+						// Don't show error to user - silent save
+					},
+				},
+			);
+		},
+		1500, // 1.5 seconds
+	);
 
 	// Subscribe to store state
 	const characterPrompt = useStore(
@@ -472,9 +491,12 @@ function ScenesPage() {
 		aistoryActions.setCharacterPrompt(newPrompt);
 	};
 
-	// Update scene prompt (editable)
+	// Update scene prompt (editable) - updates local state immediately and debounce saves to database
 	const handleUpdateScenePrompt = (sceneId: string, newPrompt: string) => {
+		// 1. Immediately update local state for responsive UI
 		aistoryActions.updateScene(sceneId, { prompt: newPrompt });
+		// 2. Debounce save to database
+		debouncedSavePrompt(sceneId, newPrompt, undefined);
 	};
 
 	// Update scene caption (editable) - local state only
@@ -545,12 +567,15 @@ function ScenesPage() {
 		);
 	};
 
-	// Update scene video instruction (editable)
+	// Update scene video instruction (editable) - updates local state immediately and debounce saves to database
 	const handleUpdateSceneVideoPrompt = (
 		sceneId: string,
 		newVideoPrompt: string,
 	) => {
+		// 1. Immediately update local state for responsive UI
 		aistoryActions.updateScene(sceneId, { video_prompt: newVideoPrompt });
+		// 2. Debounce save to database
+		debouncedSavePrompt(sceneId, undefined, newVideoPrompt);
 	};
 
 	// Handle single scene image generation
@@ -653,6 +678,7 @@ function ScenesPage() {
 			!scene ||
 			!storyId ||
 			!scene.imageUrl ||
+			!scene.audioUrl ||
 			!scene.audioDuration ||
 			!scene.imageId ||
 			!scene.audioId
@@ -670,6 +696,7 @@ function ScenesPage() {
 				sceneId,
 				videoPrompt: scene.video_prompt,
 				imageUrl: scene.imageUrl,
+				audioUrl: scene.audioUrl,
 				audioDuration: scene.audioDuration,
 				imageId: scene.imageId,
 				audioId: scene.audioId,

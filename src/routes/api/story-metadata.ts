@@ -81,6 +81,9 @@ interface GetStoryResponse {
 		// Media metadata
 		audioDuration?: number | null;
 		videoDuration?: number | null;
+		// Voice settings per scene
+		voiceId?: string | null;
+		voiceSpeed?: number | null;
 	}>;
 	// Character images (for podcast42)
 	characterImages?: {
@@ -172,6 +175,9 @@ export const Route = createFileRoute("/api/story-metadata")({
 								imageStatus: image?.status ?? null,
 								audioStatus: audio?.status ?? null,
 								videoStatus: video?.status ?? null,
+								// Voice settings per scene
+								voiceId: scene.voiceId ?? null,
+								voiceSpeed: scene.voiceSpeed ?? null,
 							}),
 						);
 

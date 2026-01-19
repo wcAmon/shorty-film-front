@@ -682,6 +682,7 @@ async function submitVideoJobApi(params: {
 	sceneId: string;
 	videoPrompt: string;
 	imageUrl: string;
+	audioUrl: string;
 	audioDuration: number;
 	imageId: string;
 	audioId: string;
@@ -701,6 +702,7 @@ async function generateSceneVideoApi(params: {
 	sceneId: string;
 	videoPrompt: string;
 	imageUrl: string;
+	audioUrl: string;
 	audioDuration: number;
 	imageId: string;
 	audioId: string;
@@ -760,6 +762,7 @@ async function generateSceneVideoWithPolling(params: {
 	sceneId: string;
 	videoPrompt: string;
 	imageUrl: string;
+	audioUrl: string;
 	audioDuration: number;
 	imageId: string;
 	audioId: string;
@@ -776,6 +779,7 @@ async function generateSceneVideoWithPolling(params: {
 		sceneId: params.sceneId,
 		videoPrompt: params.videoPrompt,
 		imageUrl: params.imageUrl,
+		audioUrl: params.audioUrl,
 		audioDuration: params.audioDuration,
 		imageId: params.imageId,
 		audioId: params.audioId,
@@ -869,6 +873,7 @@ export function useGenerateSceneVideo() {
 			sceneId: string;
 			videoPrompt: string;
 			imageUrl: string;
+			audioUrl: string;
 			audioDuration: number;
 			imageId: string;
 			audioId: string;
@@ -1116,4 +1121,40 @@ export async function pollMediaUntilReady(
 		success: false,
 		error: `Timeout: ${mediaType} generation did not complete within ${(maxAttempts * pollInterval) / 1000}s`,
 	};
+}
+
+// ============================================================================
+// Scene Prompt Update API
+// ============================================================================
+
+interface UpdateScenePromptResponse {
+	success: boolean;
+	error?: string;
+}
+
+async function updateScenePromptApi(params: {
+	sceneId: string;
+	prompt?: string;
+	videoPrompt?: string;
+}): Promise<UpdateScenePromptResponse> {
+	const response = await authFetch("/api/update-scene-prompt", {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify(params),
+	});
+	return response.json();
+}
+
+/**
+ * Hook to update scene prompts (image prompt, video prompt) in database
+ * Used with debounce when user edits prompts in the scene editor
+ */
+export function useUpdateScenePrompt() {
+	return useMutation({
+		mutationFn: (params: {
+			sceneId: string;
+			prompt?: string;
+			videoPrompt?: string;
+		}) => updateScenePromptApi(params),
+	});
 }
