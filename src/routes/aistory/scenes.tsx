@@ -28,6 +28,7 @@ import {
 	useGenerateSceneImage,
 	useGenerateSceneVideo,
 	useUpdateSceneCaption,
+	useUpdateSceneVoice,
 	useUploadCharacter,
 	useUpdateStorySettings,
 	pollMediaUntilReady,
@@ -72,11 +73,6 @@ function getVideoEngineLabel(engine: VideoEngine): string {
 	return VIDEO_ENGINES.find((e) => e.id === engine)?.label || engine;
 }
 
-// Helper function to get voice label
-function getVoiceLabel(voiceId: VoiceId): string {
-	return VOICE_OPTIONS.find((v) => v.id === voiceId)?.label || voiceId;
-}
-
 export const Route = createFileRoute("/aistory/scenes")({
 	beforeLoad: () => {
 		const state = aistoryStore.state;
@@ -98,6 +94,7 @@ function ScenesPage() {
 	const generateSceneAudioMutation = useGenerateSceneAudio();
 	const generateSceneVideoMutation = useGenerateSceneVideo();
 	const updateSceneCaptionMutation = useUpdateSceneCaption();
+	const updateSceneVoiceMutation = useUpdateSceneVoice();
 	const updateStorySettingsMutation = useUpdateStorySettings();
 
 	// Subscribe to store state
@@ -123,8 +120,10 @@ function ScenesPage() {
 	const imageEngine = useStore(aistoryStore, (state) => state.imageEngine);
 	const imageStyle = useStore(aistoryStore, (state) => state.imageStyle);
 	const llmEngine = useStore(aistoryStore, (state) => state.llmEngine);
-	const voiceId = useStore(aistoryStore, (state) => state.voiceId);
 	const storyId = useStore(aistoryStore, (state) => state.storyId);
+
+	// Default voice ID (Jonathan) - used when scene doesn't have voiceId set
+	const DEFAULT_VOICE_ID: VoiceId = "PIGsltMj3gFMR34aFDI3";
 	const exportedVideoUrl = useStore(
 		aistoryStore,
 		(state) => state.exportedVideoUrl,
@@ -522,6 +521,30 @@ function ScenesPage() {
 		return lastSaved !== currentCaption;
 	};
 
+	// Update scene voice settings and persist to database
+	const handleUpdateSceneVoice = (
+		sceneId: string,
+		voiceId?: VoiceId,
+		voiceSpeed?: number,
+	) => {
+		// Update local store immediately
+		const updates: { voiceId?: VoiceId; voiceSpeed?: number } = {};
+		if (voiceId !== undefined) updates.voiceId = voiceId;
+		if (voiceSpeed !== undefined) updates.voiceSpeed = voiceSpeed;
+		aistoryActions.updateScene(sceneId, updates);
+
+		// Persist to database
+		updateSceneVoiceMutation.mutate(
+			{ sceneId, voiceId, voiceSpeed },
+			{
+				onError: (err) => {
+					console.error("Failed to save voice settings:", err);
+					// Don't revert local state - let user try again
+				},
+			},
+		);
+	};
+
 	// Update scene video instruction (editable)
 	const handleUpdateSceneVideoPrompt = (
 		sceneId: string,
@@ -574,14 +597,25 @@ function ScenesPage() {
 	};
 
 	// Handle single scene audio generation using ElevenLabs with word timestamps
+	// Uses per-scene voiceId and voiceSpeed settings
 	const handleGenerateSceneAudio = (sceneId: string) => {
 		const scene = scenes.find((s) => s.id === sceneId);
 		if (!scene || !storyId) return;
 
 		aistoryActions.updateScene(sceneId, { isGeneratingAudio: true });
 
+		// Use scene-level voiceId/voiceSpeed if set, otherwise fall back to default voice
+		const sceneVoiceId = scene.voiceId || DEFAULT_VOICE_ID;
+		const sceneVoiceSpeed = scene.voiceSpeed ?? 1.0;
+
 		generateSceneAudioMutation.mutate(
-			{ caption: scene.caption, storyId, sceneId, voiceId },
+			{
+				caption: scene.caption,
+				storyId,
+				sceneId,
+				voiceId: sceneVoiceId,
+				voiceSpeed: sceneVoiceSpeed,
+			},
 			{
 				onSuccess: (result) => {
 					if (result.success && result.audioId && result.audioUrl) {
@@ -827,11 +861,6 @@ function ScenesPage() {
 							Video: {getVideoEngineLabel(videoEngine)}
 						</span>
 					</div>
-					<div className="px-3 py-1.5 bg-emerald-500/20 border border-emerald-500/30 rounded-lg">
-						<span className="text-xs text-emerald-400 font-medium">
-							Voice: {getVoiceLabel(voiceId)}
-						</span>
-					</div>
 					<div className="px-3 py-1.5 bg-slate-500/20 border border-slate-500/30 rounded-lg">
 						<span className="text-xs text-slate-400 font-medium">
 							LLM: {llmEngine === "gpt-4.1" ? "GPT-4.1" : "Claude Opus 4.5"}
@@ -891,33 +920,6 @@ function ScenesPage() {
 								{VIDEO_ENGINES.map((engine) => (
 									<option key={engine.id} value={engine.id}>
 										{engine.label}
-									</option>
-								))}
-							</select>
-						</div>
-
-						{/* Voice (editable) */}
-						<div>
-							<label className="block text-xs text-slate-400 mb-2 font-medium">
-								Voice
-							</label>
-							<select
-								value={voiceId}
-								onChange={(e) => {
-									const newVoiceId = e.target.value as VoiceId;
-									aistoryActions.setVoiceId(newVoiceId);
-									if (storyId) {
-										updateStorySettingsMutation.mutate({
-											storyId,
-											voiceId: newVoiceId,
-										});
-									}
-								}}
-								className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
-							>
-								{VOICE_OPTIONS.map((voice) => (
-									<option key={voice.id} value={voice.id}>
-										{voice.label}
 									</option>
 								))}
 							</select>
@@ -1228,6 +1230,63 @@ function ScenesPage() {
 											placeholder="Enter caption text..."
 										/>
 									</div>
+									{/* Per-scene voice settings */}
+									<div className="mt-3 flex gap-3">
+										{/* Voice selection */}
+										<div className="flex-1">
+											<label className="text-xs text-slate-400 font-medium uppercase tracking-wide">
+												Voice
+											</label>
+											<select
+												value={scene.voiceId || DEFAULT_VOICE_ID}
+												onChange={(e) =>
+													handleUpdateSceneVoice(
+														scene.id,
+														e.target.value as VoiceId,
+														undefined,
+													)
+												}
+												disabled={
+													scene.isGeneratingAudio || scenesDisabled
+												}
+												className="mt-1 w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors disabled:opacity-50"
+											>
+												{VOICE_OPTIONS.map((voice) => (
+													<option key={voice.id} value={voice.id}>
+														{voice.label}
+													</option>
+												))}
+											</select>
+										</div>
+										{/* Speed selection */}
+										<div className="w-28">
+											<label className="text-xs text-slate-400 font-medium uppercase tracking-wide">
+												Speed
+											</label>
+											<select
+												value={scene.voiceSpeed ?? 1.0}
+												onChange={(e) =>
+													handleUpdateSceneVoice(
+														scene.id,
+														undefined,
+														Number.parseFloat(e.target.value),
+													)
+												}
+												disabled={
+													scene.isGeneratingAudio || scenesDisabled
+												}
+												className="mt-1 w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors disabled:opacity-50"
+											>
+												<option value={0.7}>0.7x</option>
+												<option value={0.8}>0.8x</option>
+												<option value={0.9}>0.9x</option>
+												<option value={1.0}>1.0x</option>
+												<option value={1.1}>1.1x</option>
+												<option value={1.2}>1.2x</option>
+											</select>
+										</div>
+									</div>
+
 									{/* Audio generation button */}
 									<div className="mt-3">
 										<button

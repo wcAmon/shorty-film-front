@@ -35,6 +35,7 @@ export const Route = createFileRoute("/api/generate-scene-audio")({
 						storyId: string;
 						sceneId: string;
 						voiceId?: string;
+						voiceSpeed?: number;
 					};
 
 					// Proxy to backend with owner ID

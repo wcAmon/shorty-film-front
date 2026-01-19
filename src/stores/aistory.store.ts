@@ -50,6 +50,9 @@ export interface SceneState extends Scene {
 	imageStatus?: MediaStatus;
 	audioStatus?: MediaStatus;
 	videoStatus?: MediaStatus;
+	// Per-scene voice settings
+	voiceId?: VoiceId;
+	voiceSpeed?: number;
 	// UI state
 	isLoading?: boolean;
 	audioDuration?: number;
@@ -103,9 +106,6 @@ export interface AIStoryState {
 	videoEngine: VideoEngine;
 	imageStyle: ImageStyle;
 	llmEngine: LLMEngine;
-
-	// Voice selection
-	voiceId: VoiceId;
 }
 
 // Initial state
@@ -130,7 +130,6 @@ const initialState: AIStoryState = {
 	videoEngine: "kling-video",
 	imageStyle: "cinematic",
 	llmEngine: "gpt-4.1",
-	voiceId: "PIGsltMj3gFMR34aFDI3", // Default: Jonathan
 };
 
 // Create the store
@@ -272,10 +271,6 @@ export const aistoryActions = {
 
 	setLLMEngine: (llmEngine: LLMEngine) => {
 		aistoryStore.setState((state) => ({ ...state, llmEngine }));
-	},
-
-	setVoiceId: (voiceId: VoiceId) => {
-		aistoryStore.setState((state) => ({ ...state, voiceId }));
 	},
 
 	// Reset all state except script

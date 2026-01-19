@@ -192,6 +192,10 @@ export const scenes = shortySchema.table("scenes", {
 	isCharacter: boolean("is_character"),
 	speaker: text("speaker"), // "person1" | "person2" for podcast42
 
+	// Per-scene voice settings
+	voiceId: text("voice_id"),
+	voiceSpeed: real("voice_speed").default(1.0),
+
 	// Foreign keys to media tables (nullable, 1:1 at scene level)
 	imageId: text("image_id").references(() => images.id, {
 		onDelete: "set null",

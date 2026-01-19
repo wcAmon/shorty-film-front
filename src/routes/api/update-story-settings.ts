@@ -10,7 +10,8 @@ interface UpdateStorySettingsResponse {
 export const Route = createFileRoute("/api/update-story-settings")({
 	server: {
 		handlers: {
-			// POST: Update story settings (imageEngine, videoEngine, voiceId)
+			// POST: Update story settings (imageEngine, videoEngine)
+			// Note: voiceId is now per-scene, not story-level
 			POST: async ({ request }) => {
 				// Require authentication
 				const { user, error: authError } = await requireAuth(request);
@@ -21,9 +22,8 @@ export const Route = createFileRoute("/api/update-story-settings")({
 						storyId: string;
 						imageEngine?: string;
 						videoEngine?: string;
-						voiceId?: string;
 					};
-					const { storyId, imageEngine, videoEngine, voiceId } = body;
+					const { storyId, imageEngine, videoEngine } = body;
 
 					if (!storyId) {
 						return Response.json(
@@ -54,7 +54,6 @@ export const Route = createFileRoute("/api/update-story-settings")({
 					const updates: Record<string, string> = {};
 					if (imageEngine !== undefined) updates.imageEngine = imageEngine;
 					if (videoEngine !== undefined) updates.videoEngine = videoEngine;
-					if (voiceId !== undefined) updates.voiceId = voiceId;
 
 					// Update the story settings
 					if (Object.keys(updates).length > 0) {

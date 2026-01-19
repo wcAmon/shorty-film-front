@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useStore } from "@tanstack/react-store";
 import { ArrowRight, Film, Loader2 } from "lucide-react";
-import { useId } from "react";
+import { useId, useState } from "react";
 import { useGeneratePrompts } from "@/hooks/use-aistory-api";
 import {
 	aistoryActions,
@@ -166,8 +166,13 @@ function PromptsPage() {
 	const imageStyle = useStore(aistoryStore, (state) => state.imageStyle);
 	const videoEngine = useStore(aistoryStore, (state) => state.videoEngine);
 	const llmEngine = useStore(aistoryStore, (state) => state.llmEngine);
-	const voiceId = useStore(aistoryStore, (state) => state.voiceId);
 	const error = useStore(aistoryStore, (state) => state.error);
+
+	// Local state for default voice selection (used when generating prompts)
+	// This voiceId will be applied to all scenes as their initial voice
+	const [defaultVoiceId, setDefaultVoiceId] = useState<VoiceId>(
+		"PIGsltMj3gFMR34aFDI3",
+	); // Default: Jonathan
 
 	// Generate unique ID for form elements
 	const scriptTextareaId = useId();
@@ -181,7 +186,14 @@ function PromptsPage() {
 		aistoryActions.resetPrompts();
 
 		generatePromptsMutation.mutate(
-			{ script, imageStyle, imageEngine, llmEngine, voiceId, videoEngine },
+			{
+				script,
+				imageStyle,
+				imageEngine,
+				llmEngine,
+				voiceId: defaultVoiceId,
+				videoEngine,
+			},
 			{
 				onSuccess: (result) => {
 					if (
@@ -342,14 +354,18 @@ function PromptsPage() {
 			{/* Voice Selection */}
 			<div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700">
 				<h2 className="text-xl font-semibold text-white mb-4">
-					Narration Voice
+					Default Narration Voice
 				</h2>
+				<p className="text-sm text-slate-400 mb-4">
+					This voice will be applied to all scenes. You can change voice per
+					scene in the editor.
+				</p>
 				<div className="space-y-3">
 					{VOICE_OPTIONS.map((voice) => (
 						<label
 							key={voice.id}
 							className={`flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-all ${
-								voiceId === voice.id
+								defaultVoiceId === voice.id
 									? "border-emerald-500 bg-emerald-500/10"
 									: "border-slate-600 hover:border-slate-500"
 							} ${promptsGenerated ? "opacity-50 pointer-events-none" : ""}`}
@@ -358,8 +374,8 @@ function PromptsPage() {
 								type="radio"
 								name="voiceId"
 								value={voice.id}
-								checked={voiceId === voice.id}
-								onChange={() => aistoryActions.setVoiceId(voice.id)}
+								checked={defaultVoiceId === voice.id}
+								onChange={() => setDefaultVoiceId(voice.id)}
 								className="mt-1 accent-emerald-500"
 								disabled={promptsGenerated}
 							/>

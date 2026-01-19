@@ -605,6 +605,7 @@ async function generateSceneAudioApi(params: {
 	storyId: string;
 	sceneId: string;
 	voiceId?: string;
+	voiceSpeed?: number;
 	onStatusUpdate?: (status: JobStatus) => void;
 }): Promise<GenerateSceneAudioResponse> {
 	const { onStatusUpdate, ...submitParams } = params;
@@ -841,7 +842,7 @@ export function useGenerateSceneImage() {
 
 /**
  * Hook to generate scene audio with ElevenLabs
- * Supports voice selection via voiceId parameter
+ * Supports voice selection via voiceId parameter and voiceSpeed (0.7-1.2)
  * Returns audioId and audioUrl (Supabase Storage)
  */
 export function useGenerateSceneAudio() {
@@ -851,6 +852,7 @@ export function useGenerateSceneAudio() {
 			storyId: string;
 			sceneId: string;
 			voiceId?: string;
+			voiceSpeed?: number;
 		}) => generateSceneAudioApi(params),
 	});
 }
@@ -962,6 +964,39 @@ export function useUpdateSceneCaption() {
 	return useMutation({
 		mutationFn: (params: { sceneId: string; caption: string }) =>
 			updateSceneCaptionApi(params),
+	});
+}
+
+// Update scene voice settings API function
+interface UpdateSceneVoiceResponse {
+	success: boolean;
+	error?: string;
+}
+
+async function updateSceneVoiceApi(params: {
+	sceneId: string;
+	voiceId?: string;
+	voiceSpeed?: number;
+}): Promise<UpdateSceneVoiceResponse> {
+	const response = await authFetch("/api/update-scene-voice", {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify(params),
+	});
+	return response.json();
+}
+
+/**
+ * Hook to update scene voice settings (voiceId, voiceSpeed) in database
+ * Used when user changes voice or speed in the scene editor
+ */
+export function useUpdateSceneVoice() {
+	return useMutation({
+		mutationFn: (params: {
+			sceneId: string;
+			voiceId?: string;
+			voiceSpeed?: number;
+		}) => updateSceneVoiceApi(params),
 	});
 }
 
