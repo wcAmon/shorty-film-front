@@ -3,6 +3,8 @@ import { useStore } from "@tanstack/react-store";
 import { ArrowRight, Film, Loader2 } from "lucide-react";
 import { useId, useState } from "react";
 import { ErrorWithRetry } from "@/components/error-with-retry";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { useGeneratePrompts } from "@/hooks/use-aistory-api";
 import {
 	aistoryActions,
@@ -251,225 +253,251 @@ function PromptsPage() {
 	return (
 		<div className="space-y-8">
 			{/* Script Input Section */}
-			<div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700">
-				<label
-					htmlFor={scriptTextareaId}
-					className="block text-xl font-semibold text-white mb-4"
-				>
-					Your Story Script
-				</label>
-				<textarea
-					id={scriptTextareaId}
-					value={script}
-					onChange={(e) => aistoryActions.setScript(e.target.value)}
-					placeholder="Describe your story here... Include details about the time period, setting, character appearance, personality, and the narrative flow."
-					className="w-full h-48 px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-colors resize-none"
-					disabled={isGeneratingPrompts || promptsGenerated}
-				/>
-			</div>
+			<Card className="rounded-2xl">
+				<CardContent>
+					<label
+						htmlFor={scriptTextareaId}
+						className="block text-xl font-semibold text-foreground mb-4"
+					>
+						Your Story Script
+					</label>
+					<textarea
+						id={scriptTextareaId}
+						value={script}
+						onChange={(e) => aistoryActions.setScript(e.target.value)}
+						placeholder="Describe your story here... Include details about the time period, setting, character appearance, personality, and the narrative flow."
+						className="w-full h-48 px-4 py-3 bg-muted border border-border rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-colors resize-none"
+						disabled={isGeneratingPrompts || promptsGenerated}
+					/>
+				</CardContent>
+			</Card>
 
 			{/* Image Style Selection */}
-			<div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700">
-				<h2 className="text-xl font-semibold text-white mb-4">Image Style</h2>
-				<div className="space-y-3">
-					{IMAGE_STYLES.map((style) => (
-						<label
-							key={style.id}
-							className={`flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-all ${
-								imageStyle === style.id
-									? "border-amber-500 bg-amber-500/10"
-									: "border-slate-600 hover:border-slate-500"
-							} ${promptsGenerated ? "opacity-50 pointer-events-none" : ""}`}
-						>
-							<input
-								type="radio"
-								name="imageStyle"
-								value={style.id}
-								checked={imageStyle === style.id}
-								onChange={() => aistoryActions.setImageStyle(style.id)}
-								className="mt-1 accent-amber-500"
-								disabled={promptsGenerated}
-							/>
-							<div>
-								<div className="text-white font-medium">{style.label}</div>
-								<div className="text-sm text-slate-400">
-									{style.description}
-								</div>
-							</div>
-						</label>
-					))}
-				</div>
-			</div>
-
-			{/* Image Engine Selection */}
-			<div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700">
-				<h2 className="text-xl font-semibold text-white mb-4">
-					Image Generation Engine
-				</h2>
-				<div className="space-y-3">
-					{IMAGE_ENGINES.map((engine) => (
-						<label
-							key={engine.id}
-							className={`flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-all ${
-								imageEngine === engine.id
-									? "border-cyan-500 bg-cyan-500/10"
-									: "border-slate-600 hover:border-slate-500"
-							} ${promptsGenerated ? "opacity-50 pointer-events-none" : ""}`}
-						>
-							<input
-								type="radio"
-								name="imageEngine"
-								value={engine.id}
-								checked={imageEngine === engine.id}
-								onChange={() => aistoryActions.setImageEngine(engine.id)}
-								className="mt-1 accent-cyan-500"
-								disabled={promptsGenerated}
-							/>
-							<div>
-								<div className="text-white font-medium">{engine.label}</div>
-								<div className="text-sm text-slate-400">
-									{engine.description}
-								</div>
-							</div>
-						</label>
-					))}
-				</div>
-			</div>
-
-			{/* Video Engine Selection */}
-			<div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700">
-				<h2 className="text-xl font-semibold text-white mb-4">
-					Video Generation Engine
-				</h2>
-				<div className="space-y-3">
-					{VIDEO_ENGINES.map((engine) => (
-						<label
-							key={engine.id}
-							className={`flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-all ${
-								videoEngine === engine.id
-									? "border-purple-500 bg-purple-500/10"
-									: "border-slate-600 hover:border-slate-500"
-							} ${promptsGenerated ? "opacity-50 pointer-events-none" : ""}`}
-						>
-							<input
-								type="radio"
-								name="videoEngine"
-								value={engine.id}
-								checked={videoEngine === engine.id}
-								onChange={() => aistoryActions.setVideoEngine(engine.id)}
-								className="mt-1 accent-purple-500"
-								disabled={promptsGenerated}
-							/>
-							<div>
-								<div className="text-white font-medium">{engine.label}</div>
-								<div className="text-sm text-slate-400">
-									{engine.description}
-								</div>
-							</div>
-						</label>
-					))}
-				</div>
-			</div>
-
-			{/* Voice Selection */}
-			<div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700">
-				<h2 className="text-xl font-semibold text-white mb-4">
-					Default Narration Voice
-				</h2>
-				<p className="text-sm text-slate-400 mb-4">
-					This voice will be applied to all scenes. You can change voice per
-					scene in the editor.
-				</p>
-				<div className="space-y-3">
-					{VOICE_OPTIONS.map((voice) => (
-						<label
-							key={voice.id}
-							className={`flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-all ${
-								defaultVoiceId === voice.id
-									? "border-emerald-500 bg-emerald-500/10"
-									: "border-slate-600 hover:border-slate-500"
-							} ${promptsGenerated ? "opacity-50 pointer-events-none" : ""}`}
-						>
-							<input
-								type="radio"
-								name="voiceId"
-								value={voice.id}
-								checked={defaultVoiceId === voice.id}
-								onChange={() => setDefaultVoiceId(voice.id)}
-								className="mt-1 accent-emerald-500"
-								disabled={promptsGenerated}
-							/>
-							<div>
-								<div className="text-white font-medium">{voice.label}</div>
-								<div className="text-sm text-slate-400">
-									{voice.description}
-								</div>
-							</div>
-						</label>
-					))}
-				</div>
-			</div>
-
-			{/* LLM Engine Selection */}
-			<div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700">
-				<h2 className="text-xl font-semibold text-white mb-4">
-					LLM Engine (for Prompts Generation)
-				</h2>
-				<div className="space-y-3">
-					{LLM_ENGINES.map((engine) => (
-						<label
-							key={engine.id}
-							className={`flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-all ${
-								llmEngine === engine.id
-									? "border-indigo-500 bg-indigo-500/10"
-									: "border-slate-600 hover:border-slate-500"
-							} ${promptsGenerated ? "opacity-50 pointer-events-none" : ""}`}
-						>
-							<input
-								type="radio"
-								name="llmEngine"
-								value={engine.id}
-								checked={llmEngine === engine.id}
-								onChange={() => aistoryActions.setLLMEngine(engine.id)}
-								className="mt-1 accent-indigo-500"
-								disabled={promptsGenerated}
-							/>
-							<div>
-								<div className="text-white font-medium">{engine.label}</div>
-								<div className="text-sm text-slate-400">
-									{engine.description}
-								</div>
-							</div>
-						</label>
-					))}
-				</div>
-
-				{/* Caption Language Selection - Segmented Button */}
-				<div className="mt-6 pt-6 border-t border-slate-700">
-					<h3 className="text-sm font-medium text-slate-300 mb-3">
-						Caption Language
-					</h3>
-					<div
-						className={`inline-flex rounded-lg bg-slate-900/50 p-1 ${promptsGenerated ? "opacity-50 pointer-events-none" : ""}`}
-					>
-						{CAPTION_LANGUAGES.map((lang) => (
-							<button
-								key={lang.id}
-								type="button"
-								onClick={() => aistoryActions.setCaptionLanguage(lang.id)}
-								disabled={promptsGenerated}
-								className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${
-									captionLanguage === lang.id
-										? "bg-indigo-500 text-white shadow-sm"
-										: "text-slate-400 hover:text-white"
-								}`}
+			<Card className="rounded-2xl">
+				<CardContent>
+					<h2 className="text-xl font-semibold text-foreground mb-4">
+						Image Style
+					</h2>
+					<div className="space-y-3">
+						{IMAGE_STYLES.map((style) => (
+							<label
+								key={style.id}
+								className={`flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-all ${
+									imageStyle === style.id
+										? "border-amber-500 bg-amber-500/10"
+										: "border-border hover:border-muted-foreground"
+								} ${promptsGenerated ? "opacity-50 pointer-events-none" : ""}`}
 							>
-								{lang.label}
-							</button>
+								<input
+									type="radio"
+									name="imageStyle"
+									value={style.id}
+									checked={imageStyle === style.id}
+									onChange={() => aistoryActions.setImageStyle(style.id)}
+									className="mt-1 accent-amber-500"
+									disabled={promptsGenerated}
+								/>
+								<div>
+									<div className="text-foreground font-medium">
+										{style.label}
+									</div>
+									<div className="text-sm text-muted-foreground">
+										{style.description}
+									</div>
+								</div>
+							</label>
 						))}
 					</div>
-				</div>
-			</div>
+				</CardContent>
+			</Card>
+
+			{/* Image Engine Selection */}
+			<Card className="rounded-2xl">
+				<CardContent>
+					<h2 className="text-xl font-semibold text-foreground mb-4">
+						Image Generation Engine
+					</h2>
+					<div className="space-y-3">
+						{IMAGE_ENGINES.map((engine) => (
+							<label
+								key={engine.id}
+								className={`flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-all ${
+									imageEngine === engine.id
+										? "border-cyan-500 bg-cyan-500/10"
+										: "border-border hover:border-muted-foreground"
+								} ${promptsGenerated ? "opacity-50 pointer-events-none" : ""}`}
+							>
+								<input
+									type="radio"
+									name="imageEngine"
+									value={engine.id}
+									checked={imageEngine === engine.id}
+									onChange={() => aistoryActions.setImageEngine(engine.id)}
+									className="mt-1 accent-cyan-500"
+									disabled={promptsGenerated}
+								/>
+								<div>
+									<div className="text-foreground font-medium">
+										{engine.label}
+									</div>
+									<div className="text-sm text-muted-foreground">
+										{engine.description}
+									</div>
+								</div>
+							</label>
+						))}
+					</div>
+				</CardContent>
+			</Card>
+
+			{/* Video Engine Selection */}
+			<Card className="rounded-2xl">
+				<CardContent>
+					<h2 className="text-xl font-semibold text-foreground mb-4">
+						Video Generation Engine
+					</h2>
+					<div className="space-y-3">
+						{VIDEO_ENGINES.map((engine) => (
+							<label
+								key={engine.id}
+								className={`flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-all ${
+									videoEngine === engine.id
+										? "border-purple-500 bg-purple-500/10"
+										: "border-border hover:border-muted-foreground"
+								} ${promptsGenerated ? "opacity-50 pointer-events-none" : ""}`}
+							>
+								<input
+									type="radio"
+									name="videoEngine"
+									value={engine.id}
+									checked={videoEngine === engine.id}
+									onChange={() => aistoryActions.setVideoEngine(engine.id)}
+									className="mt-1 accent-purple-500"
+									disabled={promptsGenerated}
+								/>
+								<div>
+									<div className="text-foreground font-medium">
+										{engine.label}
+									</div>
+									<div className="text-sm text-muted-foreground">
+										{engine.description}
+									</div>
+								</div>
+							</label>
+						))}
+					</div>
+				</CardContent>
+			</Card>
+
+			{/* Voice Selection */}
+			<Card className="rounded-2xl">
+				<CardContent>
+					<h2 className="text-xl font-semibold text-foreground mb-4">
+						Default Narration Voice
+					</h2>
+					<p className="text-sm text-muted-foreground mb-4">
+						This voice will be applied to all scenes. You can change voice per
+						scene in the editor.
+					</p>
+					<div className="space-y-3">
+						{VOICE_OPTIONS.map((voice) => (
+							<label
+								key={voice.id}
+								className={`flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-all ${
+									defaultVoiceId === voice.id
+										? "border-emerald-500 bg-emerald-500/10"
+										: "border-border hover:border-muted-foreground"
+								} ${promptsGenerated ? "opacity-50 pointer-events-none" : ""}`}
+							>
+								<input
+									type="radio"
+									name="voiceId"
+									value={voice.id}
+									checked={defaultVoiceId === voice.id}
+									onChange={() => setDefaultVoiceId(voice.id)}
+									className="mt-1 accent-emerald-500"
+									disabled={promptsGenerated}
+								/>
+								<div>
+									<div className="text-foreground font-medium">
+										{voice.label}
+									</div>
+									<div className="text-sm text-muted-foreground">
+										{voice.description}
+									</div>
+								</div>
+							</label>
+						))}
+					</div>
+				</CardContent>
+			</Card>
+
+			{/* LLM Engine Selection */}
+			<Card className="rounded-2xl">
+				<CardContent>
+					<h2 className="text-xl font-semibold text-foreground mb-4">
+						LLM Engine (for Prompts Generation)
+					</h2>
+					<div className="space-y-3">
+						{LLM_ENGINES.map((engine) => (
+							<label
+								key={engine.id}
+								className={`flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-all ${
+									llmEngine === engine.id
+										? "border-indigo-500 bg-indigo-500/10"
+										: "border-border hover:border-muted-foreground"
+								} ${promptsGenerated ? "opacity-50 pointer-events-none" : ""}`}
+							>
+								<input
+									type="radio"
+									name="llmEngine"
+									value={engine.id}
+									checked={llmEngine === engine.id}
+									onChange={() => aistoryActions.setLLMEngine(engine.id)}
+									className="mt-1 accent-indigo-500"
+									disabled={promptsGenerated}
+								/>
+								<div>
+									<div className="text-foreground font-medium">
+										{engine.label}
+									</div>
+									<div className="text-sm text-muted-foreground">
+										{engine.description}
+									</div>
+								</div>
+							</label>
+						))}
+					</div>
+
+					{/* Caption Language Selection - Segmented Button */}
+					<div className="mt-6 pt-6 border-t border-border">
+						<h3 className="text-sm font-medium text-muted-foreground mb-3">
+							Caption Language
+						</h3>
+						<div
+							className={`inline-flex rounded-lg bg-muted p-1 ${promptsGenerated ? "opacity-50 pointer-events-none" : ""}`}
+						>
+							{CAPTION_LANGUAGES.map((lang) => (
+								<Button
+									key={lang.id}
+									type="button"
+									variant={captionLanguage === lang.id ? "default" : "ghost"}
+									size="sm"
+									onClick={() => aistoryActions.setCaptionLanguage(lang.id)}
+									disabled={promptsGenerated}
+									className={
+										captionLanguage === lang.id
+											? "bg-indigo-500 hover:bg-indigo-600 text-white shadow-sm"
+											: "text-muted-foreground hover:text-foreground"
+									}
+								>
+									{lang.label}
+								</Button>
+							))}
+						</div>
+					</div>
+				</CardContent>
+			</Card>
 
 			{/* Error Display with retry */}
 			{error && (
@@ -484,11 +512,12 @@ function PromptsPage() {
 			{/* Action Buttons */}
 			<div className="flex gap-4">
 				{!promptsGenerated ? (
-					<button
+					<Button
 						type="button"
 						onClick={handleGeneratePrompts}
 						disabled={!script.trim() || isGeneratingPrompts}
-						className="flex-1 py-4 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-400 hover:to-pink-400 disabled:from-slate-600 disabled:to-slate-600 disabled:cursor-not-allowed text-white text-lg font-bold rounded-xl transition-all duration-300 shadow-lg shadow-purple-500/30 hover:shadow-purple-500/50 disabled:shadow-none flex items-center justify-center gap-3"
+						size="lg"
+						className="flex-1 py-6 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-400 hover:to-pink-400 disabled:from-muted disabled:to-muted disabled:cursor-not-allowed text-white text-lg font-bold rounded-xl transition-all duration-300 shadow-lg shadow-purple-500/30 hover:shadow-purple-500/50 disabled:shadow-none"
 					>
 						{isGeneratingPrompts ? (
 							<>
@@ -501,16 +530,17 @@ function PromptsPage() {
 								GENERATE PROMPTS
 							</>
 						)}
-					</button>
+					</Button>
 				) : (
-					<button
+					<Button
 						type="button"
 						onClick={handleContinueToScenes}
-						className="flex-1 py-4 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white text-lg font-bold rounded-xl transition-all duration-300 shadow-lg shadow-emerald-500/30 hover:shadow-emerald-500/50 flex items-center justify-center gap-3"
+						size="lg"
+						className="flex-1 py-6 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white text-lg font-bold rounded-xl transition-all duration-300 shadow-lg shadow-emerald-500/30 hover:shadow-emerald-500/50"
 					>
 						Continue to Scenes
 						<ArrowRight className="w-6 h-6" />
-					</button>
+					</Button>
 				)}
 			</div>
 		</div>

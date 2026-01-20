@@ -19,6 +19,8 @@ import {
 	Users,
 	Volume2,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { useEffect, useRef, useState } from "react";
 import { AssetPickerModal } from "@/components/asset-picker-modal";
 import { CountdownProgress } from "@/components/countdown-progress";
@@ -689,123 +691,126 @@ function Podcast42ScenesPage() {
 		fileInputRef: React.RefObject<HTMLInputElement | null>,
 		accentColor: string,
 	) => (
-		<div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-			<h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-				<User className={`w-5 h-5 ${accentColor}`} />
-				{title}
-			</h3>
+		<Card>
+			<CardContent className="p-6">
+				<h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+					<User className={`w-5 h-5 ${accentColor}`} />
+					{title}
+				</h3>
 
-			<div className="flex gap-6">
-				{/* Left side: prompt textarea + buttons */}
-				<div className="flex-1 min-w-0">
-					<textarea
-						value={prompt || ""}
-						onChange={(e) => handleUpdatePersonPrompt(person, e.target.value)}
-						className={`w-full h-32 px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:border-${person === "person1" ? "emerald" : "rose"}-500 focus:ring-1 focus:ring-${person === "person1" ? "emerald" : "rose"}-500 transition-colors resize-none`}
-						disabled={isGenerating}
-						placeholder={`${title} description prompt...`}
-					/>
-
-					{/* Character generation button group */}
-					<div className="mt-3 flex gap-3">
-						<button
-							type="button"
-							onClick={() => handleGenerateCharacter(person)}
-							disabled={!prompt?.trim() || isGenerating}
-							className={`flex-1 py-3 bg-gradient-to-r ${
-								person === "person1"
-									? "from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 shadow-emerald-500/20 hover:shadow-emerald-500/40"
-									: "from-rose-500 to-pink-500 hover:from-rose-400 hover:to-pink-400 shadow-rose-500/20 hover:shadow-rose-500/40"
-							} disabled:from-slate-600 disabled:to-slate-600 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-all duration-300 shadow-md disabled:shadow-none flex items-center justify-center gap-2`}
-						>
-							{isGenerating ? (
-								<>
-									<Loader2 className="w-5 h-5 animate-spin" />
-									Generating...
-								</>
-							) : (
-								<>
-									<ImageIcon className="w-5 h-5" />
-									GENERATE
-								</>
-							)}
-						</button>
-						{/* Upload/Import dropdown */}
-						<div
-							ref={
-								person === "person1"
-									? person1UploadMenuRef
-									: person2UploadMenuRef
-							}
-							className="relative flex-1"
-						>
-							<button
-								type="button"
-								onClick={() =>
-									setIsUploadMenuOpen(
-										isUploadMenuOpen === person ? null : person,
-									)
-								}
-								disabled={isGenerating}
-								className="w-full py-3 bg-gradient-to-r from-slate-600 to-slate-500 hover:from-slate-500 hover:to-slate-400 disabled:from-slate-700 disabled:to-slate-700 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-all duration-300 shadow-md shadow-slate-500/20 hover:shadow-slate-500/40 disabled:shadow-none flex items-center justify-center gap-2"
-							>
-								<Upload className="w-5 h-5" />
-								UPLOAD / IMPORT
-								<ChevronDown className="w-4 h-4" />
-							</button>
-							{isUploadMenuOpen === person && (
-								<div className="absolute top-full left-0 right-0 mt-1 bg-slate-800 border border-slate-600 rounded-lg shadow-xl z-10 overflow-hidden">
-									<button
-										type="button"
-										onClick={() => {
-											fileInputRef.current?.click();
-											setIsUploadMenuOpen(null);
-										}}
-										className="w-full px-4 py-3 text-left text-sm text-white hover:bg-slate-700 transition-colors flex items-center gap-3"
-									>
-										<Upload className="w-4 h-4 text-slate-400" />
-										From Local File
-									</button>
-									<button
-										type="button"
-										onClick={() => {
-											setIsAssetPickerOpen(person);
-											setIsUploadMenuOpen(null);
-										}}
-										className="w-full px-4 py-3 text-left text-sm text-white hover:bg-slate-700 transition-colors flex items-center gap-3 border-t border-slate-700"
-									>
-										<FolderOpen className="w-4 h-4 text-purple-400" />
-										From Asset Library
-									</button>
-								</div>
-							)}
-						</div>
-					</div>
-				</div>
-
-				{/* Right side: character image preview (16:9 landscape) */}
-				<div className="w-48 flex-shrink-0">
-					{imageUrl ? (
-						<img
-							src={imageUrl}
-							alt={`${title} portrait`}
-							className="w-full rounded-lg shadow-lg object-cover"
-							style={{ aspectRatio: "16/9" }}
+				<div className="flex gap-6">
+					{/* Left side: prompt textarea + buttons */}
+					<div className="flex-1 min-w-0">
+						<textarea
+							value={prompt || ""}
+							onChange={(e) => handleUpdatePersonPrompt(person, e.target.value)}
+							className={`w-full h-32 px-4 py-3 bg-background border border-border rounded-lg text-foreground text-sm placeholder-muted-foreground focus:outline-none focus:border-${person === "person1" ? "emerald" : "rose"}-500 focus:ring-1 focus:ring-${person === "person1" ? "emerald" : "rose"}-500 transition-colors resize-none`}
+							disabled={isGenerating}
+							placeholder={`${title} description prompt...`}
 						/>
-					) : (
-						<div
-							className="w-full bg-slate-900/50 border border-slate-600 rounded-lg flex items-center justify-center text-slate-500"
-							style={{ aspectRatio: "16/9" }}
-						>
-							<div className="text-center p-2">
-								<ImageIcon className="w-6 h-6 mx-auto mb-1 opacity-50" />
-								<span className="text-xs">16:9</span>
+
+						{/* Character generation button group */}
+						<div className="mt-3 flex gap-3">
+							<Button
+								type="button"
+								onClick={() => handleGenerateCharacter(person)}
+								disabled={!prompt?.trim() || isGenerating}
+								className={`flex-1 py-3 h-auto bg-gradient-to-r ${
+									person === "person1"
+										? "from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 shadow-emerald-500/20 hover:shadow-emerald-500/40"
+										: "from-rose-500 to-pink-500 hover:from-rose-400 hover:to-pink-400 shadow-rose-500/20 hover:shadow-rose-500/40"
+								} disabled:from-muted disabled:to-muted disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-all duration-300 shadow-md disabled:shadow-none flex items-center justify-center gap-2`}
+							>
+								{isGenerating ? (
+									<>
+										<Loader2 className="w-5 h-5 animate-spin" />
+										Generating...
+									</>
+								) : (
+									<>
+										<ImageIcon className="w-5 h-5" />
+										GENERATE
+									</>
+								)}
+							</Button>
+							{/* Upload/Import dropdown */}
+							<div
+								ref={
+									person === "person1"
+										? person1UploadMenuRef
+										: person2UploadMenuRef
+								}
+								className="relative flex-1"
+							>
+								<Button
+									type="button"
+									variant="secondary"
+									onClick={() =>
+										setIsUploadMenuOpen(
+											isUploadMenuOpen === person ? null : person,
+										)
+									}
+									disabled={isGenerating}
+									className="w-full py-3 h-auto font-semibold rounded-lg transition-all duration-300 flex items-center justify-center gap-2"
+								>
+									<Upload className="w-5 h-5" />
+									UPLOAD / IMPORT
+									<ChevronDown className="w-4 h-4" />
+								</Button>
+								{isUploadMenuOpen === person && (
+									<div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-lg shadow-xl z-10 overflow-hidden">
+										<button
+											type="button"
+											onClick={() => {
+												fileInputRef.current?.click();
+												setIsUploadMenuOpen(null);
+											}}
+											className="w-full px-4 py-3 text-left text-sm text-foreground hover:bg-accent transition-colors flex items-center gap-3"
+										>
+											<Upload className="w-4 h-4 text-muted-foreground" />
+											From Local File
+										</button>
+										<button
+											type="button"
+											onClick={() => {
+												setIsAssetPickerOpen(person);
+												setIsUploadMenuOpen(null);
+											}}
+											className="w-full px-4 py-3 text-left text-sm text-foreground hover:bg-accent transition-colors flex items-center gap-3 border-t border-border"
+										>
+											<FolderOpen className="w-4 h-4 text-purple-400" />
+											From Asset Library
+										</button>
+									</div>
+								)}
 							</div>
 						</div>
-					)}
+					</div>
+
+					{/* Right side: character image preview (16:9 landscape) */}
+					<div className="w-48 flex-shrink-0">
+						{imageUrl ? (
+							<img
+								src={imageUrl}
+								alt={`${title} portrait`}
+								className="w-full rounded-lg shadow-lg object-cover"
+								style={{ aspectRatio: "16/9" }}
+							/>
+						) : (
+							<div
+								className="w-full bg-background border border-border rounded-lg flex items-center justify-center text-muted-foreground"
+								style={{ aspectRatio: "16/9" }}
+							>
+								<div className="text-center p-2">
+									<ImageIcon className="w-6 h-6 mx-auto mb-1 opacity-50" />
+									<span className="text-xs">16:9</span>
+								</div>
+							</div>
+						)}
+					</div>
 				</div>
-			</div>
-		</div>
+			</CardContent>
+		</Card>
 	);
 
 	return (
@@ -827,140 +832,146 @@ function Podcast42ScenesPage() {
 			/>
 
 			{/* Settings Panel */}
-			<div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-				<h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-					<Settings className="w-5 h-5 text-amber-400" />
-					Generation Settings
-				</h2>
+			<Card>
+				<CardContent className="p-6">
+					<h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+						<Settings className="w-5 h-5 text-amber-400" />
+						Generation Settings
+					</h2>
 
-				<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-					{/* Image Engine */}
-					<div>
-						<label className="block text-sm font-medium text-slate-300 mb-2">
-							Image Engine
-						</label>
-						<div className="flex gap-2">
-							<button
-								type="button"
-								onClick={() => handleImageEngineChange("flux-pro")}
-								className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-									imageEngine === "flux-pro"
-										? "bg-amber-500 text-white"
-										: "bg-slate-700 text-slate-300 hover:bg-slate-600"
-								}`}
+					<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+						{/* Image Engine */}
+						<div>
+							<label className="block text-sm font-medium text-muted-foreground mb-2">
+								Image Engine
+							</label>
+							<div className="flex gap-2">
+								<Button
+									type="button"
+									variant={imageEngine === "flux-pro" ? "default" : "secondary"}
+									onClick={() => handleImageEngineChange("flux-pro")}
+									className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+										imageEngine === "flux-pro"
+											? "bg-amber-500 text-white hover:bg-amber-400"
+											: ""
+									}`}
+								>
+									Flux Pro
+								</Button>
+								<Button
+									type="button"
+									variant={imageEngine === "gpt-image-1.5" ? "default" : "secondary"}
+									onClick={() => handleImageEngineChange("gpt-image-1.5")}
+									className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+										imageEngine === "gpt-image-1.5"
+											? "bg-amber-500 text-white hover:bg-amber-400"
+											: ""
+									}`}
+								>
+									GPT Image 1.5
+								</Button>
+							</div>
+						</div>
+
+						{/* Image Style */}
+						<div>
+							<label className="block text-sm font-medium text-muted-foreground mb-2">
+								Image Style
+							</label>
+							<select
+								value={imageStyle}
+								onChange={(e) =>
+									handleImageStyleChange(e.target.value as ImageStyle)
+								}
+								className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-foreground text-sm focus:outline-none focus:border-amber-500"
 							>
-								Flux Pro
-							</button>
-							<button
-								type="button"
-								onClick={() => handleImageEngineChange("gpt-image-1.5")}
-								className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-									imageEngine === "gpt-image-1.5"
-										? "bg-amber-500 text-white"
-										: "bg-slate-700 text-slate-300 hover:bg-slate-600"
-								}`}
+								{IMAGE_STYLE_OPTIONS.map((style) => (
+									<option key={style.id} value={style.id}>
+										{style.name}
+									</option>
+								))}
+							</select>
+						</div>
+
+						{/* Avatar Engine (for talking-head animation) */}
+						<div>
+							<label className="block text-sm font-medium text-muted-foreground mb-2">
+								Avatar Engine
+							</label>
+							<div className="flex gap-2">
+								<Button
+									type="button"
+									variant={avatarEngine === "omnihuman" ? "default" : "secondary"}
+									onClick={() => handleAvatarEngineChange("omnihuman")}
+									className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+										avatarEngine === "omnihuman"
+											? "bg-amber-500 text-white hover:bg-amber-400"
+											: ""
+									}`}
+								>
+									OmniHuman
+								</Button>
+								<Button
+									type="button"
+									variant={avatarEngine === "aurora" ? "default" : "secondary"}
+									onClick={() => handleAvatarEngineChange("aurora")}
+									className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+										avatarEngine === "aurora"
+											? "bg-amber-500 text-white hover:bg-amber-400"
+											: ""
+									}`}
+								>
+									Aurora
+								</Button>
+							</div>
+						</div>
+
+						{/* Person 1 Voice */}
+						<div>
+							<label className="block text-sm font-medium text-emerald-400 mb-2">
+								Person 1 Voice
+							</label>
+							<select
+								value={person1VoiceId}
+								onChange={(e) =>
+									handlePerson1VoiceChange(e.target.value as VoiceId)
+								}
+								className="w-full px-3 py-2 bg-muted border border-emerald-600/50 rounded-lg text-foreground text-sm focus:outline-none focus:border-emerald-500"
 							>
-								GPT Image 1.5
-							</button>
+								{VOICE_OPTIONS.map((voice) => (
+									<option key={voice.id} value={voice.id}>
+										{voice.name}
+									</option>
+								))}
+							</select>
+						</div>
+
+						{/* Person 2 Voice */}
+						<div>
+							<label className="block text-sm font-medium text-rose-400 mb-2">
+								Person 2 Voice
+							</label>
+							<select
+								value={person2VoiceId}
+								onChange={(e) =>
+									handlePerson2VoiceChange(e.target.value as VoiceId)
+								}
+								className="w-full px-3 py-2 bg-muted border border-rose-600/50 rounded-lg text-foreground text-sm focus:outline-none focus:border-rose-500"
+							>
+								{VOICE_OPTIONS.map((voice) => (
+									<option key={voice.id} value={voice.id}>
+										{voice.name}
+									</option>
+								))}
+							</select>
 						</div>
 					</div>
-
-					{/* Image Style */}
-					<div>
-						<label className="block text-sm font-medium text-slate-300 mb-2">
-							Image Style
-						</label>
-						<select
-							value={imageStyle}
-							onChange={(e) =>
-								handleImageStyleChange(e.target.value as ImageStyle)
-							}
-							className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:border-amber-500"
-						>
-							{IMAGE_STYLE_OPTIONS.map((style) => (
-								<option key={style.id} value={style.id}>
-									{style.name}
-								</option>
-							))}
-						</select>
-					</div>
-
-					{/* Avatar Engine (for talking-head animation) */}
-					<div>
-						<label className="block text-sm font-medium text-slate-300 mb-2">
-							Avatar Engine
-						</label>
-						<div className="flex gap-2">
-							<button
-								type="button"
-								onClick={() => handleAvatarEngineChange("omnihuman")}
-								className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-									avatarEngine === "omnihuman"
-										? "bg-amber-500 text-white"
-										: "bg-slate-700 text-slate-300 hover:bg-slate-600"
-								}`}
-							>
-								OmniHuman
-							</button>
-							<button
-								type="button"
-								onClick={() => handleAvatarEngineChange("aurora")}
-								className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-									avatarEngine === "aurora"
-										? "bg-amber-500 text-white"
-										: "bg-slate-700 text-slate-300 hover:bg-slate-600"
-								}`}
-							>
-								Aurora
-							</button>
-						</div>
-					</div>
-
-					{/* Person 1 Voice */}
-					<div>
-						<label className="block text-sm font-medium text-emerald-400 mb-2">
-							Person 1 Voice
-						</label>
-						<select
-							value={person1VoiceId}
-							onChange={(e) =>
-								handlePerson1VoiceChange(e.target.value as VoiceId)
-							}
-							className="w-full px-3 py-2 bg-slate-700 border border-emerald-600/50 rounded-lg text-white text-sm focus:outline-none focus:border-emerald-500"
-						>
-							{VOICE_OPTIONS.map((voice) => (
-								<option key={voice.id} value={voice.id}>
-									{voice.name}
-								</option>
-							))}
-						</select>
-					</div>
-
-					{/* Person 2 Voice */}
-					<div>
-						<label className="block text-sm font-medium text-rose-400 mb-2">
-							Person 2 Voice
-						</label>
-						<select
-							value={person2VoiceId}
-							onChange={(e) =>
-								handlePerson2VoiceChange(e.target.value as VoiceId)
-							}
-							className="w-full px-3 py-2 bg-slate-700 border border-rose-600/50 rounded-lg text-white text-sm focus:outline-none focus:border-rose-500"
-						>
-							{VOICE_OPTIONS.map((voice) => (
-								<option key={voice.id} value={voice.id}>
-									{voice.name}
-								</option>
-							))}
-						</select>
-					</div>
-				</div>
-			</div>
+				</CardContent>
+			</Card>
 
 			{/* Characters Section */}
 			<div className="space-y-4">
-				<h2 className="text-xl font-semibold text-white flex items-center gap-2">
+				<h2 className="text-xl font-semibold text-foreground flex items-center gap-2">
 					<Users className="w-6 h-6 text-amber-400" />
 					Characters
 				</h2>
@@ -988,7 +999,7 @@ function Podcast42ScenesPage() {
 
 			{/* Scene error message */}
 			{sceneError && (
-				<div className="p-4 bg-red-500/20 border border-red-500/50 rounded-xl text-red-300">
+				<div className="p-4 bg-destructive/20 border border-destructive/50 rounded-xl text-destructive">
 					{sceneError}
 				</div>
 			)}
@@ -996,7 +1007,7 @@ function Podcast42ScenesPage() {
 			{/* Scene card list */}
 			{scenes.length > 0 && (
 				<div className="space-y-6">
-					<h2 className="text-xl font-semibold text-white flex items-center gap-2">
+					<h2 className="text-xl font-semibold text-foreground flex items-center gap-2">
 						<Mic className="w-6 h-6 text-amber-400" />
 						Dialogue Scenes
 					</h2>
@@ -1010,365 +1021,381 @@ function Podcast42ScenesPage() {
 					)}
 
 					{scenes.map((scene, index) => (
-						<div
+						<Card
 							key={scene.id}
-							className={`bg-slate-800/50 border border-slate-700 rounded-xl p-6 ${
-								scenesDisabled ? "opacity-50 pointer-events-none" : ""
-							}`}
+							className={`${scenesDisabled ? "opacity-50 pointer-events-none" : ""}`}
 						>
-							{/* Scene header with controls */}
-							<div className="flex items-center justify-between mb-4">
-								<h3 className="text-lg font-semibold text-white flex items-center gap-2">
-									<span
-										className={`px-2 py-1 rounded text-xs font-bold ${
-											scene.speaker === "person1"
-												? "bg-emerald-500/20 text-emerald-400"
-												: "bg-rose-500/20 text-rose-400"
-										}`}
-									>
-										{scene.speaker === "person1" ? "Person 1" : "Person 2"}
-									</span>
-									Scene {index + 1}
-								</h3>
-								<div className="flex items-center gap-3">
-									{/* Speaker toggle */}
-									<div className="flex items-center gap-2">
-										<button
-											type="button"
-											onClick={() =>
-												handleUpdateSceneSpeaker(scene.id, "person1")
-											}
-											className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+							<CardContent className="p-6">
+								{/* Scene header with controls */}
+								<div className="flex items-center justify-between mb-4">
+									<h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+										<span
+											className={`px-2 py-1 rounded text-xs font-bold ${
 												scene.speaker === "person1"
-													? "bg-emerald-500 text-white"
-													: "bg-slate-700 text-slate-300 hover:bg-slate-600"
+													? "bg-emerald-500/20 text-emerald-400"
+													: "bg-rose-500/20 text-rose-400"
 											}`}
-											disabled={scenesDisabled}
 										>
-											P1
-										</button>
-										<button
-											type="button"
-											onClick={() =>
-												handleUpdateSceneSpeaker(scene.id, "person2")
-											}
-											className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
-												scene.speaker === "person2"
-													? "bg-rose-500 text-white"
-													: "bg-slate-700 text-slate-300 hover:bg-slate-600"
-											}`}
-											disabled={scenesDisabled}
-										>
-											P2
-										</button>
-									</div>
-									{/* Reorder buttons */}
-									<div className="flex items-center gap-1">
-										<button
-											type="button"
-											onClick={() => handleReorderScenes(index, index - 1)}
-											disabled={index === 0 || scenesDisabled}
-											className="p-1 text-slate-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-											title="Move up"
-										>
-											<ChevronUp className="w-4 h-4" />
-										</button>
-										<button
-											type="button"
-											onClick={() => handleReorderScenes(index, index + 1)}
-											disabled={index === scenes.length - 1 || scenesDisabled}
-											className="p-1 text-slate-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-											title="Move down"
-										>
-											<ChevronDown className="w-4 h-4" />
-										</button>
-									</div>
-									{/* Delete button */}
-									<button
-										type="button"
-										onClick={() => handleDeleteScene(scene.id)}
-										disabled={scenes.length <= 1 || scenesDisabled}
-										className="p-1 text-red-400 hover:text-red-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-										title="Delete scene"
-									>
-										<Trash2 className="w-4 h-4" />
-									</button>
-								</div>
-							</div>
-
-							{/* Two-column layout: left caption + buttons, right video */}
-							<div className="flex gap-6">
-								{/* Left side: caption editor + audio/video buttons */}
-								<div className="flex-1 min-w-0">
-									{/* Caption editor */}
-									<div>
-										<span className="text-xs text-slate-400 font-medium uppercase tracking-wide">
-											Dialogue
+											{scene.speaker === "person1" ? "Person 1" : "Person 2"}
 										</span>
-										<textarea
-											value={scene.caption}
-											onChange={(e) =>
-												handleUpdateSceneCaption(scene.id, e.target.value)
-											}
-											className="mt-1 w-full h-24 px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-colors resize-none"
-											disabled={scene.isGeneratingAudio || scenesDisabled}
-											placeholder="Enter dialogue text..."
-										/>
-									</div>
-
-									{/* Update caption button */}
-									<div className="mt-3">
-										<button
+										Scene {index + 1}
+									</h3>
+									<div className="flex items-center gap-3">
+										{/* Speaker toggle */}
+										<div className="flex items-center gap-2">
+											<Button
+												type="button"
+												size="sm"
+												variant={scene.speaker === "person1" ? "default" : "secondary"}
+												onClick={() =>
+													handleUpdateSceneSpeaker(scene.id, "person1")
+												}
+												className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+													scene.speaker === "person1"
+														? "bg-emerald-500 text-white hover:bg-emerald-400"
+														: ""
+												}`}
+												disabled={scenesDisabled}
+											>
+												P1
+											</Button>
+											<Button
+												type="button"
+												size="sm"
+												variant={scene.speaker === "person2" ? "default" : "secondary"}
+												onClick={() =>
+													handleUpdateSceneSpeaker(scene.id, "person2")
+												}
+												className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+													scene.speaker === "person2"
+														? "bg-rose-500 text-white hover:bg-rose-400"
+														: ""
+												}`}
+												disabled={scenesDisabled}
+											>
+												P2
+											</Button>
+										</div>
+										{/* Reorder buttons */}
+										<div className="flex items-center gap-1">
+											<Button
+												type="button"
+												variant="ghost"
+												size="icon"
+												onClick={() => handleReorderScenes(index, index - 1)}
+												disabled={index === 0 || scenesDisabled}
+												className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+												title="Move up"
+											>
+												<ChevronUp className="w-4 h-4" />
+											</Button>
+											<Button
+												type="button"
+												variant="ghost"
+												size="icon"
+												onClick={() => handleReorderScenes(index, index + 1)}
+												disabled={index === scenes.length - 1 || scenesDisabled}
+												className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+												title="Move down"
+											>
+												<ChevronDown className="w-4 h-4" />
+											</Button>
+										</div>
+										{/* Delete button */}
+										<Button
 											type="button"
-											onClick={() => handleSaveCaptionToDb(scene.id)}
-											disabled={
-												!scene.caption.trim() ||
-												updateSceneMutation.isPending ||
-												scenesDisabled
-											}
-											className="w-full py-2 bg-gradient-to-r from-slate-600 to-slate-500 hover:from-slate-500 hover:to-slate-400 disabled:from-slate-700 disabled:to-slate-700 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-all duration-300 shadow-md shadow-slate-500/20 hover:shadow-slate-500/40 disabled:shadow-none flex items-center justify-center gap-2"
+											variant="ghost"
+											size="icon"
+											onClick={() => handleDeleteScene(scene.id)}
+											disabled={scenes.length <= 1 || scenesDisabled}
+											className="p-1 text-destructive hover:text-destructive/80 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+											title="Delete scene"
 										>
-											{updateSceneMutation.isPending ? (
-												<>
-													<Loader2 className="w-4 h-4 animate-spin" />
-													Saving...
-												</>
-											) : (
-												<>
-													<Save className="w-4 h-4" />
-													UPDATE CAPTION
-												</>
+											<Trash2 className="w-4 h-4" />
+										</Button>
+									</div>
+								</div>
+
+								{/* Two-column layout: left caption + buttons, right video */}
+								<div className="flex gap-6">
+									{/* Left side: caption editor + audio/video buttons */}
+									<div className="flex-1 min-w-0">
+										{/* Caption editor */}
+										<div>
+											<span className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
+												Dialogue
+											</span>
+											<textarea
+												value={scene.caption}
+												onChange={(e) =>
+													handleUpdateSceneCaption(scene.id, e.target.value)
+												}
+												className="mt-1 w-full h-24 px-3 py-2 bg-background border border-border rounded-lg text-foreground text-sm placeholder-muted-foreground focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-colors resize-none"
+												disabled={scene.isGeneratingAudio || scenesDisabled}
+												placeholder="Enter dialogue text..."
+											/>
+										</div>
+
+										{/* Update caption button */}
+										<div className="mt-3">
+											<Button
+												type="button"
+												variant="secondary"
+												onClick={() => handleSaveCaptionToDb(scene.id)}
+												disabled={
+													!scene.caption.trim() ||
+													updateSceneMutation.isPending ||
+													scenesDisabled
+												}
+												className="w-full py-2 h-auto font-medium rounded-lg transition-all duration-300 flex items-center justify-center gap-2"
+											>
+												{updateSceneMutation.isPending ? (
+													<>
+														<Loader2 className="w-4 h-4 animate-spin" />
+														Saving...
+													</>
+												) : (
+													<>
+														<Save className="w-4 h-4" />
+														UPDATE CAPTION
+													</>
+												)}
+											</Button>
+										</div>
+
+										{/* Audio generation button */}
+										<div className="mt-3">
+											<Button
+												type="button"
+												onClick={() => handleGenerateSceneAudio(scene.id)}
+												disabled={
+													!scene.caption.trim() ||
+													scene.isGeneratingAudio ||
+													scenesDisabled
+												}
+												className="w-full py-3 h-auto bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 disabled:from-muted disabled:to-muted disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-all duration-300 shadow-md shadow-emerald-500/20 hover:shadow-emerald-500/40 disabled:shadow-none flex items-center justify-center gap-2"
+											>
+												{scene.isGeneratingAudio ? (
+													<>
+														<Loader2 className="w-5 h-5 animate-spin" />
+														Generating Audio...
+													</>
+												) : (
+													<>
+														<Volume2 className="w-5 h-5" />
+														{scene.audioUrl
+															? "REGENERATE AUDIO"
+															: "GENERATE AUDIO"}
+													</>
+												)}
+											</Button>
+										</div>
+
+										{/* Video generation section */}
+										<div className="mt-3">
+											{/* Video generation error message */}
+											{scene.videoError && (
+												<div className="mb-2 p-2 bg-destructive/20 border border-destructive/50 rounded-lg text-destructive text-sm">
+													{scene.videoError}
+												</div>
 											)}
-										</button>
+											{/* Progress bar for video generation (3 minutes) */}
+											<CountdownProgress
+												isActive={isSceneProcessing(scene.id)}
+												durationSeconds={180}
+											/>
+											<Button
+												type="button"
+												onClick={() => handleGenerateSceneVideo(scene.id)}
+												disabled={
+													!scene.audioUrl ||
+													isSceneProcessing(scene.id) ||
+													isSceneInQueue(scene.id) ||
+													scenesDisabled ||
+													!(scene.speaker === "person1"
+														? person1ImageUrl
+														: person2ImageUrl)
+												}
+												title={
+													!scene.audioUrl
+														? "Generate audio first to enable video generation"
+														: isSceneInQueue(scene.id)
+															? `Waiting in queue (position ${getSceneQueuePosition(scene.id)})`
+															: undefined
+												}
+												className={`${isSceneProcessing(scene.id) ? "" : "mt-3"} w-full py-3 h-auto bg-gradient-to-r ${
+													isSceneInQueue(scene.id)
+														? "from-amber-500 to-orange-500"
+														: "from-indigo-500 to-violet-500 hover:from-indigo-400 hover:to-violet-400"
+												} disabled:from-muted disabled:to-muted disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-all duration-300 shadow-md ${
+													isSceneInQueue(scene.id)
+														? "shadow-amber-500/20"
+														: "shadow-indigo-500/20 hover:shadow-indigo-500/40"
+												} disabled:shadow-none flex items-center justify-center gap-2`}
+											>
+												{isSceneProcessing(scene.id) ? (
+													<>
+														<Loader2 className="w-5 h-5 animate-spin" />
+														Generating Video...
+													</>
+												) : isSceneInQueue(scene.id) ? (
+													<>
+														<Loader2 className="w-5 h-5 animate-spin" />
+														Queue #{getSceneQueuePosition(scene.id)}
+													</>
+												) : (
+													<>
+														<Film className="w-5 h-5" />
+														{scene.videoError
+															? "RETRY VIDEO"
+															: scene.videoUrl
+																? "REGENERATE VIDEO"
+																: "GENERATE VIDEO"}
+													</>
+												)}
+											</Button>
+										</div>
 									</div>
 
-									{/* Audio generation button */}
-									<div className="mt-3">
-										<button
-											type="button"
-											onClick={() => handleGenerateSceneAudio(scene.id)}
-											disabled={
-												!scene.caption.trim() ||
-												scene.isGeneratingAudio ||
-												scenesDisabled
-											}
-											className="w-full py-3 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 disabled:from-slate-600 disabled:to-slate-600 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-all duration-300 shadow-md shadow-emerald-500/20 hover:shadow-emerald-500/40 disabled:shadow-none flex items-center justify-center gap-2"
-										>
-											{scene.isGeneratingAudio ? (
-												<>
-													<Loader2 className="w-5 h-5 animate-spin" />
-													Generating Audio...
-												</>
-											) : (
-												<>
-													<Volume2 className="w-5 h-5" />
-													{scene.audioUrl
-														? "REGENERATE AUDIO"
-														: "GENERATE AUDIO"}
-												</>
-											)}
-										</button>
-									</div>
-
-									{/* Video generation section */}
-									<div className="mt-3">
-										{/* Video generation error message */}
-										{scene.videoError && (
-											<div className="mb-2 p-2 bg-red-500/20 border border-red-500/50 rounded-lg text-red-300 text-sm">
-												{scene.videoError}
-											</div>
-										)}
-										{/* Progress bar for video generation (3 minutes) */}
-										<CountdownProgress
-											isActive={isSceneProcessing(scene.id)}
-											durationSeconds={180}
-										/>
-										<button
-											type="button"
-											onClick={() => handleGenerateSceneVideo(scene.id)}
-											disabled={
-												!scene.audioUrl ||
-												isSceneProcessing(scene.id) ||
-												isSceneInQueue(scene.id) ||
-												scenesDisabled ||
-												!(scene.speaker === "person1"
+									{/* Right side: video preview + audio controls (16:9 landscape) */}
+									<div className="w-64 flex-shrink-0">
+										{/* Character image preview based on speaker */}
+										<div className="relative mb-3">
+											{(
+												scene.speaker === "person1"
 													? person1ImageUrl
-													: person2ImageUrl)
-											}
-											title={
-												!scene.audioUrl
-													? "Generate audio first to enable video generation"
-													: isSceneInQueue(scene.id)
-														? `Waiting in queue (position ${getSceneQueuePosition(scene.id)})`
-														: undefined
-											}
-											className={`${isSceneProcessing(scene.id) ? "" : "mt-3"} w-full py-3 bg-gradient-to-r ${
-												isSceneInQueue(scene.id)
-													? "from-amber-500 to-orange-500"
-													: "from-indigo-500 to-violet-500 hover:from-indigo-400 hover:to-violet-400"
-											} disabled:from-slate-600 disabled:to-slate-600 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-all duration-300 shadow-md ${
-												isSceneInQueue(scene.id)
-													? "shadow-amber-500/20"
-													: "shadow-indigo-500/20 hover:shadow-indigo-500/40"
-											} disabled:shadow-none flex items-center justify-center gap-2`}
-										>
-											{isSceneProcessing(scene.id) ? (
+													: person2ImageUrl
+											) ? (
 												<>
-													<Loader2 className="w-5 h-5 animate-spin" />
-													Generating Video...
-												</>
-											) : isSceneInQueue(scene.id) ? (
-												<>
-													<Loader2 className="w-5 h-5 animate-spin" />
-													Queue #{getSceneQueuePosition(scene.id)}
+													<img
+														src={scene.speaker === "person1" ? person1ImageUrl! : person2ImageUrl!}
+														alt={`${scene.speaker === "person1" ? "Person 1" : "Person 2"}`}
+														className="w-full rounded-lg shadow-lg object-cover opacity-60"
+														style={{ aspectRatio: "16/9" }}
+													/>
+													{/* Caption overlay during playback */}
+													{playingSceneId === scene.id &&
+														scene.wordTimestamps &&
+														currentWordIndex !== null && (
+															<div className="absolute inset-0 flex items-center justify-center rounded-lg">
+																<p className="text-white text-center text-2xl font-bold px-3 py-2 mx-2 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+																	{scene.wordTimestamps[currentWordIndex]?.word ||
+																		""}
+																</p>
+															</div>
+														)}
 												</>
 											) : (
-												<>
-													<Film className="w-5 h-5" />
-													{scene.videoError
-														? "RETRY VIDEO"
-														: scene.videoUrl
-															? "REGENERATE VIDEO"
-															: "GENERATE VIDEO"}
-												</>
+												<div
+													className="w-full bg-background border border-border rounded-lg flex items-center justify-center text-muted-foreground"
+													style={{ aspectRatio: "16/9" }}
+												>
+													<div className="text-center p-4">
+														<ImageIcon className="w-8 h-8 mx-auto mb-2 opacity-50" />
+														<span className="text-xs">Generate character</span>
+													</div>
+												</div>
 											)}
-										</button>
-									</div>
-								</div>
+										</div>
 
-								{/* Right side: video preview + audio controls (16:9 landscape) */}
-								<div className="w-64 flex-shrink-0">
-									{/* Character image preview based on speaker */}
-									<div className="relative mb-3">
-										{(
-											scene.speaker === "person1"
-												? person1ImageUrl
-												: person2ImageUrl
-										) ? (
-											<>
-												<img
-													src={scene.speaker === "person1" ? person1ImageUrl! : person2ImageUrl!}
-													alt={`${scene.speaker === "person1" ? "Person 1" : "Person 2"}`}
-													className="w-full rounded-lg shadow-lg object-cover opacity-60"
-													style={{ aspectRatio: "16/9" }}
-												/>
-												{/* Caption overlay during playback */}
-												{playingSceneId === scene.id &&
-													scene.wordTimestamps &&
-													currentWordIndex !== null && (
-														<div className="absolute inset-0 flex items-center justify-center rounded-lg">
-															<p className="text-white text-center text-2xl font-bold px-3 py-2 mx-2 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
-																{scene.wordTimestamps[currentWordIndex]?.word ||
-																	""}
-															</p>
-														</div>
-													)}
-											</>
-										) : (
-											<div
-												className="w-full bg-slate-900/50 border border-slate-600 rounded-lg flex items-center justify-center text-slate-500"
-												style={{ aspectRatio: "16/9" }}
-											>
-												<div className="text-center p-4">
-													<ImageIcon className="w-8 h-8 mx-auto mb-2 opacity-50" />
-													<span className="text-xs">Generate character</span>
+										{/* Duration, play button, and download button */}
+										<div className="flex items-center justify-between text-sm">
+											<span className="text-muted-foreground">
+												{scene.audioDuration
+													? `${scene.audioDuration.toFixed(1)}s`
+													: "--"}
+											</span>
+											{scene.audioUrl && (
+												<div className="flex items-center gap-1">
+													<Button
+														type="button"
+														variant={playingSceneId === scene.id ? "default" : "secondary"}
+														size="icon"
+														onClick={() => handlePlaySceneAudio(scene.id)}
+														disabled={scenesDisabled}
+														className={`p-2 rounded-full transition-colors ${
+															playingSceneId === scene.id
+																? "bg-emerald-500 text-white hover:bg-emerald-400"
+																: ""
+														}`}
+														title="Play audio"
+													>
+														<Play className="w-4 h-4" />
+													</Button>
+													<Button
+														type="button"
+														variant="secondary"
+														size="icon"
+														onClick={() => handleDownloadAudio(scene.id, index)}
+														className="p-2 rounded-full transition-colors"
+														title="Download audio"
+													>
+														<Download className="w-4 h-4" />
+													</Button>
 												</div>
-											</div>
-										)}
-									</div>
+											)}
+										</div>
 
-									{/* Duration, play button, and download button */}
-									<div className="flex items-center justify-between text-sm">
-										<span className="text-slate-400">
-											{scene.audioDuration
-												? `${scene.audioDuration.toFixed(1)}s`
-												: "--"}
-										</span>
-										{scene.audioUrl && (
-											<div className="flex items-center gap-1">
-												<button
-													type="button"
-													onClick={() => handlePlaySceneAudio(scene.id)}
-													disabled={scenesDisabled}
-													className={`p-2 rounded-full transition-colors ${
-														playingSceneId === scene.id
-															? "bg-emerald-500 text-white"
-															: "bg-slate-700 text-slate-300 hover:bg-slate-600"
-													}`}
-													title="Play audio"
-												>
-													<Play className="w-4 h-4" />
-												</button>
-												<button
-													type="button"
-													onClick={() => handleDownloadAudio(scene.id, index)}
-													className="p-2 rounded-full bg-slate-700 text-slate-300 hover:bg-slate-600 transition-colors"
-													title="Download audio"
-												>
-													<Download className="w-4 h-4" />
-												</button>
-											</div>
-										)}
-									</div>
-
-									{/* Video preview area (16:9 landscape) */}
-									<div className="mt-3">
-										{scene.videoUrl ? (
-											<>
-												<video
-													src={scene.videoUrl}
-													controls
-													className="w-full rounded-lg shadow-lg"
+										{/* Video preview area (16:9 landscape) */}
+										<div className="mt-3">
+											{scene.videoUrl ? (
+												<>
+													<video
+														src={scene.videoUrl}
+														controls
+														className="w-full rounded-lg shadow-lg"
+														style={{ aspectRatio: "16/9" }}
+													>
+														<track kind="captions" />
+														Your browser does not support video playback.
+													</video>
+													<div className="mt-1 text-xs text-muted-foreground text-center">
+														Video: {scene.videoDuration?.toFixed(1)}s
+													</div>
+												</>
+											) : (
+												<div
+													className="w-full bg-background border border-border rounded-lg flex items-center justify-center text-muted-foreground"
 													style={{ aspectRatio: "16/9" }}
 												>
-													<track kind="captions" />
-													Your browser does not support video playback.
-												</video>
-												<div className="mt-1 text-xs text-slate-400 text-center">
-													Video: {scene.videoDuration?.toFixed(1)}s
+													<div className="text-center p-4">
+														<Film className="w-8 h-8 mx-auto mb-2 opacity-50" />
+														<span className="text-xs">Video Preview</span>
+													</div>
 												</div>
-											</>
-										) : (
-											<div
-												className="w-full bg-slate-900/50 border border-slate-600 rounded-lg flex items-center justify-center text-slate-500"
-												style={{ aspectRatio: "16/9" }}
-											>
-												<div className="text-center p-4">
-													<Film className="w-8 h-8 mx-auto mb-2 opacity-50" />
-													<span className="text-xs">Video Preview</span>
-												</div>
-											</div>
-										)}
+											)}
+										</div>
 									</div>
 								</div>
-							</div>
-						</div>
+							</CardContent>
+						</Card>
 					))}
 
 					{/* Add Scene Button */}
-					<button
+					<Button
 						type="button"
+						variant="outline"
 						onClick={() => podcast42Actions.addScene()}
 						disabled={scenesDisabled}
-						className="w-full py-4 border-2 border-dashed border-slate-600 hover:border-amber-500 rounded-xl text-slate-400 hover:text-amber-400 transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+						className="w-full py-4 h-auto border-2 border-dashed border-border hover:border-amber-500 rounded-xl text-muted-foreground hover:text-amber-400 transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
 					>
 						<Plus className="w-5 h-5" />
 						Add New Scene
-					</button>
+					</Button>
 				</div>
 			)}
 
 			{/* Export My Video Button - shown when all scenes have videos */}
 			{allScenesHaveVideos && (
 				<div className="mt-8">
-					<button
+					<Button
 						type="button"
 						onClick={handleExportMyVideo}
-						className="w-full py-4 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-white text-lg font-bold rounded-xl transition-all duration-300 shadow-lg shadow-amber-500/30 hover:shadow-amber-500/50 flex items-center justify-center gap-3"
+						className="w-full py-4 h-auto bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-white text-lg font-bold rounded-xl transition-all duration-300 shadow-lg shadow-amber-500/30 hover:shadow-amber-500/50 flex items-center justify-center gap-3"
 					>
 						<Film className="w-6 h-6" />
 						EXPORT MY VIDEO
-					</button>
+					</Button>
 				</div>
 			)}
 

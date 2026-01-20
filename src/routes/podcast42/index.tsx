@@ -2,6 +2,8 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useStore } from "@tanstack/react-store";
 import { ArrowRight, Loader2, Mic } from "lucide-react";
 import { useId } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { useGeneratePodcast42Prompts } from "@/hooks/use-podcast42-api";
 import type {
 	ImageEngine,
@@ -215,213 +217,227 @@ function Podcast42InputPage() {
 	return (
 		<div className="space-y-8">
 			{/* Play Script Input Section */}
-			<div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700">
-				<label
-					htmlFor={scriptTextareaId}
-					className="block text-xl font-semibold text-white mb-4"
-				>
-					Play Script
-				</label>
-				<textarea
-					id={scriptTextareaId}
-					value={playScript}
-					onChange={(e) => podcast42Actions.setPlayScript(e.target.value)}
-					placeholder={PLAY_SCRIPT_PLACEHOLDER}
-					className="w-full h-64 px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-colors resize-none font-mono text-sm"
-					disabled={isGeneratingPrompts || promptsGenerated}
-				/>
-				<p className="mt-2 text-sm text-slate-400">
-					Define background, person1/person2 descriptions, then dialogue with
-					[person1]/[person2] tags
-				</p>
-			</div>
+			<Card className="rounded-2xl">
+				<CardContent className="p-6">
+					<label
+						htmlFor={scriptTextareaId}
+						className="block text-xl font-semibold text-foreground mb-4"
+					>
+						Play Script
+					</label>
+					<textarea
+						id={scriptTextareaId}
+						value={playScript}
+						onChange={(e) => podcast42Actions.setPlayScript(e.target.value)}
+						placeholder={PLAY_SCRIPT_PLACEHOLDER}
+						className="w-full h-64 px-4 py-3 bg-muted border border-border rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-colors resize-none font-mono text-sm"
+						disabled={isGeneratingPrompts || promptsGenerated}
+					/>
+					<p className="mt-2 text-sm text-muted-foreground">
+						Define background, person1/person2 descriptions, then dialogue with
+						[person1]/[person2] tags
+					</p>
+				</CardContent>
+			</Card>
 
 			{/* Image Style Selection */}
-			<div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700">
-				<h2 className="text-xl font-semibold text-white mb-4">Image Style</h2>
-				<div className="space-y-3">
-					{IMAGE_STYLES.map((style) => (
-						<label
-							key={style.id}
-							className={`flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-all ${
-								imageStyle === style.id
-									? "border-amber-500 bg-amber-500/10"
-									: "border-slate-600 hover:border-slate-500"
-							} ${promptsGenerated ? "opacity-50 pointer-events-none" : ""}`}
-						>
-							<input
-								type="radio"
-								name="imageStyle"
-								value={style.id}
-								checked={imageStyle === style.id}
-								onChange={() => podcast42Actions.setImageStyle(style.id)}
-								className="mt-1 accent-amber-500"
-								disabled={promptsGenerated}
-							/>
-							<div>
-								<div className="text-white font-medium">{style.label}</div>
-								<div className="text-sm text-slate-400">
-									{style.description}
+			<Card className="rounded-2xl">
+				<CardContent className="p-6">
+					<h2 className="text-xl font-semibold text-foreground mb-4">Image Style</h2>
+					<div className="space-y-3">
+						{IMAGE_STYLES.map((style) => (
+							<label
+								key={style.id}
+								className={`flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-all ${
+									imageStyle === style.id
+										? "border-amber-500 bg-amber-500/10"
+										: "border-border hover:border-muted-foreground"
+								} ${promptsGenerated ? "opacity-50 pointer-events-none" : ""}`}
+							>
+								<input
+									type="radio"
+									name="imageStyle"
+									value={style.id}
+									checked={imageStyle === style.id}
+									onChange={() => podcast42Actions.setImageStyle(style.id)}
+									className="mt-1 accent-amber-500"
+									disabled={promptsGenerated}
+								/>
+								<div>
+									<div className="text-foreground font-medium">{style.label}</div>
+									<div className="text-sm text-muted-foreground">
+										{style.description}
+									</div>
 								</div>
-							</div>
-						</label>
-					))}
-				</div>
-			</div>
+							</label>
+						))}
+					</div>
+				</CardContent>
+			</Card>
 
 			{/* Image Engine Selection */}
-			<div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700">
-				<h2 className="text-xl font-semibold text-white mb-4">
-					Image Generation Engine
-				</h2>
-				<div className="space-y-3">
-					{IMAGE_ENGINES.map((engine) => (
-						<label
-							key={engine.id}
-							className={`flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-all ${
-								imageEngine === engine.id
-									? "border-cyan-500 bg-cyan-500/10"
-									: "border-slate-600 hover:border-slate-500"
-							} ${promptsGenerated ? "opacity-50 pointer-events-none" : ""}`}
-						>
-							<input
-								type="radio"
-								name="imageEngine"
-								value={engine.id}
-								checked={imageEngine === engine.id}
-								onChange={() => podcast42Actions.setImageEngine(engine.id)}
-								className="mt-1 accent-cyan-500"
-								disabled={promptsGenerated}
-							/>
-							<div>
-								<div className="text-white font-medium">{engine.label}</div>
-								<div className="text-sm text-slate-400">
-									{engine.description}
+			<Card className="rounded-2xl">
+				<CardContent className="p-6">
+					<h2 className="text-xl font-semibold text-foreground mb-4">
+						Image Generation Engine
+					</h2>
+					<div className="space-y-3">
+						{IMAGE_ENGINES.map((engine) => (
+							<label
+								key={engine.id}
+								className={`flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-all ${
+									imageEngine === engine.id
+										? "border-cyan-500 bg-cyan-500/10"
+										: "border-border hover:border-muted-foreground"
+								} ${promptsGenerated ? "opacity-50 pointer-events-none" : ""}`}
+							>
+								<input
+									type="radio"
+									name="imageEngine"
+									value={engine.id}
+									checked={imageEngine === engine.id}
+									onChange={() => podcast42Actions.setImageEngine(engine.id)}
+									className="mt-1 accent-cyan-500"
+									disabled={promptsGenerated}
+								/>
+								<div>
+									<div className="text-foreground font-medium">{engine.label}</div>
+									<div className="text-sm text-muted-foreground">
+										{engine.description}
+									</div>
 								</div>
-							</div>
-						</label>
-					))}
-				</div>
-			</div>
+							</label>
+						))}
+					</div>
+				</CardContent>
+			</Card>
 
 			{/* Video Engine Info (Fixed) */}
-			<div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700">
-				<h2 className="text-xl font-semibold text-white mb-4">
-					Video Generation Engine
-				</h2>
-				<div className="p-4 rounded-lg border border-purple-500 bg-purple-500/10">
-					<div className="text-white font-medium">OmniHuman v1.5</div>
-					<div className="text-sm text-slate-400">
-						Talking-head video generation from image + audio (fixed engine for
-						podcast)
+			<Card className="rounded-2xl">
+				<CardContent className="p-6">
+					<h2 className="text-xl font-semibold text-foreground mb-4">
+						Video Generation Engine
+					</h2>
+					<div className="p-4 rounded-lg border border-purple-500 bg-purple-500/10">
+						<div className="text-foreground font-medium">OmniHuman v1.5</div>
+						<div className="text-sm text-muted-foreground">
+							Talking-head video generation from image + audio (fixed engine for
+							podcast)
+						</div>
 					</div>
-				</div>
-			</div>
+				</CardContent>
+			</Card>
 
 			{/* Person 1 Voice Selection */}
-			<div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700">
-				<h2 className="text-xl font-semibold text-white mb-4">
-					Person 1 Voice
-				</h2>
-				<div className="space-y-3">
-					{VOICE_OPTIONS.map((voice) => (
-						<label
-							key={voice.id}
-							className={`flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-all ${
-								person1VoiceId === voice.id
-									? "border-emerald-500 bg-emerald-500/10"
-									: "border-slate-600 hover:border-slate-500"
-							} ${promptsGenerated ? "opacity-50 pointer-events-none" : ""}`}
-						>
-							<input
-								type="radio"
-								name="person1VoiceId"
-								value={voice.id}
-								checked={person1VoiceId === voice.id}
-								onChange={() => podcast42Actions.setPerson1VoiceId(voice.id)}
-								className="mt-1 accent-emerald-500"
-								disabled={promptsGenerated}
-							/>
-							<div>
-								<div className="text-white font-medium">{voice.label}</div>
-								<div className="text-sm text-slate-400">
-									{voice.description}
+			<Card className="rounded-2xl">
+				<CardContent className="p-6">
+					<h2 className="text-xl font-semibold text-foreground mb-4">
+						Person 1 Voice
+					</h2>
+					<div className="space-y-3">
+						{VOICE_OPTIONS.map((voice) => (
+							<label
+								key={voice.id}
+								className={`flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-all ${
+									person1VoiceId === voice.id
+										? "border-emerald-500 bg-emerald-500/10"
+										: "border-border hover:border-muted-foreground"
+								} ${promptsGenerated ? "opacity-50 pointer-events-none" : ""}`}
+							>
+								<input
+									type="radio"
+									name="person1VoiceId"
+									value={voice.id}
+									checked={person1VoiceId === voice.id}
+									onChange={() => podcast42Actions.setPerson1VoiceId(voice.id)}
+									className="mt-1 accent-emerald-500"
+									disabled={promptsGenerated}
+								/>
+								<div>
+									<div className="text-foreground font-medium">{voice.label}</div>
+									<div className="text-sm text-muted-foreground">
+										{voice.description}
+									</div>
 								</div>
-							</div>
-						</label>
-					))}
-				</div>
-			</div>
+							</label>
+						))}
+					</div>
+				</CardContent>
+			</Card>
 
 			{/* Person 2 Voice Selection */}
-			<div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700">
-				<h2 className="text-xl font-semibold text-white mb-4">
-					Person 2 Voice
-				</h2>
-				<div className="space-y-3">
-					{VOICE_OPTIONS.map((voice) => (
-						<label
-							key={voice.id}
-							className={`flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-all ${
-								person2VoiceId === voice.id
-									? "border-rose-500 bg-rose-500/10"
-									: "border-slate-600 hover:border-slate-500"
-							} ${promptsGenerated ? "opacity-50 pointer-events-none" : ""}`}
-						>
-							<input
-								type="radio"
-								name="person2VoiceId"
-								value={voice.id}
-								checked={person2VoiceId === voice.id}
-								onChange={() => podcast42Actions.setPerson2VoiceId(voice.id)}
-								className="mt-1 accent-rose-500"
-								disabled={promptsGenerated}
-							/>
-							<div>
-								<div className="text-white font-medium">{voice.label}</div>
-								<div className="text-sm text-slate-400">
-									{voice.description}
+			<Card className="rounded-2xl">
+				<CardContent className="p-6">
+					<h2 className="text-xl font-semibold text-foreground mb-4">
+						Person 2 Voice
+					</h2>
+					<div className="space-y-3">
+						{VOICE_OPTIONS.map((voice) => (
+							<label
+								key={voice.id}
+								className={`flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-all ${
+									person2VoiceId === voice.id
+										? "border-rose-500 bg-rose-500/10"
+										: "border-border hover:border-muted-foreground"
+								} ${promptsGenerated ? "opacity-50 pointer-events-none" : ""}`}
+							>
+								<input
+									type="radio"
+									name="person2VoiceId"
+									value={voice.id}
+									checked={person2VoiceId === voice.id}
+									onChange={() => podcast42Actions.setPerson2VoiceId(voice.id)}
+									className="mt-1 accent-rose-500"
+									disabled={promptsGenerated}
+								/>
+								<div>
+									<div className="text-foreground font-medium">{voice.label}</div>
+									<div className="text-sm text-muted-foreground">
+										{voice.description}
+									</div>
 								</div>
-							</div>
-						</label>
-					))}
-				</div>
-			</div>
+							</label>
+						))}
+					</div>
+				</CardContent>
+			</Card>
 
 			{/* LLM Engine Selection */}
-			<div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700">
-				<h2 className="text-xl font-semibold text-white mb-4">
-					LLM Engine (for Prompts Generation)
-				</h2>
-				<div className="space-y-3">
-					{LLM_ENGINES.map((engine) => (
-						<label
-							key={engine.id}
-							className={`flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-all ${
-								llmEngine === engine.id
-									? "border-indigo-500 bg-indigo-500/10"
-									: "border-slate-600 hover:border-slate-500"
-							} ${promptsGenerated ? "opacity-50 pointer-events-none" : ""}`}
-						>
-							<input
-								type="radio"
-								name="llmEngine"
-								value={engine.id}
-								checked={llmEngine === engine.id}
-								onChange={() => podcast42Actions.setLLMEngine(engine.id)}
-								className="mt-1 accent-indigo-500"
-								disabled={promptsGenerated}
-							/>
-							<div>
-								<div className="text-white font-medium">{engine.label}</div>
-								<div className="text-sm text-slate-400">
-									{engine.description}
+			<Card className="rounded-2xl">
+				<CardContent className="p-6">
+					<h2 className="text-xl font-semibold text-foreground mb-4">
+						LLM Engine (for Prompts Generation)
+					</h2>
+					<div className="space-y-3">
+						{LLM_ENGINES.map((engine) => (
+							<label
+								key={engine.id}
+								className={`flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-all ${
+									llmEngine === engine.id
+										? "border-indigo-500 bg-indigo-500/10"
+										: "border-border hover:border-muted-foreground"
+								} ${promptsGenerated ? "opacity-50 pointer-events-none" : ""}`}
+							>
+								<input
+									type="radio"
+									name="llmEngine"
+									value={engine.id}
+									checked={llmEngine === engine.id}
+									onChange={() => podcast42Actions.setLLMEngine(engine.id)}
+									className="mt-1 accent-indigo-500"
+									disabled={promptsGenerated}
+								/>
+								<div>
+									<div className="text-foreground font-medium">{engine.label}</div>
+									<div className="text-sm text-muted-foreground">
+										{engine.description}
+									</div>
 								</div>
-							</div>
-						</label>
-					))}
-				</div>
-			</div>
+							</label>
+						))}
+					</div>
+				</CardContent>
+			</Card>
 
 			{/* Error Display */}
 			{error && (
@@ -433,11 +449,11 @@ function Podcast42InputPage() {
 			{/* Action Buttons */}
 			<div className="flex gap-4">
 				{!promptsGenerated ? (
-					<button
+					<Button
 						type="button"
 						onClick={handleGeneratePrompts}
 						disabled={!playScript.trim() || isGeneratingPrompts}
-						className="flex-1 py-4 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 disabled:from-slate-600 disabled:to-slate-600 disabled:cursor-not-allowed text-white text-lg font-bold rounded-xl transition-all duration-300 shadow-lg shadow-amber-500/30 hover:shadow-amber-500/50 disabled:shadow-none flex items-center justify-center gap-3"
+						className="flex-1 py-4 h-auto bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 disabled:from-muted disabled:to-muted disabled:cursor-not-allowed text-foreground text-lg font-bold rounded-xl transition-all duration-300 shadow-lg shadow-amber-500/30 hover:shadow-amber-500/50 disabled:shadow-none flex items-center justify-center gap-3"
 					>
 						{isGeneratingPrompts ? (
 							<>
@@ -450,16 +466,16 @@ function Podcast42InputPage() {
 								GENERATE PROMPTS
 							</>
 						)}
-					</button>
+					</Button>
 				) : (
-					<button
+					<Button
 						type="button"
 						onClick={handleContinueToScenes}
-						className="flex-1 py-4 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white text-lg font-bold rounded-xl transition-all duration-300 shadow-lg shadow-emerald-500/30 hover:shadow-emerald-500/50 flex items-center justify-center gap-3"
+						className="flex-1 py-4 h-auto bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-foreground text-lg font-bold rounded-xl transition-all duration-300 shadow-lg shadow-emerald-500/30 hover:shadow-emerald-500/50 flex items-center justify-center gap-3"
 					>
 						Continue to Scenes
 						<ArrowRight className="w-6 h-6" />
-					</button>
+					</Button>
 				)}
 			</div>
 		</div>

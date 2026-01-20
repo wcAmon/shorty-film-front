@@ -2,7 +2,6 @@ import { createFileRoute } from "@tanstack/react-router";
 import {
 	deleteStoryById,
 	getImageById,
-	getScenesByStoryId,
 	getScenesWithMedia,
 	getStoryById,
 	listUserStories,
@@ -16,6 +15,7 @@ import { requireAuth } from "@/lib/auth-middleware";
 interface StoryListItem {
 	storyId: string;
 	type: string;
+	title?: string | null; // LLM-generated story title
 	script?: string | null;
 	playScript?: string | null;
 	characterPrompt?: string | null;
@@ -29,9 +29,15 @@ interface StoryListItem {
 	exportVideoUrl?: string | null;
 	createdAt: string;
 	updatedAt: string;
+	// Character images (for thumbnails)
+	characterImageUrl?: string | null;
+	person1ImageUrl?: string | null;
+	person2ImageUrl?: string | null;
 	// Scene statistics
 	scenes: Array<{
 		id: string;
+		imageId?: string | null;
+		imageUrl?: string | null;
 		hasAudio: boolean;
 		hasVideo: boolean;
 	}>;
@@ -228,13 +234,39 @@ export const Route = createFileRoute("/api/story-metadata")({
 						? await listUserStoriesByType(user.id, type)
 						: await listUserStories(user.id);
 
-					// Fetch scene data for each story
+					// Fetch scene data and character images for each story
 					const storiesWithScenes: StoryListItem[] = await Promise.all(
 						storiesDb.map(async (story) => {
-							const storyScenes = await getScenesByStoryId(story.id);
+							// Get scenes with their media (for thumbnails)
+							const scenesWithMedia = await getScenesWithMedia(story.id);
+
+							// Get character images
+							let characterImageUrl: string | null = null;
+							let person1ImageUrl: string | null = null;
+							let person2ImageUrl: string | null = null;
+
+							if (story.person1ImageId) {
+								const person1Image = await getImageById(story.person1ImageId);
+								if (person1Image) {
+									if (story.type === "aistory") {
+										characterImageUrl = person1Image.imageUrl;
+									} else {
+										person1ImageUrl = person1Image.imageUrl;
+									}
+								}
+							}
+
+							if (story.person2ImageId) {
+								const person2Image = await getImageById(story.person2ImageId);
+								if (person2Image) {
+									person2ImageUrl = person2Image.imageUrl;
+								}
+							}
+
 							return {
 								storyId: story.id,
 								type: story.type,
+								title: story.title,
 								script: story.script,
 								playScript: story.playScript,
 								characterPrompt: story.characterPrompt,
@@ -250,8 +282,13 @@ export const Route = createFileRoute("/api/story-metadata")({
 									story.createdAt?.toISOString() ?? new Date().toISOString(),
 								updatedAt:
 									story.updatedAt?.toISOString() ?? new Date().toISOString(),
-								scenes: storyScenes.map((scene) => ({
+								characterImageUrl,
+								person1ImageUrl,
+								person2ImageUrl,
+								scenes: scenesWithMedia.map(({ scene, image }) => ({
 									id: scene.id,
+									imageId: scene.imageId,
+									imageUrl: image?.imageUrl ?? null,
 									hasAudio: !!scene.audioId,
 									hasVideo: !!scene.videoId,
 								})),

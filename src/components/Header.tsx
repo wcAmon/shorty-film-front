@@ -2,7 +2,9 @@ import { Link } from "@tanstack/react-router";
 import { useStore } from "@tanstack/react-store";
 import { Home, Menu, Mic, Sparkles, User, X } from "lucide-react";
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
 import { authStore } from "@/stores/auth.store";
+import { ThemeToggle } from "./theme-toggle";
 import UserMenu from "./UserMenu";
 
 // Main navigation header component with hamburger menu and side navigation
@@ -12,50 +14,55 @@ export default function Header() {
 
 	return (
 		<>
-			<header className="p-4 flex items-center justify-between bg-gray-800 text-white shadow-lg">
+			<header className="flex items-center justify-between border-b border-border bg-card p-4 text-card-foreground shadow-sm">
 				<div className="flex items-center">
-					<button
-						type="button"
+					<Button
+						variant="ghost"
+						size="icon"
 						onClick={() => setIsOpen(true)}
-						className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
 						aria-label="Open menu"
 					>
 						<Menu size={24} />
-					</button>
+					</Button>
 					<h1 className="ml-4 text-xl font-semibold">
-						<Link to="/">Shorty Film</Link>
+						<Link to="/" className="text-foreground hover:text-primary transition-colors">
+							Shorty Film
+						</Link>
 					</h1>
 				</div>
 
-				{/* Right side: User menu */}
-				<UserMenu />
+				{/* Right side: Theme toggle + User menu */}
+				<div className="flex items-center gap-2">
+					<ThemeToggle />
+					<UserMenu />
+				</div>
 			</header>
 
 			<aside
-				className={`fixed top-0 left-0 h-full w-80 bg-gray-900 text-white shadow-2xl z-50 transform transition-transform duration-300 ease-in-out flex flex-col ${
+				className={`fixed left-0 top-0 z-50 flex h-full w-80 transform flex-col border-r border-border bg-card text-card-foreground shadow-2xl transition-transform duration-300 ease-in-out ${
 					isOpen ? "translate-x-0" : "-translate-x-full"
 				}`}
 			>
-				<div className="flex items-center justify-between p-4 border-b border-gray-700">
-					<h2 className="text-xl font-bold">Navigation</h2>
-					<button
-						type="button"
+				<div className="flex items-center justify-between border-b border-border p-4">
+					<h2 className="text-xl font-bold text-foreground">Navigation</h2>
+					<Button
+						variant="ghost"
+						size="icon"
 						onClick={() => setIsOpen(false)}
-						className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
 						aria-label="Close menu"
 					>
 						<X size={24} />
-					</button>
+					</Button>
 				</div>
 
-				<nav className="flex-1 p-4 overflow-y-auto">
+				<nav className="flex-1 overflow-y-auto p-4">
 					<Link
 						to="/"
 						onClick={() => setIsOpen(false)}
-						className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-800 transition-colors mb-2"
+						className="mb-2 flex items-center gap-3 rounded-lg p-3 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
 						activeProps={{
 							className:
-								"flex items-center gap-3 p-3 rounded-lg bg-cyan-600 hover:bg-cyan-700 transition-colors mb-2",
+								"mb-2 flex items-center gap-3 rounded-lg bg-primary p-3 text-primary-foreground transition-colors hover:bg-primary/90",
 						}}
 					>
 						<Home size={20} />
@@ -68,10 +75,10 @@ export default function Header() {
 							<Link
 								to="/aistory"
 								onClick={() => setIsOpen(false)}
-								className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-800 transition-colors mb-2"
+								className="mb-2 flex items-center gap-3 rounded-lg p-3 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
 								activeProps={{
 									className:
-										"flex items-center gap-3 p-3 rounded-lg bg-cyan-600 hover:bg-cyan-700 transition-colors mb-2",
+										"mb-2 flex items-center gap-3 rounded-lg bg-primary p-3 text-primary-foreground transition-colors hover:bg-primary/90",
 								}}
 							>
 								<Sparkles size={20} />
@@ -81,10 +88,10 @@ export default function Header() {
 							<Link
 								to="/podcast42"
 								onClick={() => setIsOpen(false)}
-								className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-800 transition-colors mb-2"
+								className="mb-2 flex items-center gap-3 rounded-lg p-3 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
 								activeProps={{
 									className:
-										"flex items-center gap-3 p-3 rounded-lg bg-amber-600 hover:bg-amber-700 transition-colors mb-2",
+										"mb-2 flex items-center gap-3 rounded-lg bg-amber-600 p-3 text-white transition-colors hover:bg-amber-700",
 								}}
 							>
 								<Mic size={20} />
@@ -94,10 +101,10 @@ export default function Header() {
 							<Link
 								to="/user"
 								onClick={() => setIsOpen(false)}
-								className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-800 transition-colors mb-2"
+								className="mb-2 flex items-center gap-3 rounded-lg p-3 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
 								activeProps={{
 									className:
-										"flex items-center gap-3 p-3 rounded-lg bg-cyan-600 hover:bg-cyan-700 transition-colors mb-2",
+										"mb-2 flex items-center gap-3 rounded-lg bg-primary p-3 text-primary-foreground transition-colors hover:bg-primary/90",
 								}}
 							>
 								<User size={20} />
@@ -110,10 +117,11 @@ export default function Header() {
 
 			{/* Backdrop */}
 			{isOpen && (
-				<div
-					className="fixed inset-0 bg-black/50 z-40"
+				<button
+					type="button"
+					className="fixed inset-0 z-40 bg-black/50"
 					onClick={() => setIsOpen(false)}
-					aria-hidden="true"
+					aria-label="Close menu"
 				/>
 			)}
 		</>

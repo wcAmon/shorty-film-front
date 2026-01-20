@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Check, ImageIcon, Loader2, X } from "lucide-react";
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
 import { authFetch } from "@/hooks/use-auth";
 import { getThumbnailUrl } from "@/lib/image-utils";
 
@@ -72,65 +73,70 @@ export function AssetPickerModal({
 	return (
 		<div className="fixed inset-0 z-50 flex items-center justify-center">
 			{/* Backdrop */}
-			<div
+			<button
+				type="button"
 				className="absolute inset-0 bg-black/70 backdrop-blur-sm"
 				onClick={handleClose}
 				onKeyDown={(e) => e.key === "Escape" && handleClose()}
+				aria-label="Close modal"
 			/>
 
 			{/* Modal */}
-			<div className="relative bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[80vh] overflow-hidden">
+			<div className="relative max-h-[80vh] w-full max-w-4xl overflow-hidden rounded-2xl border border-border bg-card shadow-2xl">
 				{/* Header */}
-				<div className="flex items-center justify-between px-6 py-4 border-b border-slate-700">
-					<h2 className="text-xl font-semibold text-white flex items-center gap-2">
-						<ImageIcon className="w-5 h-5 text-purple-400" />
+				<div className="flex items-center justify-between border-b border-border px-6 py-4">
+					<h2 className="flex items-center gap-2 text-xl font-semibold text-foreground">
+						<ImageIcon className="h-5 w-5 text-purple-500" />
 						{title}
 					</h2>
-					<button
-						type="button"
+					<Button
+						variant="ghost"
+						size="icon"
 						onClick={handleClose}
-						className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
+						className="text-muted-foreground hover:text-foreground"
 					>
-						<X className="w-5 h-5" />
-					</button>
+						<X className="h-5 w-5" />
+					</Button>
 				</div>
 
 				{/* Content */}
-				<div className="p-6 overflow-y-auto max-h-[calc(80vh-140px)]">
+				<div className="max-h-[calc(80vh-140px)] overflow-y-auto p-6">
 					{isLoading && (
 						<div className="flex items-center justify-center py-20">
-							<Loader2 className="w-8 h-8 text-cyan-400 animate-spin" />
-							<span className="ml-3 text-slate-400">Loading assets...</span>
+							<Loader2 className="h-8 w-8 animate-spin text-primary" />
+							<span className="ml-3 text-muted-foreground">
+								Loading assets...
+							</span>
 						</div>
 					)}
 
 					{error && (
-						<div className="p-4 bg-red-500/20 border border-red-500/50 rounded-xl text-red-300">
+						<div className="rounded-xl border border-destructive/50 bg-destructive/10 p-4 text-destructive">
 							Failed to load assets: {error.message}
 						</div>
 					)}
 
 					{data?.success && data.images && data.images.length === 0 && (
-						<div className="text-center py-20 text-slate-500">
-							<ImageIcon className="w-12 h-12 mx-auto mb-3 opacity-50" />
+						<div className="py-20 text-center text-muted-foreground">
+							<ImageIcon className="mx-auto mb-3 h-12 w-12 opacity-50" />
 							<p className="text-lg">No images available</p>
-							<p className="text-sm mt-2">
+							<p className="mt-2 text-sm">
 								Generate some images first to use them here
 							</p>
 						</div>
 					)}
 
 					{data?.success && data.images && data.images.length > 0 && (
-						<div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
+						<div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5">
 							{data.images.map((image) => (
 								<button
 									type="button"
 									key={image.id}
 									onClick={() => handleSelect(image)}
-									className={`relative group rounded-lg overflow-hidden border-2 transition-all ${
+									className={`group relative overflow-hidden rounded-lg border-2 transition-all ${
 										selectedId === image.id
 											? "border-purple-500 ring-2 ring-purple-500/50"
-											: "border-slate-700 hover:border-slate-500"
+											: "border-border hover:border-muted-foreground"
 									}`}
 								>
 									{image.imageUrl ? (
@@ -143,26 +149,26 @@ export function AssetPickerModal({
 										/>
 									) : (
 										<div
-											className="w-full bg-slate-800 flex items-center justify-center text-slate-600"
+											className="flex w-full items-center justify-center bg-muted text-muted-foreground"
 											style={{ aspectRatio: "9/16" }}
 										>
-											<ImageIcon className="w-6 h-6" />
+											<ImageIcon className="h-6 w-6" />
 										</div>
 									)}
 
 									{/* Selection indicator */}
 									{selectedId === image.id && (
-										<div className="absolute inset-0 bg-purple-500/20 flex items-center justify-center">
-											<div className="bg-purple-500 rounded-full p-2">
-												<Check className="w-5 h-5 text-white" />
+										<div className="absolute inset-0 flex items-center justify-center bg-purple-500/20">
+											<div className="rounded-full bg-purple-500 p-2">
+												<Check className="h-5 w-5 text-white" />
 											</div>
 										</div>
 									)}
 
 									{/* Hover overlay */}
-									<div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
+									<div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 transition-opacity group-hover:opacity-100">
 										<div className="absolute bottom-0 left-0 right-0 p-2">
-											<p className="text-xs text-white line-clamp-2">
+											<p className="line-clamp-2 text-xs text-white">
 												{image.prompt}
 											</p>
 										</div>
@@ -174,26 +180,17 @@ export function AssetPickerModal({
 				</div>
 
 				{/* Footer */}
-				<div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-700 bg-slate-900/50">
-					<button
-						type="button"
-						onClick={handleClose}
-						className="px-4 py-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
-					>
+				<div className="flex items-center justify-end gap-3 border-t border-border bg-card/50 px-6 py-4">
+					<Button variant="ghost" onClick={handleClose}>
 						Cancel
-					</button>
-					<button
-						type="button"
+					</Button>
+					<Button
 						onClick={handleConfirm}
 						disabled={!selectedUrl}
-						className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-							selectedUrl
-								? "bg-purple-600 hover:bg-purple-500 text-white"
-								: "bg-slate-700 text-slate-500 cursor-not-allowed"
-						}`}
+						className="bg-purple-600 text-white hover:bg-purple-500"
 					>
 						Select Image
-					</button>
+					</Button>
 				</div>
 			</div>
 		</div>

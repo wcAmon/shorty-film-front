@@ -2,6 +2,7 @@ import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router";
 import { useStore } from "@tanstack/react-store";
 import { ArrowLeft, Sparkles } from "lucide-react";
 import { useEffect } from "react";
+import { Button } from "@/components/ui/button";
 import { aistoryActions } from "@/stores/aistory.store";
 import { authStore } from "@/stores/auth.store";
 
@@ -24,8 +25,8 @@ function AIStoryLayout() {
 	// Show loading while checking auth
 	if (isLoading) {
 		return (
-			<div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
-				<div className="w-8 h-8 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+			<div className="flex min-h-screen items-center justify-center bg-background">
+				<div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
 			</div>
 		);
 	}
@@ -41,27 +42,27 @@ function AIStoryLayout() {
 	};
 
 	return (
-		<div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 py-12 px-6">
-			<div className="max-w-4xl mx-auto">
+		<div className="min-h-screen bg-background px-6 py-12">
+			<div className="mx-auto max-w-4xl">
 				{/* Back button */}
-				<button
-					type="button"
+				<Button
+					variant="ghost"
 					onClick={handleBack}
-					className="mb-6 flex items-center gap-2 text-slate-400 hover:text-white transition-colors group"
+					className="group mb-6 gap-2 text-muted-foreground hover:text-foreground"
 				>
-					<ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
+					<ArrowLeft className="h-5 w-5 transition-transform group-hover:-translate-x-1" />
 					Back to Home
-				</button>
+				</Button>
 
 				{/* Page title */}
-				<div className="text-center mb-10">
-					<div className="flex items-center justify-center gap-3 mb-2">
-						<Sparkles className="w-8 h-8 text-purple-400" />
-						<h1 className="text-4xl font-bold text-white">
+				<div className="mb-10 text-center">
+					<div className="mb-2 flex items-center justify-center gap-3">
+						<Sparkles className="h-8 w-8 text-cyan-500" />
+						<h1 className="text-4xl font-bold text-foreground">
 							AI Story Generator
 						</h1>
 					</div>
-					<p className="text-slate-400">
+					<p className="text-muted-foreground">
 						Transform your narrative into engaging short-form videos
 					</p>
 				</div>

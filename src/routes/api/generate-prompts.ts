@@ -41,6 +41,7 @@ export const Route = createFileRoute("/api/generate-prompts")({
 						llmEngine?: "gpt-4.1" | "claude-opus-4-5";
 						voiceId?: string;
 						videoEngine?: string;
+						captionLanguage?: "en" | "zh-TW";
 					};
 
 					// Validate input is not empty
@@ -61,6 +62,7 @@ export const Route = createFileRoute("/api/generate-prompts")({
 							llmEngine: body.llmEngine || "gpt-4.1",
 							voiceId: body.voiceId,
 							videoEngine: body.videoEngine,
+							captionLanguage: body.captionLanguage || "en",
 							ownerId: user.id,
 						},
 					});

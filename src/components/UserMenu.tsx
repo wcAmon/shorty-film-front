@@ -1,118 +1,93 @@
 import { Link } from "@tanstack/react-router";
 import { Clock, FolderOpen, LogOut, User } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuLabel,
+	DropdownMenuSeparator,
+	DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/use-auth";
 
 export default function UserMenu() {
 	const { user, isAuthenticated, isLoading, signInWithGoogle, signOut } =
 		useAuth();
-	const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-	const dropdownRef = useRef<HTMLDivElement>(null);
-
-	// Close dropdown when clicking outside
-	useEffect(() => {
-		function handleClickOutside(event: MouseEvent) {
-			if (
-				dropdownRef.current &&
-				!dropdownRef.current.contains(event.target as Node)
-			) {
-				setIsDropdownOpen(false);
-			}
-		}
-
-		document.addEventListener("mousedown", handleClickOutside);
-		return () => document.removeEventListener("mousedown", handleClickOutside);
-	}, []);
-
-	const handleLogout = async () => {
-		await signOut();
-		setIsDropdownOpen(false);
-	};
 
 	if (isLoading) {
-		return <div className="w-10 h-10 bg-gray-700 rounded-full animate-pulse" />;
+		return <div className="h-10 w-10 animate-pulse rounded-full bg-muted" />;
 	}
 
 	if (!isAuthenticated) {
 		return (
-			<button
-				type="button"
-				onClick={signInWithGoogle}
-				className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 rounded-lg font-medium transition-colors text-sm"
-			>
+			<Button onClick={signInWithGoogle} size="sm">
 				Sign In
-			</button>
+			</Button>
 		);
 	}
 
 	return (
-		<div className="relative" ref={dropdownRef}>
-			<button
-				type="button"
-				onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-				className="flex items-center gap-2 p-1 hover:bg-gray-700 rounded-lg transition-colors"
-			>
-				{user?.user_metadata?.avatar_url ? (
-					<img
-						src={user.user_metadata.avatar_url}
-						alt="User avatar"
-						className="w-10 h-10 rounded-full"
-					/>
-				) : (
-					<div className="w-10 h-10 bg-cyan-600 rounded-full flex items-center justify-center">
-						<User size={20} />
-					</div>
-				)}
-			</button>
+		<DropdownMenu>
+			<DropdownMenuTrigger asChild>
+				<Button variant="ghost" size="icon" className="rounded-full">
+					{user?.user_metadata?.avatar_url ? (
+						<img
+							src={user.user_metadata.avatar_url}
+							alt="User avatar"
+							className="h-9 w-9 rounded-full"
+						/>
+					) : (
+						<div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary">
+							<User size={18} className="text-primary-foreground" />
+						</div>
+					)}
+				</Button>
+			</DropdownMenuTrigger>
 
-			{isDropdownOpen && (
-				<div className="absolute right-0 mt-2 w-56 bg-gray-800 rounded-xl shadow-xl border border-gray-700 py-2 z-50">
-					<div className="px-4 py-2 border-b border-gray-700">
-						<p className="text-sm font-medium text-white truncate">
-							{user?.user_metadata?.full_name || user?.email}
-						</p>
-						<p className="text-xs text-gray-400 truncate">{user?.email}</p>
-					</div>
+			<DropdownMenuContent align="end" className="w-56">
+				<DropdownMenuLabel>
+					<p className="truncate font-medium">
+						{user?.user_metadata?.full_name || user?.email}
+					</p>
+					<p className="truncate text-xs font-normal text-muted-foreground">
+						{user?.email}
+					</p>
+				</DropdownMenuLabel>
 
-					<Link
-						to="/user"
-						onClick={() => setIsDropdownOpen(false)}
-						className="flex items-center gap-3 px-4 py-2 text-gray-300 hover:bg-gray-700 hover:text-white"
-					>
+				<DropdownMenuSeparator />
+
+				<DropdownMenuItem asChild>
+					<Link to="/user" className="flex items-center gap-2">
 						<User size={16} />
 						My Profile
 					</Link>
+				</DropdownMenuItem>
 
-					<Link
-						to="/history"
-						onClick={() => setIsDropdownOpen(false)}
-						className="flex items-center gap-3 px-4 py-2 text-gray-300 hover:bg-gray-700 hover:text-white"
-					>
+				<DropdownMenuItem asChild>
+					<Link to="/user" search={{ tab: "history" }} className="flex items-center gap-2">
 						<Clock size={16} />
 						My History
 					</Link>
+				</DropdownMenuItem>
 
-					<Link
-						to="/asset-library"
-						onClick={() => setIsDropdownOpen(false)}
-						className="flex items-center gap-3 px-4 py-2 text-gray-300 hover:bg-gray-700 hover:text-white"
-					>
+				<DropdownMenuItem asChild>
+					<Link to="/user" search={{ tab: "assets" }} className="flex items-center gap-2">
 						<FolderOpen size={16} />
 						My Assets
 					</Link>
+				</DropdownMenuItem>
 
-					<div className="border-t border-gray-700 mt-2 pt-2">
-						<button
-							type="button"
-							onClick={handleLogout}
-							className="flex items-center gap-3 px-4 py-2 text-red-400 hover:bg-gray-700 hover:text-red-300 w-full"
-						>
-							<LogOut size={16} />
-							Sign Out
-						</button>
-					</div>
-				</div>
-			)}
-		</div>
+				<DropdownMenuSeparator />
+
+				<DropdownMenuItem
+					onClick={signOut}
+					className="text-destructive focus:text-destructive"
+				>
+					<LogOut size={16} className="mr-2" />
+					Sign Out
+				</DropdownMenuItem>
+			</DropdownMenuContent>
+		</DropdownMenu>
 	);
 }

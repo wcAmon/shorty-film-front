@@ -48,14 +48,14 @@ export function CountdownProgress({
 	const seconds = remainingSeconds % 60;
 
 	return (
-		<div className="w-full mb-3">
-			<div className="flex justify-between text-xs text-slate-400 mb-1">
+		<div className="mb-3 w-full">
+			<div className="mb-1 flex justify-between text-xs text-muted-foreground">
 				<span>Estimated time remaining</span>
 				<span>
 					{minutes}:{seconds.toString().padStart(2, "0")}
 				</span>
 			</div>
-			<div className="w-full h-2 bg-slate-700 rounded-full overflow-hidden">
+			<div className="h-2 w-full overflow-hidden rounded-full bg-muted">
 				<div
 					className="h-full bg-gradient-to-r from-blue-500 to-cyan-400 transition-all duration-1000 ease-linear"
 					style={{ width: `${progressPercent}%` }}

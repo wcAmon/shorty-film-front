@@ -4,6 +4,7 @@ import { ArrowLeft, Mic } from "lucide-react";
 import { useEffect } from "react";
 import { authStore } from "@/stores/auth.store";
 import { podcast42Actions } from "@/stores/podcast42.store";
+import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/podcast42")({
 	component: Podcast42Layout,
@@ -24,7 +25,7 @@ function Podcast42Layout() {
 	// Show loading while checking auth
 	if (isLoading) {
 		return (
-			<div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
+			<div className="min-h-screen bg-background flex items-center justify-center">
 				<div className="w-8 h-8 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
 			</div>
 		);
@@ -41,25 +42,25 @@ function Podcast42Layout() {
 	};
 
 	return (
-		<div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 py-12 px-6">
+		<div className="min-h-screen bg-background py-12 px-6">
 			<div className="max-w-4xl mx-auto">
 				{/* Back button */}
-				<button
-					type="button"
+				<Button
+					variant="ghost"
 					onClick={handleBack}
-					className="mb-6 flex items-center gap-2 text-slate-400 hover:text-white transition-colors group"
+					className="mb-6 flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors group"
 				>
 					<ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
 					Back to Home
-				</button>
+				</Button>
 
 				{/* Page title */}
 				<div className="text-center mb-10">
 					<div className="flex items-center justify-center gap-3 mb-2">
 						<Mic className="w-8 h-8 text-amber-400" />
-						<h1 className="text-4xl font-bold text-white">Podcast 42</h1>
+						<h1 className="text-4xl font-bold text-foreground">Podcast 42</h1>
 					</div>
-					<p className="text-slate-400">
+					<p className="text-muted-foreground">
 						Generate podcast-style videos with two characters
 					</p>
 				</div>
