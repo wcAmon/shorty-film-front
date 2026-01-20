@@ -1,6 +1,7 @@
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { useStore } from "@tanstack/react-store";
 import {
+	Captions,
 	ChevronDown,
 	ChevronUp,
 	Clapperboard,
@@ -993,6 +994,11 @@ function ScenesPage() {
 		scenes.length > 0 &&
 		scenes.every((scene) => scene.videoUrl && scene.audioUrl);
 
+	// Check if any scene has word timestamps (for subtitle editor button)
+	const hasAnyWordTimestamps = scenes.some(
+		(scene) => scene.wordTimestamps && scene.wordTimestamps.length > 0,
+	);
+
 	// Handle download exported video
 	const handleDownloadExportedVideo = async () => {
 		if (!exportedVideoUrl) return;
@@ -1928,16 +1934,31 @@ function ScenesPage() {
 				</div>
 			)}
 
-			{/* Go to Export Button - shown when all scenes have videos */}
-			{allScenesHaveVideos && (
-				<div className="mt-8">
-					<Button
-						onClick={() => navigate({ to: "/aistory/export" })}
-						className="w-full py-4 h-auto bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-foreground text-lg font-bold rounded-xl transition-all duration-300 shadow-lg shadow-amber-500/30 hover:shadow-amber-500/50 flex items-center justify-center gap-3"
-					>
-						<Film className="w-6 h-6" />
-						GO TO EXPORT
-					</Button>
+			{/* Navigation Buttons */}
+			{(hasAnyWordTimestamps || allScenesHaveVideos) && (
+				<div className="mt-8 flex flex-col gap-3">
+					{/* Go to Subtitles Button - shown when any scene has word timestamps */}
+					{hasAnyWordTimestamps && (
+						<Button
+							onClick={() => navigate({ to: "/aistory/subtitles" })}
+							variant="outline"
+							className="w-full py-4 h-auto border-2 border-cyan-500/50 hover:border-cyan-400 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 text-lg font-bold rounded-xl transition-all duration-300 flex items-center justify-center gap-3"
+						>
+							<Captions className="w-6 h-6" />
+							編輯字幕
+						</Button>
+					)}
+
+					{/* Go to Export Button - shown when all scenes have videos */}
+					{allScenesHaveVideos && (
+						<Button
+							onClick={() => navigate({ to: "/aistory/export" })}
+							className="w-full py-4 h-auto bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-foreground text-lg font-bold rounded-xl transition-all duration-300 shadow-lg shadow-amber-500/30 hover:shadow-amber-500/50 flex items-center justify-center gap-3"
+						>
+							<Film className="w-6 h-6" />
+							GO TO EXPORT
+						</Button>
+					)}
 				</div>
 			)}
 
