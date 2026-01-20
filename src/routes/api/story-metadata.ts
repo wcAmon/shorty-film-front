@@ -87,6 +87,7 @@ interface GetStoryResponse {
 		// Media metadata
 		audioDuration?: number | null;
 		videoDuration?: number | null;
+		wordTimestamps?: string | null; // JSON string of word-level timestamps for subtitles
 		// Voice settings per scene
 		voiceId?: string | null;
 		voiceSpeed?: number | null;
@@ -177,6 +178,7 @@ export const Route = createFileRoute("/api/story-metadata")({
 								videoUrl: video?.videoUrl ?? null,
 								audioDuration: audio?.duration ?? null,
 								videoDuration: video?.duration ?? null,
+								wordTimestamps: audio?.wordTimestamps ?? null,
 								// Include media status for resuming generation monitoring
 								imageStatus: image?.status ?? null,
 								audioStatus: audio?.status ?? null,

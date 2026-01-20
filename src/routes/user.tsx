@@ -74,6 +74,7 @@ interface DbScene {
 	audioId?: string;
 	audioUrl?: string;
 	audioDuration?: number;
+	wordTimestamps?: string | null; // JSON string of word-level timestamps
 	videoId?: string;
 	videoUrl?: string;
 	videoDuration?: number;
@@ -370,26 +371,38 @@ function HistoryTab() {
 				}
 
 				// Restore scenes with URL-based media and per-scene voice settings
-				const restoredScenes = scenes.map((scene: DbScene) => ({
-					id: scene.id,
-					title: scene.title || "Untitled",
-					prompt: scene.prompt || "",
-					video_prompt: scene.videoPrompt || "",
-					isCharacter: scene.isCharacter ?? true,
-					caption: scene.caption,
-					imageId: scene.imageId,
-					imageUrl: scene.imageUrl,
-					audioId: scene.audioId,
-					audioUrl: scene.audioUrl,
-					audioDuration: scene.audioDuration,
-					videoId: scene.videoId,
-					videoUrl: scene.videoUrl,
-					videoDuration: scene.videoDuration,
-					// Per-scene voice settings
-					voiceId: scene.voiceId as VoiceId | undefined,
-					// Ensure voiceSpeed is a number (may come as string from database)
-					voiceSpeed: Number(scene.voiceSpeed) || 1.0,
-				}));
+				const restoredScenes = scenes.map((scene: DbScene) => {
+					// Parse wordTimestamps from JSON string
+					let wordTimestamps;
+					if (scene.wordTimestamps) {
+						try {
+							wordTimestamps = JSON.parse(scene.wordTimestamps);
+						} catch {
+							wordTimestamps = undefined;
+						}
+					}
+					return {
+						id: scene.id,
+						title: scene.title || "Untitled",
+						prompt: scene.prompt || "",
+						video_prompt: scene.videoPrompt || "",
+						isCharacter: scene.isCharacter ?? true,
+						caption: scene.caption,
+						imageId: scene.imageId,
+						imageUrl: scene.imageUrl,
+						audioId: scene.audioId,
+						audioUrl: scene.audioUrl,
+						audioDuration: scene.audioDuration,
+						wordTimestamps,
+						videoId: scene.videoId,
+						videoUrl: scene.videoUrl,
+						videoDuration: scene.videoDuration,
+						// Per-scene voice settings
+						voiceId: scene.voiceId as VoiceId | undefined,
+						// Ensure voiceSpeed is a number (may come as string from database)
+						voiceSpeed: Number(scene.voiceSpeed) || 1.0,
+					};
+				});
 				aistoryActions.setScenes(restoredScenes);
 				aistoryActions.setPromptsGenerated(true);
 
