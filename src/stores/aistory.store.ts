@@ -1,8 +1,63 @@
 import { Store } from "@tanstack/store";
 import type { Scene, WordTimestamp } from "@/hooks/use-aistory-api";
 
+// ============================================================================
+// Error State Types
+// ============================================================================
+
+/**
+ * 增強的錯誤狀態結構
+ * 包含錯誤代碼、時間戳和重試計數
+ */
+export interface ErrorState {
+	/** 錯誤訊息 */
+	message: string;
+	/** 錯誤代碼 (用於分類和處理) */
+	code?: string;
+	/** 錯誤發生時間 */
+	timestamp: number;
+	/** 重試次數 */
+	retryCount: number;
+	/** 是否可重試 */
+	retryable?: boolean;
+	/** 相關的操作類型 */
+	operation?: "story" | "character" | "image" | "audio" | "video" | "export";
+	/** 相關的資源 ID */
+	resourceId?: string;
+}
+
+/**
+ * 建立錯誤狀態
+ */
+export function createErrorState(
+	message: string,
+	options: Partial<Omit<ErrorState, "message" | "timestamp">> = {},
+): ErrorState {
+	return {
+		message,
+		timestamp: Date.now(),
+		retryCount: 0,
+		retryable: true,
+		...options,
+	};
+}
+
+/**
+ * 增加錯誤的重試計數
+ */
+export function incrementRetryCount(
+	error: ErrorState | null,
+): ErrorState | null {
+	if (!error) return null;
+	return {
+		...error,
+		retryCount: error.retryCount + 1,
+		timestamp: Date.now(),
+	};
+}
+
 // Image engine options for generation (all via FAL AI)
-export type ImageEngine = "flux-pro" | "gpt-image-1.5";
+export type ImageEngine = "flux-pro" | "gpt-image-1.5" | "nano-banana-pro";
 
 // Image style options for prompt + image generation
 export type ImageStyle =
@@ -32,6 +87,9 @@ export type VideoEngine =
 
 // LLM engine options for prompt generation
 export type LLMEngine = "gpt-4.1" | "claude-opus-4-5";
+
+// Caption language options
+export type CaptionLanguage = "en" | "zh-TW";
 
 // Media status type (matches database enum)
 export type MediaStatus = "ready" | "generating" | "completed";
@@ -92,20 +150,27 @@ export interface AIStoryState {
 	// Audio playback
 	playingSceneId: string | null;
 
-	// Error state
-	error: string | null;
-	sceneError: string | null;
+	// Error state (增強版，包含代碼、時間戳、重試計數)
+	error: ErrorState | null;
+	sceneError: ErrorState | null;
 
 	// Export video state
 	isExportingVideo: boolean;
 	exportedVideoUrl: string | null;
-	exportError: string | null;
+	exportError: ErrorState | null;
 
 	// Engine selections
 	imageEngine: ImageEngine;
 	videoEngine: VideoEngine;
 	imageStyle: ImageStyle;
 	llmEngine: LLMEngine;
+	captionLanguage: CaptionLanguage;
+
+	// Batch generation state
+	isGeneratingAllImages: boolean;
+	isGeneratingAllVideos: boolean;
+	batchImageProgress: { current: number; total: number } | null;
+	batchVideoProgress: { current: number; total: number } | null;
 }
 
 // Initial state
@@ -130,6 +195,11 @@ const initialState: AIStoryState = {
 	videoEngine: "kling-video",
 	imageStyle: "cinematic",
 	llmEngine: "gpt-4.1",
+	captionLanguage: "en",
+	isGeneratingAllImages: false,
+	isGeneratingAllVideos: false,
+	batchImageProgress: null,
+	batchVideoProgress: null,
 };
 
 // Create the store
@@ -235,12 +305,44 @@ export const aistoryActions = {
 		aistoryStore.setState((state) => ({ ...state, playingSceneId }));
 	},
 
-	setError: (error: string | null) => {
-		aistoryStore.setState((state) => ({ ...state, error }));
+	/**
+	 * 設定錯誤狀態
+	 * @param error - 錯誤訊息字串、ErrorState 物件，或 null 清除錯誤
+	 * @param options - 額外選項 (當 error 為字串時使用)
+	 */
+	setError: (
+		error: string | ErrorState | null,
+		options?: Partial<Omit<ErrorState, "message" | "timestamp">>,
+	) => {
+		aistoryStore.setState((state) => ({
+			...state,
+			error:
+				error === null
+					? null
+					: typeof error === "string"
+						? createErrorState(error, options)
+						: error,
+		}));
 	},
 
-	setSceneError: (sceneError: string | null) => {
-		aistoryStore.setState((state) => ({ ...state, sceneError }));
+	/**
+	 * 設定場景錯誤狀態
+	 * @param sceneError - 錯誤訊息字串、ErrorState 物件，或 null 清除錯誤
+	 * @param options - 額外選項 (當 error 為字串時使用)
+	 */
+	setSceneError: (
+		sceneError: string | ErrorState | null,
+		options?: Partial<Omit<ErrorState, "message" | "timestamp">>,
+	) => {
+		aistoryStore.setState((state) => ({
+			...state,
+			sceneError:
+				sceneError === null
+					? null
+					: typeof sceneError === "string"
+						? createErrorState(sceneError, options)
+						: sceneError,
+		}));
 	},
 
 	// Export video actions
@@ -252,8 +354,19 @@ export const aistoryActions = {
 		aistoryStore.setState((state) => ({ ...state, exportedVideoUrl }));
 	},
 
-	setExportError: (exportError: string | null) => {
-		aistoryStore.setState((state) => ({ ...state, exportError }));
+	setExportError: (
+		exportError: string | ErrorState | null,
+		options?: Partial<Omit<ErrorState, "message" | "timestamp">>,
+	) => {
+		aistoryStore.setState((state) => ({
+			...state,
+			exportError:
+				exportError === null
+					? null
+					: typeof exportError === "string"
+						? createErrorState(exportError, { operation: "export", ...options })
+						: exportError,
+		}));
 	},
 
 	// Engine selections
@@ -273,6 +386,31 @@ export const aistoryActions = {
 		aistoryStore.setState((state) => ({ ...state, llmEngine }));
 	},
 
+	setCaptionLanguage: (captionLanguage: CaptionLanguage) => {
+		aistoryStore.setState((state) => ({ ...state, captionLanguage }));
+	},
+
+	// Batch generation actions
+	setIsGeneratingAllImages: (isGeneratingAllImages: boolean) => {
+		aistoryStore.setState((state) => ({ ...state, isGeneratingAllImages }));
+	},
+
+	setIsGeneratingAllVideos: (isGeneratingAllVideos: boolean) => {
+		aistoryStore.setState((state) => ({ ...state, isGeneratingAllVideos }));
+	},
+
+	setBatchImageProgress: (
+		batchImageProgress: { current: number; total: number } | null,
+	) => {
+		aistoryStore.setState((state) => ({ ...state, batchImageProgress }));
+	},
+
+	setBatchVideoProgress: (
+		batchVideoProgress: { current: number; total: number } | null,
+	) => {
+		aistoryStore.setState((state) => ({ ...state, batchVideoProgress }));
+	},
+
 	// Reset all state except script
 	resetPrompts: () => {
 		aistoryStore.setState((state) => ({
@@ -289,6 +427,10 @@ export const aistoryActions = {
 			isExportingVideo: false,
 			exportedVideoUrl: null,
 			exportError: null,
+			isGeneratingAllImages: false,
+			isGeneratingAllVideos: false,
+			batchImageProgress: null,
+			batchVideoProgress: null,
 		}));
 	},
 

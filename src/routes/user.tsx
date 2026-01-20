@@ -1,3 +1,4 @@
+import type { User as SupabaseUser } from "@supabase/supabase-js";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useStore } from "@tanstack/react-store";
@@ -10,19 +11,28 @@ import {
 	Link as LinkIcon,
 	Loader2,
 	LogOut,
-	Mic,
-	Play,
-	Sparkles,
-	Trash2,
 	User,
 } from "lucide-react";
 import { useState } from "react";
+import { StoryCard } from "@/components/story-card";
+import { StoryCardSkeleton } from "@/components/story-card-skeleton";
+import { ThemeToggle } from "@/components/theme-toggle";
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { authFetch, useAuth } from "@/hooks/use-auth";
 import { useDeleteStory, useListStories } from "@/hooks/use-story-history";
 import type { StoryMetadata } from "@/lib/cache";
 import { getThumbnailUrl } from "@/lib/image-utils";
-import { authStore } from "@/stores/auth.store";
 import { aistoryActions } from "@/stores/aistory.store";
+import { authStore } from "@/stores/auth.store";
 import { podcast42Actions } from "@/stores/podcast42.store";
 
 // Asset types
@@ -50,6 +60,30 @@ interface AssetLibraryResponse {
 	videos?: AssetVideo[];
 	error?: string;
 }
+
+// Database scene types (from API response)
+interface DbScene {
+	id: string;
+	title?: string;
+	prompt?: string;
+	videoPrompt?: string;
+	isCharacter?: boolean;
+	caption: string;
+	imageId?: string;
+	imageUrl?: string;
+	audioId?: string;
+	audioUrl?: string;
+	audioDuration?: number;
+	videoId?: string;
+	videoUrl?: string;
+	videoDuration?: number;
+	voiceId?: string;
+	voiceSpeed?: number | string;
+	speaker?: string;
+}
+
+// Type guard for VoiceId
+import type { VideoEngine, VoiceId } from "@/stores/aistory.store";
 
 async function fetchAssetLibrary(): Promise<AssetLibraryResponse> {
 	const response = await authFetch("/api/asset-library");
@@ -82,28 +116,28 @@ function UserPage() {
 
 	if (isLoading) {
 		return (
-			<div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
-				<div className="w-8 h-8 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+			<div className="flex min-h-screen items-center justify-center bg-background">
+				<div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
 			</div>
 		);
 	}
 
 	if (!isAuthenticated) {
 		return (
-			<div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 p-6">
-				<div className="max-w-md mx-auto text-center mt-20">
-					<User className="w-16 h-16 text-gray-500 mx-auto mb-4" />
-					<h1 className="text-2xl font-bold text-white mb-4">
+			<div className="min-h-screen bg-background p-6">
+				<div className="mx-auto mt-20 max-w-md text-center">
+					<User className="mx-auto mb-4 h-16 w-16 text-muted-foreground" />
+					<h1 className="mb-4 text-2xl font-bold text-foreground">
 						Sign in to continue
 					</h1>
-					<p className="text-gray-400 mb-8">
+					<p className="mb-8 text-muted-foreground">
 						Sign in with your Google account to access your profile, history,
 						and assets.
 					</p>
 					<button
 						type="button"
 						onClick={signInWithGoogle}
-						className="px-6 py-3 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg font-medium transition-colors"
+						className="rounded-lg bg-primary px-6 py-3 font-medium text-primary-foreground transition-colors hover:bg-primary/90"
 					>
 						Sign in with Google
 					</button>
@@ -119,33 +153,36 @@ function UserPage() {
 	];
 
 	return (
-		<div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 p-6">
-			<div className="max-w-4xl mx-auto">
+		<div className="min-h-screen bg-background p-6">
+			<div className="mx-auto max-w-5xl">
 				{/* Header */}
-				<div className="flex items-center gap-4 mb-8">
-					<Link
-						to="/"
-						className="p-2 text-white hover:bg-slate-700 rounded-lg transition-colors"
-					>
-						<ArrowLeft className="w-6 h-6" />
-					</Link>
-					<h1 className="text-3xl font-bold text-white">My Account</h1>
+				<div className="mb-8 flex items-center justify-between">
+					<div className="flex items-center gap-4">
+						<Link
+							to="/"
+							className="rounded-lg p-2 text-foreground transition-colors hover:bg-accent"
+						>
+							<ArrowLeft className="h-6 w-6" />
+						</Link>
+						<h1 className="text-3xl font-bold text-foreground">My Account</h1>
+					</div>
+					<ThemeToggle />
 				</div>
 
 				{/* Tabs */}
-				<div className="flex gap-2 mb-8 border-b border-slate-700 pb-2">
+				<div className="mb-8 flex gap-2 border-b border-border pb-2">
 					{tabs.map((tab) => (
 						<button
 							key={tab.id}
 							type="button"
 							onClick={() => setActiveTab(tab.id)}
-							className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+							className={`flex items-center gap-2 rounded-lg px-4 py-2 transition-colors ${
 								activeTab === tab.id
-									? "bg-cyan-600 text-white"
-									: "text-slate-400 hover:bg-slate-700 hover:text-white"
+									? "bg-primary text-primary-foreground"
+									: "text-muted-foreground hover:bg-accent hover:text-foreground"
 							}`}
 						>
-							<tab.icon className="w-4 h-4" />
+							<tab.icon className="h-4 w-4" />
 							{tab.label}
 						</button>
 					))}
@@ -163,28 +200,34 @@ function UserPage() {
 }
 
 // Profile Tab Component
-function ProfileTab({ user, signOut }: { user: any; signOut: () => void }) {
+function ProfileTab({
+	user,
+	signOut,
+}: {
+	user: SupabaseUser | null;
+	signOut: () => void;
+}) {
 	return (
 		<div>
 			{/* User Info Card */}
-			<div className="bg-slate-800/50 rounded-xl p-6 mb-8 border border-slate-700">
+			<div className="mb-8 rounded-xl border border-border bg-card p-6">
 				<div className="flex items-center gap-4">
 					{user?.user_metadata?.avatar_url ? (
 						<img
 							src={user.user_metadata.avatar_url}
 							alt="Avatar"
-							className="w-20 h-20 rounded-full"
+							className="h-20 w-20 rounded-full"
 						/>
 					) : (
-						<div className="w-20 h-20 bg-cyan-600 rounded-full flex items-center justify-center">
-							<User size={40} className="text-white" />
+						<div className="flex h-20 w-20 items-center justify-center rounded-full bg-primary">
+							<User size={40} className="text-primary-foreground" />
 						</div>
 					)}
 					<div>
-						<h2 className="text-xl font-semibold text-white">
+						<h2 className="text-xl font-semibold text-foreground">
 							{user?.user_metadata?.full_name || "User"}
 						</h2>
-						<p className="text-slate-400">{user?.email}</p>
+						<p className="text-muted-foreground">{user?.email}</p>
 					</div>
 				</div>
 			</div>
@@ -193,7 +236,7 @@ function ProfileTab({ user, signOut }: { user: any; signOut: () => void }) {
 			<button
 				type="button"
 				onClick={signOut}
-				className="flex items-center gap-2 px-4 py-2 text-red-400 hover:bg-slate-700/50 rounded-lg transition-colors"
+				className="flex items-center gap-2 rounded-lg px-4 py-2 text-destructive transition-colors hover:bg-destructive/10"
 			>
 				<LogOut size={20} />
 				Sign Out
@@ -205,22 +248,36 @@ function ProfileTab({ user, signOut }: { user: any; signOut: () => void }) {
 // History Tab Component
 function HistoryTab() {
 	const navigate = useNavigate();
-	const { data, isLoading, refetch } = useListStories();
+	const { data, isLoading } = useListStories();
 	const deleteStory = useDeleteStory();
 	const [loadingStoryId, setLoadingStoryId] = useState<string | null>(null);
 
-	const handleDelete = async (storyId: string, e: React.MouseEvent) => {
+	// AlertDialog state
+	const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+	const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+	const [isDeleting, setIsDeleting] = useState(false);
+
+	const handleDelete = (storyId: string, e: React.MouseEvent) => {
 		e.stopPropagation();
-		if (confirm("Are you sure you want to delete this story?")) {
-			await deleteStory.mutateAsync(storyId);
-			refetch();
+		setDeleteTarget(storyId);
+		setShowDeleteDialog(true);
+	};
+
+	const confirmDelete = async () => {
+		if (!deleteTarget) return;
+		setIsDeleting(true);
+		try {
+			await deleteStory.mutateAsync(deleteTarget);
+		} finally {
+			setIsDeleting(false);
+			setShowDeleteDialog(false);
+			setDeleteTarget(null);
 		}
 	};
 
 	const handleResume = async (story: StoryMetadata) => {
 		const storyId = story.storyId;
 		if (!storyId) {
-			alert("Invalid story: missing storyId");
 			console.error("Story missing storyId:", story);
 			return;
 		}
@@ -234,7 +291,7 @@ function HistoryTab() {
 			const result = await response.json();
 
 			if (!result.success || !result.story) {
-				alert("Failed to load story data");
+				console.error("Failed to load story data");
 				return;
 			}
 
@@ -253,10 +310,14 @@ function HistoryTab() {
 				podcast42Actions.setImageStyle(storyData.imageStyle);
 
 				if (storyData.person1VoiceId) {
-					podcast42Actions.setPerson1VoiceId(storyData.person1VoiceId as any);
+					podcast42Actions.setPerson1VoiceId(
+						storyData.person1VoiceId as VoiceId,
+					);
 				}
 				if (storyData.person2VoiceId) {
-					podcast42Actions.setPerson2VoiceId(storyData.person2VoiceId as any);
+					podcast42Actions.setPerson2VoiceId(
+						storyData.person2VoiceId as VoiceId,
+					);
 				}
 
 				// Restore person images from characterImages (URL-based)
@@ -270,9 +331,9 @@ function HistoryTab() {
 				}
 
 				// Restore scenes with URL-based media
-				const restoredScenes = scenes.map((scene: any) => ({
+				const restoredScenes = scenes.map((scene: DbScene) => ({
 					id: scene.id,
-					speaker: scene.speaker || "person1",
+					speaker: (scene.speaker || "person1") as "person1" | "person2",
 					caption: scene.caption,
 					audioId: scene.audioId,
 					audioUrl: scene.audioUrl,
@@ -281,7 +342,7 @@ function HistoryTab() {
 					videoUrl: scene.videoUrl,
 					videoDuration: scene.videoDuration,
 				}));
-				podcast42Actions.setScenes(restoredScenes as any);
+				podcast42Actions.setScenes(restoredScenes);
 				podcast42Actions.setPromptsGenerated(true);
 
 				// Always navigate to scenes page for podcast42
@@ -297,7 +358,7 @@ function HistoryTab() {
 
 				// Note: voiceId is now per-scene, stored in scene data
 				if (storyData.videoEngine) {
-					aistoryActions.setVideoEngine(storyData.videoEngine as any);
+					aistoryActions.setVideoEngine(storyData.videoEngine as VideoEngine);
 				}
 
 				// Restore character image from characterImages (URL-based)
@@ -309,7 +370,7 @@ function HistoryTab() {
 				}
 
 				// Restore scenes with URL-based media and per-scene voice settings
-				const restoredScenes = scenes.map((scene: any) => ({
+				const restoredScenes = scenes.map((scene: DbScene) => ({
 					id: scene.id,
 					title: scene.title || "Untitled",
 					prompt: scene.prompt || "",
@@ -325,11 +386,11 @@ function HistoryTab() {
 					videoUrl: scene.videoUrl,
 					videoDuration: scene.videoDuration,
 					// Per-scene voice settings
-					voiceId: scene.voiceId,
+					voiceId: scene.voiceId as VoiceId | undefined,
 					// Ensure voiceSpeed is a number (may come as string from database)
 					voiceSpeed: Number(scene.voiceSpeed) || 1.0,
 				}));
-				aistoryActions.setScenes(restoredScenes as any);
+				aistoryActions.setScenes(restoredScenes);
 				aistoryActions.setPromptsGenerated(true);
 
 				// Restore exported video URL if available
@@ -345,121 +406,74 @@ function HistoryTab() {
 		}
 	};
 
-	const formatDate = (dateString: string) => {
-		const date = new Date(dateString);
-		return date.toLocaleDateString() + " " + date.toLocaleTimeString();
-	};
-
-	const getProgress = (story: StoryMetadata) => {
-		const scenes = story.scenes || [];
-		const total = scenes.length;
-		const withAudio = scenes.filter((s) => s.hasAudio).length;
-		const withVideo = scenes.filter((s) => s.hasVideo).length;
-		return { total, withAudio, withVideo };
-	};
-
+	// Loading state with skeletons
 	if (isLoading) {
 		return (
-			<div className="text-center text-slate-400 py-12">Loading stories...</div>
+			<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+				{Array.from({ length: 6 }).map((_, i) => (
+					<StoryCardSkeleton key={i} />
+				))}
+			</div>
 		);
 	}
 
+	// Empty state
 	if (!data?.stories || data.stories.length === 0) {
 		return (
-			<div className="text-center text-slate-400 py-12">
-				<Clock className="w-12 h-12 mx-auto mb-4 opacity-50" />
-				<p className="text-xl mb-4">No stories yet</p>
+			<div className="py-12 text-center text-muted-foreground">
+				<Clock className="mx-auto mb-4 h-12 w-12 opacity-50" />
+				<p className="mb-4 text-xl">No stories yet</p>
 				<p>Create your first AI Story or Podcast to see it here.</p>
 			</div>
 		);
 	}
 
 	return (
-		<div className="space-y-4">
-			{data.stories.map((story) => {
-				const progress = getProgress(story);
-				const isPodcast = story.type === "podcast42";
-
-				return (
-					<div
+		<>
+			{/* Gallery Grid */}
+			<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+				{data.stories.map((story) => (
+					<StoryCard
 						key={story.storyId}
-						className="bg-slate-800/50 rounded-xl p-4 hover:bg-slate-700/50 transition-colors cursor-pointer border border-slate-700"
-						onClick={() => handleResume(story)}
-					>
-						<div className="flex items-start justify-between">
-							<div className="flex-1">
-								{/* Type badge */}
-								<div className="flex items-center gap-2 mb-2">
-									{isPodcast ? (
-										<span className="inline-flex items-center gap-1 px-2 py-1 bg-amber-500/20 text-amber-400 rounded-full text-xs">
-											<Mic className="w-3 h-3" />
-											Podcast 42
-										</span>
-									) : (
-										<span className="inline-flex items-center gap-1 px-2 py-1 bg-cyan-500/20 text-cyan-400 rounded-full text-xs">
-											<Sparkles className="w-3 h-3" />
-											AI Story
-										</span>
-									)}
-									<span className="text-slate-500 text-xs">
-										{story.imageStyle} • {story.imageEngine}
-									</span>
-								</div>
+						story={story}
+						onResume={handleResume}
+						onDelete={handleDelete}
+						isLoading={loadingStoryId === story.storyId}
+					/>
+				))}
+			</div>
 
-								{/* Story ID and date */}
-								<h3 className="text-white font-medium mb-1 truncate">
-									{story.storyId}
-								</h3>
-								<p className="text-slate-400 text-sm mb-2">
-									Updated: {formatDate(story.updatedAt)}
-								</p>
-
-								{/* Progress */}
-								<div className="flex items-center gap-4 text-sm">
-									<span className="text-slate-400">
-										{progress.total} scenes
-									</span>
-									<span className="text-blue-400 flex items-center gap-1">
-										<Play className="w-3 h-3" />
-										{progress.withAudio} audio
-									</span>
-									<span className="text-green-400 flex items-center gap-1">
-										<Film className="w-3 h-3" />
-										{progress.withVideo} video
-									</span>
-									{story.hasExportedVideo && (
-										<span className="text-purple-400">Exported</span>
-									)}
-								</div>
-							</div>
-
-							{/* Actions */}
-							<div className="flex items-center gap-2 ml-4">
-								{loadingStoryId === story.storyId ? (
-									<div className="w-8 h-8 animate-spin rounded-full border-2 border-slate-500 border-t-white" />
-								) : (
-									<>
-										<button
-											type="button"
-											className="p-2 text-slate-400 hover:text-red-400 hover:bg-slate-700 rounded-lg transition-colors"
-											onClick={(e) => handleDelete(story.storyId, e)}
-										>
-											<Trash2 className="w-5 h-5" />
-										</button>
-										<button
-											type="button"
-											className="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors"
-										>
-											<Play className="w-5 h-5" />
-										</button>
-									</>
-								)}
-							</div>
-						</div>
-					</div>
-				);
-			})}
-		</div>
+			{/* Delete Confirmation Dialog */}
+			<AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>Delete Story</AlertDialogTitle>
+						<AlertDialogDescription>
+							Are you sure you want to delete this story? This action cannot be
+							undone. All scenes, images, audio, and video associated with this
+							story will be permanently removed.
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+						<AlertDialogAction
+							onClick={confirmDelete}
+							disabled={isDeleting}
+							className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+						>
+							{isDeleting ? (
+								<>
+									<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+									Deleting...
+								</>
+							) : (
+								"Delete"
+							)}
+						</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
+		</>
 	);
 }
 
@@ -489,15 +503,15 @@ function AssetsTab() {
 	if (isLoading) {
 		return (
 			<div className="flex items-center justify-center py-20">
-				<Loader2 className="w-8 h-8 text-cyan-400 animate-spin" />
-				<span className="ml-3 text-slate-400">Loading assets...</span>
+				<Loader2 className="h-8 w-8 animate-spin text-primary" />
+				<span className="ml-3 text-muted-foreground">Loading assets...</span>
 			</div>
 		);
 	}
 
 	if (error) {
 		return (
-			<div className="p-4 bg-red-500/20 border border-red-500/50 rounded-xl text-red-300">
+			<div className="rounded-xl border border-destructive/50 bg-destructive/10 p-4 text-destructive">
 				Failed to load asset library: {error.message}
 			</div>
 		);
@@ -509,13 +523,13 @@ function AssetsTab() {
 			(!data.videos || data.videos.length === 0))
 	) {
 		return (
-			<div className="text-center py-20 text-slate-500">
-				<div className="flex justify-center gap-4 mb-4">
-					<ImageIcon className="w-12 h-12 opacity-50" />
-					<Film className="w-12 h-12 opacity-50" />
+			<div className="py-20 text-center text-muted-foreground">
+				<div className="mb-4 flex justify-center gap-4">
+					<ImageIcon className="h-12 w-12 opacity-50" />
+					<Film className="h-12 w-12 opacity-50" />
 				</div>
 				<p className="text-lg">Your asset library is empty</p>
-				<p className="text-sm mt-2">
+				<p className="mt-2 text-sm">
 					When you regenerate images or videos, the old ones will appear here
 				</p>
 			</div>
@@ -526,17 +540,17 @@ function AssetsTab() {
 		<div className="space-y-10">
 			{/* Images Section */}
 			<section>
-				<h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
-					<ImageIcon className="w-5 h-5 text-purple-400" />
+				<h2 className="mb-4 flex items-center gap-2 text-xl font-semibold text-foreground">
+					<ImageIcon className="h-5 w-5 text-purple-500" />
 					Images ({data.images?.length || 0})
 				</h2>
 
 				{data.images && data.images.length > 0 ? (
-					<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+					<div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
 						{data.images.map((image) => (
 							<div
 								key={image.id}
-								className="bg-slate-800/50 border border-slate-700 rounded-lg overflow-hidden hover:border-purple-500/50 transition-colors"
+								className="overflow-hidden rounded-lg border border-border bg-card transition-colors hover:border-purple-500/50"
 							>
 								{image.imageUrl ? (
 									<img
@@ -548,33 +562,33 @@ function AssetsTab() {
 									/>
 								) : (
 									<div
-										className="w-full bg-slate-900 flex items-center justify-center text-slate-600"
+										className="flex w-full items-center justify-center bg-muted text-muted-foreground"
 										style={{ aspectRatio: "9/16" }}
 									>
-										<ImageIcon className="w-8 h-8" />
+										<ImageIcon className="h-8 w-8" />
 									</div>
 								)}
 								<div className="p-3">
-									<p className="text-xs text-slate-400 mb-1">
+									<p className="mb-1 text-xs text-muted-foreground">
 										{formatDate(image.createdAt)}
 									</p>
 									<p
-										className="text-sm text-slate-300 line-clamp-2"
+										className="line-clamp-2 text-sm text-foreground"
 										title={image.prompt}
 									>
 										{truncatePrompt(image.prompt)}
 									</p>
 									<div className="mt-2 flex items-center gap-2">
-										<span className="inline-block text-xs px-2 py-0.5 bg-purple-500/20 text-purple-400 rounded">
+										<span className="inline-block rounded bg-purple-500/20 px-2 py-0.5 text-xs text-purple-500">
 											{image.imageType}
 										</span>
 										{image.storyId ? (
-											<span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 bg-cyan-500/20 text-cyan-400 rounded">
-												<LinkIcon className="w-3 h-3" />
+											<span className="inline-flex items-center gap-1 rounded bg-primary/20 px-2 py-0.5 text-xs text-primary">
+												<LinkIcon className="h-3 w-3" />
 												linked
 											</span>
 										) : (
-											<span className="text-xs px-2 py-0.5 bg-slate-500/20 text-slate-400 rounded">
+											<span className="rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground">
 												orphaned
 											</span>
 										)}
@@ -584,27 +598,27 @@ function AssetsTab() {
 						))}
 					</div>
 				) : (
-					<div className="text-center py-10 text-slate-500">
-						<ImageIcon className="w-12 h-12 mx-auto mb-3 opacity-50" />
+					<div className="py-10 text-center text-muted-foreground">
+						<ImageIcon className="mx-auto mb-3 h-12 w-12 opacity-50" />
 						<p>No images yet</p>
-						<p className="text-sm mt-1">Create a story to generate images</p>
+						<p className="mt-1 text-sm">Create a story to generate images</p>
 					</div>
 				)}
 			</section>
 
 			{/* Videos Section */}
 			<section>
-				<h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
-					<Film className="w-5 h-5 text-indigo-400" />
+				<h2 className="mb-4 flex items-center gap-2 text-xl font-semibold text-foreground">
+					<Film className="h-5 w-5 text-indigo-500" />
 					Videos ({data.videos?.length || 0})
 				</h2>
 
 				{data.videos && data.videos.length > 0 ? (
-					<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+					<div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
 						{data.videos.map((video) => (
 							<div
 								key={video.id}
-								className="bg-slate-800/50 border border-slate-700 rounded-lg overflow-hidden hover:border-indigo-500/50 transition-colors"
+								className="overflow-hidden rounded-lg border border-border bg-card transition-colors hover:border-indigo-500/50"
 							>
 								{video.videoUrl ? (
 									<video
@@ -618,37 +632,37 @@ function AssetsTab() {
 									</video>
 								) : (
 									<div
-										className="w-full bg-slate-900 flex items-center justify-center text-slate-600"
+										className="flex w-full items-center justify-center bg-muted text-muted-foreground"
 										style={{ aspectRatio: "9/16" }}
 									>
-										<Film className="w-8 h-8" />
+										<Film className="h-8 w-8" />
 									</div>
 								)}
 								<div className="p-3">
-									<div className="flex items-center justify-between mb-1">
-										<p className="text-xs text-slate-400">
+									<div className="mb-1 flex items-center justify-between">
+										<p className="text-xs text-muted-foreground">
 											{formatDate(video.createdAt)}
 										</p>
 										{video.duration && (
-											<span className="text-xs text-indigo-400">
+											<span className="text-xs text-indigo-500">
 												{video.duration.toFixed(1)}s
 											</span>
 										)}
 									</div>
 									<p
-										className="text-sm text-slate-300 line-clamp-2"
+										className="line-clamp-2 text-sm text-foreground"
 										title={video.prompt}
 									>
 										{truncatePrompt(video.prompt)}
 									</p>
 									<div className="mt-2">
 										{video.storyId ? (
-											<span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 bg-cyan-500/20 text-cyan-400 rounded">
-												<LinkIcon className="w-3 h-3" />
+											<span className="inline-flex items-center gap-1 rounded bg-primary/20 px-2 py-0.5 text-xs text-primary">
+												<LinkIcon className="h-3 w-3" />
 												linked
 											</span>
 										) : (
-											<span className="text-xs px-2 py-0.5 bg-slate-500/20 text-slate-400 rounded">
+											<span className="rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground">
 												orphaned
 											</span>
 										)}
@@ -658,10 +672,10 @@ function AssetsTab() {
 						))}
 					</div>
 				) : (
-					<div className="text-center py-10 text-slate-500">
-						<Film className="w-12 h-12 mx-auto mb-3 opacity-50" />
+					<div className="py-10 text-center text-muted-foreground">
+						<Film className="mx-auto mb-3 h-12 w-12 opacity-50" />
 						<p>No videos yet</p>
-						<p className="text-sm mt-1">Create a story to generate videos</p>
+						<p className="mt-1 text-sm">Create a story to generate videos</p>
 					</div>
 				)}
 			</section>

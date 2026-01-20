@@ -11,22 +11,23 @@ import { authFetch } from "./use-auth";
 interface SubmitVideoJobResponse {
 	success: boolean;
 	requestId?: string;
+	videoId?: string;
 	error?: string;
 }
 
 interface CheckVideoStatusResponse {
 	success: boolean;
 	status: "pending" | "processing" | "completed" | "failed";
-	videoBase64?: string;
+	videoId?: string;
+	videoUrl?: string;
 	videoDuration?: number;
 	error?: string;
 }
 
 async function submitPodcast42VideoJobApi(params: {
 	storyId: string;
-	sceneIndex: number;
+	sceneId: string;
 	imageUrl: string;
-	audioBase64: string;
 	avatarEngine?: Podcast42AvatarEngine;
 }): Promise<SubmitVideoJobResponse> {
 	const response = await authFetch("/api/podcast42-generate-video", {
@@ -39,7 +40,7 @@ async function submitPodcast42VideoJobApi(params: {
 
 async function checkPodcast42VideoStatusApi(params: {
 	storyId: string;
-	sceneIndex: number;
+	sceneId: string;
 }): Promise<CheckVideoStatusResponse> {
 	const response = await authFetch("/api/podcast42-generate-video", {
 		method: "PUT",
@@ -92,16 +93,15 @@ export function useVideoQueueProcessor() {
 
 			// Find the scene
 			const scene = scenes.find((s) => s.id === sceneId);
-			const sceneIndex = scenes.findIndex((s) => s.id === sceneId);
 
-			if (!scene || sceneIndex === -1) {
+			if (!scene) {
 				// Scene not found, remove from queue
 				podcast42Actions.removeFromVideoQueue(sceneId);
 				return;
 			}
 
 			// Check prerequisites
-			if (!scene.audioBase64) {
+			if (!scene.audioUrl) {
 				podcast42Actions.removeFromVideoQueue(sceneId);
 				podcast42Actions.updateScene(sceneId, {
 					videoError: "Audio is required. Generate audio first.",
@@ -132,9 +132,8 @@ export function useVideoQueueProcessor() {
 				// Submit the job
 				const submitResult = await submitPodcast42VideoJobApi({
 					storyId,
-					sceneIndex,
+					sceneId,
 					imageUrl,
-					audioBase64: scene.audioBase64,
 					avatarEngine,
 				});
 
@@ -153,7 +152,7 @@ export function useVideoQueueProcessor() {
 
 					const statusResult = await checkPodcast42VideoStatusApi({
 						storyId,
-						sceneIndex,
+						sceneId,
 					});
 
 					console.log(
@@ -162,12 +161,11 @@ export function useVideoQueueProcessor() {
 
 					if (statusResult.status === "completed") {
 						podcast42Actions.updateScene(sceneId, {
-							videoBase64: statusResult.videoBase64,
+							videoId: statusResult.videoId,
+							videoUrl: statusResult.videoUrl,
 							videoDuration: statusResult.videoDuration,
 							isGeneratingVideo: false,
 							videoError: null,
-							// Store the index used for video file naming so export can find it
-							videoIndex: sceneIndex,
 						});
 						break;
 					}

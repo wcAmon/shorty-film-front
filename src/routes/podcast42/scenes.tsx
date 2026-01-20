@@ -20,8 +20,8 @@ import {
 	Volume2,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { CountdownProgress } from "@/components/countdown-progress";
 import { AssetPickerModal } from "@/components/asset-picker-modal";
+import { CountdownProgress } from "@/components/countdown-progress";
 import { authFetch } from "@/hooks/use-auth";
 import {
 	useDeletePodcast42Scene,
@@ -35,8 +35,8 @@ import {
 import { useVideoQueueProcessor } from "@/hooks/use-video-queue-processor";
 import type { ImageEngine, ImageStyle, VoiceId } from "@/stores/aistory.store";
 import {
-	type Podcast42Speaker,
 	type Podcast42AvatarEngine,
+	type Podcast42Speaker,
 	podcast42Actions,
 	podcast42Store,
 } from "@/stores/podcast42.store";
@@ -95,7 +95,6 @@ function Podcast42ScenesPage() {
 		podcast42Store,
 		(state) => state.person1Prompt,
 	);
-	const person1Image = useStore(podcast42Store, (state) => state.person1Image);
 	const person1ImageUrl = useStore(
 		podcast42Store,
 		(state) => state.person1ImageUrl,
@@ -109,7 +108,6 @@ function Podcast42ScenesPage() {
 		podcast42Store,
 		(state) => state.person2Prompt,
 	);
-	const person2Image = useStore(podcast42Store, (state) => state.person2Image);
 	const person2ImageUrl = useStore(
 		podcast42Store,
 		(state) => state.person2ImageUrl,
@@ -192,10 +190,10 @@ function Podcast42ScenesPage() {
 			person === "person1"
 				? podcast42Actions.setIsGeneratingPerson1
 				: podcast42Actions.setIsGeneratingPerson2;
-		const setImage =
+		const setImageUrl =
 			person === "person1"
-				? podcast42Actions.setPerson1Image
-				: podcast42Actions.setPerson2Image;
+				? podcast42Actions.setPerson1ImageUrl
+				: podcast42Actions.setPerson2ImageUrl;
 
 		podcast42Actions.setError(null);
 		setIsGenerating(true);
@@ -247,7 +245,6 @@ function Podcast42ScenesPage() {
 					);
 
 					const base64 = canvas.toDataURL("image/jpeg", 0.85).split(",")[1];
-					setImage(base64);
 
 					if (!storyId) {
 						podcast42Actions.setError("Story ID is required");
@@ -260,11 +257,7 @@ function Podcast42ScenesPage() {
 						{
 							onSuccess: (result) => {
 								if (result.success && result.imageUrl) {
-									if (person === "person1") {
-										podcast42Actions.setPerson1ImageUrl(result.imageUrl);
-									} else {
-										podcast42Actions.setPerson2ImageUrl(result.imageUrl);
-									}
+									setImageUrl(result.imageUrl);
 								} else {
 									podcast42Actions.setError(
 										result.error ?? "Failed to upload character image",
@@ -363,21 +356,19 @@ function Podcast42ScenesPage() {
 		setIsGenerating(true);
 		podcast42Actions.setError(null);
 
+		// Note: imageEngine type needs casting since podcast42 only supports flux-pro and gpt-image-1.5
+		const supportedEngine =
+			imageEngine === "nano-banana-pro" ? "flux-pro" : imageEngine;
+
 		generateCharacterMutation.mutate(
-			{ prompt, storyId, imageEngine, imageStyle, person },
+			{ prompt, storyId, imageEngine: supportedEngine, imageStyle, person },
 			{
 				onSuccess: (result) => {
-					if (result.success && result.imageBase64) {
+					if (result.success && result.imageUrl) {
 						if (person === "person1") {
-							podcast42Actions.setPerson1Image(result.imageBase64);
-							if (result.imageUrl) {
-								podcast42Actions.setPerson1ImageUrl(result.imageUrl);
-							}
+							podcast42Actions.setPerson1ImageUrl(result.imageUrl);
 						} else {
-							podcast42Actions.setPerson2Image(result.imageBase64);
-							if (result.imageUrl) {
-								podcast42Actions.setPerson2ImageUrl(result.imageUrl);
-							}
+							podcast42Actions.setPerson2ImageUrl(result.imageUrl);
 						}
 					} else {
 						podcast42Actions.setError(
@@ -484,17 +475,13 @@ function Podcast42ScenesPage() {
 
 	// Delete scene (updates both store and database)
 	const handleDeleteScene = (sceneId: string) => {
-		// Get the scene's videoIndex before deleting (needed to delete files)
-		const scene = scenes.find((s) => s.id === sceneId);
-		const videoIndex = scene?.videoIndex;
-
 		// Update local store immediately
 		podcast42Actions.deleteScene(sceneId);
 
 		// Sync to database and delete files
 		if (storyId) {
 			deleteSceneMutation.mutate(
-				{ storyId, sceneId, videoIndex },
+				{ storyId, sceneId },
 				{
 					onError: (err) => {
 						podcast42Actions.setSceneError(
@@ -511,8 +498,7 @@ function Podcast42ScenesPage() {
 	// Handle single scene audio generation
 	const handleGenerateSceneAudio = (sceneId: string) => {
 		const scene = scenes.find((s) => s.id === sceneId);
-		const sceneIndex = scenes.findIndex((s) => s.id === sceneId);
-		if (!scene || sceneIndex === -1 || !storyId) return;
+		if (!scene || !storyId) return;
 
 		// Get the appropriate voice for this speaker
 		const voiceId =
@@ -521,12 +507,13 @@ function Podcast42ScenesPage() {
 		podcast42Actions.updateScene(sceneId, { isGeneratingAudio: true });
 
 		generateSceneAudioMutation.mutate(
-			{ caption: scene.caption, storyId, sceneIndex, voiceId },
+			{ caption: scene.caption, storyId, sceneId, voiceId },
 			{
 				onSuccess: (result) => {
-					if (result.success && result.audioBase64) {
+					if (result.success && result.audioUrl) {
 						podcast42Actions.updateScene(sceneId, {
-							audioBase64: result.audioBase64,
+							audioId: result.audioId,
+							audioUrl: result.audioUrl,
 							audioDuration: result.audioDuration,
 							wordTimestamps: result.wordTimestamps,
 							isGeneratingAudio: false,
@@ -551,7 +538,7 @@ function Podcast42ScenesPage() {
 	// Handle single scene video generation - adds to queue
 	const handleGenerateSceneVideo = (sceneId: string) => {
 		const scene = scenes.find((s) => s.id === sceneId);
-		if (!scene || !storyId || !scene.audioBase64) return;
+		if (!scene || !storyId || !scene.audioUrl) return;
 
 		// Get the appropriate character image URL for this speaker
 		const imageUrl =
@@ -586,14 +573,14 @@ function Podcast42ScenesPage() {
 	// Play scene audio with word-by-word caption synchronization
 	const handlePlaySceneAudio = (sceneId: string) => {
 		const scene = scenes.find((s) => s.id === sceneId);
-		if (!scene?.audioBase64) return;
+		if (!scene?.audioUrl) return;
 
 		if (audioRef.current) {
 			audioRef.current.pause();
 			audioRef.current = null;
 		}
 
-		const audio = new Audio(`data:audio/mp3;base64,${scene.audioBase64}`);
+		const audio = new Audio(scene.audioUrl);
 		audioRef.current = audio;
 
 		setPlayingSceneId(sceneId);
@@ -623,16 +610,24 @@ function Podcast42ScenesPage() {
 	};
 
 	// Download scene audio
-	const handleDownloadAudio = (sceneId: string, sceneIndex: number) => {
+	const handleDownloadAudio = async (sceneId: string, sceneIndex: number) => {
 		const scene = scenes.find((s) => s.id === sceneId);
-		if (!scene?.audioBase64) return;
+		if (!scene?.audioUrl) return;
 
-		const link = document.createElement("a");
-		link.href = `data:audio/mp3;base64,${scene.audioBase64}`;
-		link.download = `scene_${sceneIndex + 1}.mp3`;
-		document.body.appendChild(link);
-		link.click();
-		document.body.removeChild(link);
+		try {
+			const response = await fetch(scene.audioUrl);
+			const blob = await response.blob();
+			const blobUrl = URL.createObjectURL(blob);
+			const link = document.createElement("a");
+			link.href = blobUrl;
+			link.download = `scene_${sceneIndex + 1}.mp3`;
+			document.body.appendChild(link);
+			link.click();
+			document.body.removeChild(link);
+			URL.revokeObjectURL(blobUrl);
+		} catch (error) {
+			console.error("Download failed:", error);
+		}
 	};
 
 	// Settings handlers that update both store and metadata
@@ -672,12 +667,12 @@ function Podcast42ScenesPage() {
 	};
 
 	// Check if scene editing should be disabled (no character images)
-	const scenesDisabled = !person1Image || !person2Image;
+	const scenesDisabled = !person1ImageUrl || !person2ImageUrl;
 
 	// Check if all scenes have videos generated (for export button)
 	const allScenesHaveVideos =
 		scenes.length > 0 &&
-		scenes.every((scene) => scene.videoBase64 && scene.audioBase64);
+		scenes.every((scene) => scene.videoUrl && scene.audioUrl);
 
 	// Navigate to export page
 	const handleExportMyVideo = () => {
@@ -689,7 +684,7 @@ function Podcast42ScenesPage() {
 		person: "person1" | "person2",
 		title: string,
 		prompt: string | null,
-		image: string | null,
+		imageUrl: string | null,
 		isGenerating: boolean,
 		fileInputRef: React.RefObject<HTMLInputElement | null>,
 		accentColor: string,
@@ -790,9 +785,9 @@ function Podcast42ScenesPage() {
 
 				{/* Right side: character image preview (16:9 landscape) */}
 				<div className="w-48 flex-shrink-0">
-					{image ? (
+					{imageUrl ? (
 						<img
-							src={`data:image/jpeg;base64,${image}`}
+							src={imageUrl}
 							alt={`${title} portrait`}
 							className="w-full rounded-lg shadow-lg object-cover"
 							style={{ aspectRatio: "16/9" }}
@@ -974,7 +969,7 @@ function Podcast42ScenesPage() {
 						"person1",
 						"Person 1",
 						person1Prompt,
-						person1Image,
+						person1ImageUrl,
 						isGeneratingPerson1,
 						person1FileInputRef,
 						"text-emerald-400",
@@ -983,7 +978,7 @@ function Podcast42ScenesPage() {
 						"person2",
 						"Person 2",
 						person2Prompt,
-						person2Image,
+						person2ImageUrl,
 						isGeneratingPerson2,
 						person2FileInputRef,
 						"text-rose-400",
@@ -1192,7 +1187,7 @@ function Podcast42ScenesPage() {
 											type="button"
 											onClick={() => handleGenerateSceneVideo(scene.id)}
 											disabled={
-												!scene.audioBase64 ||
+												!scene.audioUrl ||
 												isSceneProcessing(scene.id) ||
 												isSceneInQueue(scene.id) ||
 												scenesDisabled ||
@@ -1201,7 +1196,7 @@ function Podcast42ScenesPage() {
 													: person2ImageUrl)
 											}
 											title={
-												!scene.audioBase64
+												!scene.audioUrl
 													? "Generate audio first to enable video generation"
 													: isSceneInQueue(scene.id)
 														? `Waiting in queue (position ${getSceneQueuePosition(scene.id)})`
@@ -1247,12 +1242,12 @@ function Podcast42ScenesPage() {
 									<div className="relative mb-3">
 										{(
 											scene.speaker === "person1"
-												? person1Image
-												: person2Image
+												? person1ImageUrl
+												: person2ImageUrl
 										) ? (
 											<>
 												<img
-													src={`data:image/jpeg;base64,${scene.speaker === "person1" ? person1Image : person2Image}`}
+													src={scene.speaker === "person1" ? person1ImageUrl! : person2ImageUrl!}
 													alt={`${scene.speaker === "person1" ? "Person 1" : "Person 2"}`}
 													className="w-full rounded-lg shadow-lg object-cover opacity-60"
 													style={{ aspectRatio: "16/9" }}
@@ -1289,7 +1284,7 @@ function Podcast42ScenesPage() {
 												? `${scene.audioDuration.toFixed(1)}s`
 												: "--"}
 										</span>
-										{scene.audioBase64 && (
+										{scene.audioUrl && (
 											<div className="flex items-center gap-1">
 												<button
 													type="button"
@@ -1318,10 +1313,10 @@ function Podcast42ScenesPage() {
 
 									{/* Video preview area (16:9 landscape) */}
 									<div className="mt-3">
-										{scene.videoBase64 ? (
+										{scene.videoUrl ? (
 											<>
 												<video
-													src={`data:video/mp4;base64,${scene.videoBase64}`}
+													src={scene.videoUrl}
 													controls
 													className="w-full rounded-lg shadow-lg"
 													style={{ aspectRatio: "16/9" }}

@@ -1,5 +1,5 @@
-import { useEffect, useState, useCallback, useRef } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { supabaseClient } from "@/lib/supabase-client";
 
 // Job status type matching backend

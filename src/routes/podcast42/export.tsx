@@ -9,7 +9,7 @@ export const Route = createFileRoute("/podcast42/export")({
 		const state = podcast42Store.state;
 		const allScenesHaveVideos =
 			state.scenes.length > 0 &&
-			state.scenes.every((scene) => scene.videoBase64 && scene.audioBase64);
+			state.scenes.every((scene) => scene.videoUrl && scene.audioUrl);
 
 		if (!allScenesHaveVideos) {
 			throw redirect({ to: "/podcast42/scenes" });
@@ -43,20 +43,14 @@ function Podcast42ExportPage() {
 		podcast42Actions.setExportError(null);
 		podcast42Actions.setExportedVideoUrl(null);
 
-		// Extract videoIndices from scenes in their current order
+		// Extract scene IDs from scenes in their current order
 		// This ensures export follows the user's reordered scene sequence
-		const videoIndices = scenes
-			.map((scene) => scene.videoIndex)
-			.filter((idx): idx is number => idx !== undefined);
-
-		// Only pass videoIndices if all scenes have them (for backwards compatibility)
-		const hasAllVideoIndices = videoIndices.length === scenes.length;
+		const sceneIds = scenes.map((scene) => scene.id);
 
 		exportVideoMutation.mutate(
 			{
 				storyId,
-				sceneCount: scenes.length,
-				...(hasAllVideoIndices && { videoIndices }),
+				sceneIds,
 			},
 			{
 				onSuccess: (result) => {

@@ -1,13 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { requireAuth } from "@/lib/auth-middleware";
 import { env } from "@/env";
+import { requireAuth } from "@/lib/auth-middleware";
 
 export const Route = createFileRoute("/api/get-job-status")({
 	server: {
 		handlers: {
 			GET: async ({ request }) => {
 				// Require authentication
-				const { user, error } = await requireAuth(request);
+				const { error } = await requireAuth(request);
 				if (error) return error;
 
 				try {

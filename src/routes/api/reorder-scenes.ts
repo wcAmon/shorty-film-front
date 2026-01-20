@@ -30,7 +30,11 @@ export const Route = createFileRoute("/api/reorder-scenes")({
 						);
 					}
 
-					if (!sceneOrder || !Array.isArray(sceneOrder) || sceneOrder.length === 0) {
+					if (
+						!sceneOrder ||
+						!Array.isArray(sceneOrder) ||
+						sceneOrder.length === 0
+					) {
 						return Response.json(
 							{ success: false, error: "Scene order array is required" },
 							{ status: 400 },
@@ -62,9 +66,7 @@ export const Route = createFileRoute("/api/reorder-scenes")({
 						{
 							success: false,
 							error:
-								err instanceof Error
-									? err.message
-									: "Failed to reorder scenes",
+								err instanceof Error ? err.message : "Failed to reorder scenes",
 						},
 						{ status: 500 },
 					);

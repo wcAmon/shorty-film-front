@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import type { ImageStyle } from "@/lib/style-prompts";
 import { requireAuth } from "@/lib/auth-middleware";
 import { isBackendConfigured, proxyToBackend } from "@/lib/backend-proxy";
+import type { ImageStyle } from "@/lib/style-prompts";
 
 // Image engine type (all via FAL AI)
 type ImageEngine = "flux-pro" | "gpt-image-1.5";

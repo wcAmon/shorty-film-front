@@ -1,6 +1,7 @@
 import { useMutation } from "@tanstack/react-query";
-import { authFetch } from "./use-auth";
+import { logger } from "@/lib/logger";
 import { supabaseClient } from "@/lib/supabase-client";
+import { authFetch } from "./use-auth";
 
 // ============================================================================
 // Job Polling Types and Utilities
@@ -36,6 +37,7 @@ interface JobRecord {
 	duration?: number | null;
 	wordTimestamps?: string | null;
 	// Story-specific data (for aistory story generation)
+	title?: string;
 	characterPrompt?: string;
 	scenes?: Scene[];
 }
@@ -91,12 +93,13 @@ async function fetchJobStatus(
 				duration: result.job.duration,
 				wordTimestamps: result.job.wordTimestamps,
 				// Story-specific data (for aistory story generation)
+				title: result.job.title,
 				characterPrompt: result.job.characterPrompt,
 				scenes: result.job.scenes,
 			},
 		};
 	} catch (err) {
-		console.error("[fetchJobStatus] Error:", err);
+		logger.error("[fetchJobStatus]", "Error:", err);
 		return {
 			success: false,
 			error: err instanceof Error ? err.message : "Failed to fetch job status",
@@ -122,33 +125,32 @@ async function waitForJobCompletion(
 
 	return new Promise((resolve) => {
 		let resolved = false;
-		let pollingInterval: ReturnType<typeof setInterval> | null = null;
+		let pollingTimeoutId: ReturnType<typeof setTimeout> | null = null;
+		let currentPollDelay = 2000; // Start at 2 seconds
+		const maxPollDelay = 30000; // Cap at 30 seconds
+		const backoffMultiplier = 2; // Double each time
 
-		console.log(`[waitForJobCompletion:${jobId}] Creating channel`);
+		const log = logger.module(`[waitForJobCompletion:${jobId}]`);
+		log.debug("Creating channel");
 
 		// Create channel for this job
 		const channel = supabaseClient.channel(`job-${jobId}`);
 
 		const cleanup = () => {
-			console.log(`[waitForJobCompletion:${jobId}] Cleaning up...`);
-			if (pollingInterval) {
-				clearInterval(pollingInterval);
-				pollingInterval = null;
+			log.debug("Cleaning up...");
+			if (pollingTimeoutId) {
+				clearTimeout(pollingTimeoutId);
+				pollingTimeoutId = null;
 			}
 			channel.unsubscribe();
 		};
 
 		const handleJobStatus = (job: JobRecord) => {
-			console.log(
-				`[waitForJobCompletion:${jobId}] handleJobStatus:`,
-				job.status,
-				"mediaUrl:",
-				job.mediaUrl,
-			);
+			log.debug("handleJobStatus:", job.status, "mediaUrl:", job.mediaUrl);
 			onStatusUpdate?.(job.status);
 
 			if (job.status === "completed") {
-				console.log(`[waitForJobCompletion:${jobId}] Job completed!`);
+				log.debug("Job completed!");
 				if (!resolved) {
 					resolved = true;
 					clearTimeout(timeoutId);
@@ -156,7 +158,7 @@ async function waitForJobCompletion(
 					resolve({ success: true, job });
 				}
 			} else if (job.status === "failed") {
-				console.log(`[waitForJobCompletion:${jobId}] Job failed!`);
+				log.warn("Job failed!");
 				if (!resolved) {
 					resolved = true;
 					clearTimeout(timeoutId);
@@ -170,24 +172,42 @@ async function waitForJobCompletion(
 			}
 		};
 
-		// Fallback polling function (in case Realtime doesn't work due to RLS)
+		// Fallback polling function with exponential backoff
 		const pollJobStatus = async () => {
 			if (resolved) return;
 
 			const result = await fetchJobStatus(jobId);
 			if (result.success && result.job) {
-				console.log(
-					`[waitForJobCompletion:${jobId}] Poll result:`,
-					result.job.status,
+				log.debug(
+					`Poll result: ${result.job.status} (next poll in ${currentPollDelay / 1000}s)`,
 				);
 				handleJobStatus(result.job);
 			}
+
+			// Schedule next poll with exponential backoff
+			if (!resolved) {
+				pollingTimeoutId = setTimeout(pollJobStatus, currentPollDelay);
+				// Increase delay for next poll (exponential backoff)
+				currentPollDelay = Math.min(
+					currentPollDelay * backoffMultiplier,
+					maxPollDelay,
+				);
+			}
+		};
+
+		// Start polling with exponential backoff
+		const startPolling = () => {
+			if (pollingTimeoutId || resolved) return;
+			log.info(
+				`Starting polling with exponential backoff (${currentPollDelay / 1000}s -> ${maxPollDelay / 1000}s max)`,
+			);
+			pollJobStatus();
 		};
 
 		// Set up timeout
 		const timeoutId = setTimeout(() => {
 			if (!resolved) {
-				console.error(`[waitForJobCompletion:${jobId}] Timeout reached!`);
+				log.error("Timeout reached!");
 				resolved = true;
 				cleanup();
 				resolve({ success: false, error: "Job completion timed out" });
@@ -210,39 +230,30 @@ async function waitForJobCompletion(
 			},
 			async (payload) => {
 				realtimeActive = true; // Mark Realtime as working
-				console.log(
-					`[waitForJobCompletion:${jobId}] Realtime event:`,
-					payload.eventType,
-				);
+				log.debug("Realtime event:", payload.eventType);
 
 				// Check for RLS errors (empty payload with errors)
-				const errors = (payload as any).errors;
+				const errors = (payload as Record<string, unknown>).errors as
+					| unknown[]
+					| undefined;
 				if (errors && errors.length > 0) {
-					console.log(
-						`[waitForJobCompletion:${jobId}] Realtime RLS error:`,
-						errors,
-					);
+					log.warn("Realtime RLS error:", errors);
 					realtimeActive = false; // RLS error means Realtime won't work
 					return;
 				}
 
 				const row = payload.new as JobRowFromRealtime;
 				if (row) {
-					console.log(
-						`[waitForJobCompletion:${jobId}] Realtime job status:`,
-						row.status,
-					);
+					log.debug("Realtime job status:", row.status);
 
 					if (row.status === "completed" || row.status === "failed") {
 						// Realtime only has job data, not media URL
 						// Fetch full job status via API to get mediaUrl
-						console.log(
-							`[waitForJobCompletion:${jobId}] Fetching full job status with media URL...`,
-						);
+						log.debug("Fetching full job status with media URL...");
 						const fullStatus = await fetchJobStatus(jobId);
 						if (fullStatus.success && fullStatus.job) {
-							console.log(
-								`[waitForJobCompletion:${jobId}] Full status:`,
+							log.debug(
+								"Full status:",
 								fullStatus.job.status,
 								"mediaUrl:",
 								fullStatus.job.mediaUrl,
@@ -262,13 +273,13 @@ async function waitForJobCompletion(
 
 		// Subscribe and conditionally start polling fallback
 		channel.subscribe(async (status, err) => {
-			console.log(`[waitForJobCompletion:${jobId}] Subscription:`, status);
+			log.debug("Subscription:", status);
 
 			if (status === "SUBSCRIBED") {
 				// Check initial status (job might have completed before we subscribed)
 				const initialStatus = await fetchJobStatus(jobId);
-				console.log(
-					`[waitForJobCompletion:${jobId}] Initial:`,
+				log.debug(
+					"Initial:",
 					initialStatus.job?.status,
 					"url:",
 					initialStatus.job?.mediaUrl,
@@ -281,29 +292,25 @@ async function waitForJobCompletion(
 				// Wait 15 seconds, then start polling ONLY if Realtime hasn't delivered any events
 				// This reduces server load when Realtime is working properly
 				if (!resolved) {
-					console.log(
-						`[waitForJobCompletion:${jobId}] Waiting 15s to check if Realtime is working...`,
-					);
+					log.debug("Waiting 15s to check if Realtime is working...");
 					setTimeout(() => {
-						console.log(
-							`[waitForJobCompletion:${jobId}] 15s check - resolved: ${resolved}, realtimeActive: ${realtimeActive}, pollingInterval: ${!!pollingInterval}`,
+						log.debug(
+							`15s check - resolved: ${resolved}, realtimeActive: ${realtimeActive}, pollingActive: ${!!pollingTimeoutId}`,
 						);
-						if (!resolved && !realtimeActive && !pollingInterval) {
-							console.log(
-								`[waitForJobCompletion:${jobId}] No Realtime events after 15s, starting polling fallback...`,
+						if (!resolved && !realtimeActive && !pollingTimeoutId) {
+							log.info(
+								"No Realtime events after 15s, starting polling fallback...",
 							);
-							pollingInterval = setInterval(pollJobStatus, 5000);
+							startPolling();
 						}
 					}, 15000);
 				}
 			} else if (status === "CHANNEL_ERROR") {
-				console.error(`[waitForJobCompletion:${jobId}] Channel error:`, err);
+				log.error("Channel error:", err);
 				// Start polling immediately on channel error
-				if (!pollingInterval && !resolved) {
-					console.log(
-						`[waitForJobCompletion:${jobId}] Starting polling due to channel error...`,
-					);
-					pollingInterval = setInterval(pollJobStatus, 5000);
+				if (!pollingTimeoutId && !resolved) {
+					log.info("Starting polling due to channel error...");
+					startPolling();
 				}
 			}
 		});
@@ -337,10 +344,13 @@ export interface WordTimestamp {
 }
 
 // Image engine type - now only FAL-based engines
-export type ImageEngine = "flux-pro" | "gpt-image-1.5";
+export type ImageEngine = "flux-pro" | "gpt-image-1.5" | "nano-banana-pro";
 
 // LLM engine type for prompt generation
 export type LLMEngine = "gpt-4.1" | "claude-opus-4-5";
+
+// Caption language type
+export type CaptionLanguage = "en" | "zh-TW";
 
 // Voice ID type
 export type VoiceId = string;
@@ -349,6 +359,7 @@ export type VoiceId = string;
 interface GeneratePromptsResponse {
 	success: boolean;
 	storyId?: string;
+	title?: string;
 	characterPrompt?: string;
 	scenes?: Scene[];
 	error?: string;
@@ -419,6 +430,95 @@ interface ExportVideoCompletedResponse {
 }
 
 // ============================================================================
+// Generic Job Submit and Wait Utility
+// ============================================================================
+
+interface SubmitAndWaitOptions {
+	/** API endpoint to submit job to */
+	endpoint: string;
+	/** Request body (will be JSON stringified) */
+	body: Record<string, unknown>;
+	/** Timeout in milliseconds */
+	timeoutMs?: number;
+	/** Callback for job status updates */
+	onStatusUpdate?: (status: JobStatus) => void;
+	/** Whether mediaId is required in submit response */
+	requireMediaId?: boolean;
+	/** Error message prefix for logging */
+	logPrefix?: string;
+}
+
+interface SubmitAndWaitResult {
+	success: boolean;
+	jobId?: string;
+	mediaId?: string;
+	job?: JobRecord;
+	error?: string;
+}
+
+/**
+ * 通用的 job 提交和等待函數
+ * 將重複的 submit -> wait -> fetch status 邏輯封裝
+ */
+async function submitAndWaitForJob(
+	options: SubmitAndWaitOptions,
+): Promise<SubmitAndWaitResult> {
+	const {
+		endpoint,
+		body,
+		timeoutMs = 300000,
+		onStatusUpdate,
+		requireMediaId = true,
+		logPrefix = "[submitAndWaitForJob]",
+	} = options;
+
+	// Step 1: Submit job to backend
+	const response = await authFetch(endpoint, {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify(body),
+	});
+
+	const submitResult: SubmitJobResponse = await response.json();
+
+	if (
+		!submitResult.success ||
+		!submitResult.jobId ||
+		(requireMediaId && !submitResult.mediaId)
+	) {
+		return {
+			success: false,
+			error: submitResult.error || "Failed to submit job",
+		};
+	}
+
+	logger.debug(
+		logPrefix,
+		`Job submitted: ${submitResult.jobId}, mediaId: ${submitResult.mediaId}`,
+	);
+
+	// Step 2: Wait for job completion via Supabase Realtime
+	const jobResult = await waitForJobCompletion(submitResult.jobId, {
+		timeoutMs,
+		onStatusUpdate,
+	});
+
+	if (!jobResult.success) {
+		return {
+			success: false,
+			error: jobResult.error || "Job failed",
+		};
+	}
+
+	return {
+		success: true,
+		jobId: submitResult.jobId,
+		mediaId: submitResult.mediaId,
+		job: jobResult.job,
+	};
+}
+
+// ============================================================================
 // API Functions
 // ============================================================================
 
@@ -429,6 +529,7 @@ async function generatePromptsApi(params: {
 	llmEngine?: LLMEngine;
 	voiceId?: string;
 	videoEngine?: string;
+	captionLanguage?: CaptionLanguage;
 	onStatusUpdate?: (status: JobStatus) => void;
 }): Promise<GeneratePromptsResponse> {
 	const { onStatusUpdate, ...submitParams } = params;
@@ -449,8 +550,9 @@ async function generatePromptsApi(params: {
 		};
 	}
 
-	console.log(
-		`[generatePromptsApi] Job submitted: ${submitResult.jobId}, storyId: ${submitResult.mediaId}`,
+	logger.debug(
+		"[generatePromptsApi]",
+		`Job submitted: ${submitResult.jobId}, storyId: ${submitResult.mediaId}`,
 	);
 
 	// Step 2: Wait for job completion via Supabase Realtime
@@ -480,6 +582,7 @@ async function generatePromptsApi(params: {
 	return {
 		success: true,
 		storyId: job.storyId || submitResult.mediaId,
+		title: job.title,
 		characterPrompt: job.characterPrompt,
 		scenes: job.scenes,
 	};
@@ -494,44 +597,25 @@ async function generateCharacterApi(params: {
 }): Promise<GenerateCharacterResponse> {
 	const { onStatusUpdate, ...submitParams } = params;
 
-	// Step 1: Submit job to backend
-	const response = await authFetch("/api/generate-character", {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify(submitParams),
-	});
-
-	const submitResult: SubmitJobResponse = await response.json();
-
-	if (!submitResult.success || !submitResult.jobId || !submitResult.mediaId) {
-		return {
-			success: false,
-			error: submitResult.error || "Failed to submit character job",
-		};
-	}
-
-	console.log(
-		`[generateCharacterApi] Job submitted: ${submitResult.jobId}, mediaId: ${submitResult.mediaId}`,
-	);
-
-	// Step 2: Wait for job completion via Supabase Realtime
-	// Job status includes media data when completed
-	const jobResult = await waitForJobCompletion(submitResult.jobId, {
+	const result = await submitAndWaitForJob({
+		endpoint: "/api/generate-character",
+		body: submitParams,
 		timeoutMs: 360000, // 6 minutes max for image generation
 		onStatusUpdate,
+		logPrefix: "[generateCharacterApi]",
 	});
 
-	if (!jobResult.success || !jobResult.job) {
+	if (!result.success || !result.job) {
 		return {
 			success: false,
-			error: jobResult.error || "Character generation failed",
+			error: result.error || "Character generation failed",
 		};
 	}
 
 	return {
 		success: true,
-		imageId: jobResult.job.mediaId,
-		imageUrl: jobResult.job.mediaUrl || undefined,
+		imageId: result.job.mediaId,
+		imageUrl: result.job.mediaUrl || undefined,
 	};
 }
 
@@ -575,8 +659,9 @@ async function generateSceneImageApi(params: {
 		};
 	}
 
-	console.log(
-		`[generateSceneImageApi] Job submitted: ${submitResult.jobId}, mediaId: ${submitResult.mediaId}`,
+	logger.debug(
+		"[generateSceneImageApi]",
+		`Job submitted: ${submitResult.jobId}, mediaId: ${submitResult.mediaId}`,
 	);
 
 	// Step 2: Wait for job completion via Supabase Realtime
@@ -610,7 +695,11 @@ async function generateSceneAudioApi(params: {
 }): Promise<GenerateSceneAudioResponse> {
 	const { onStatusUpdate, ...submitParams } = params;
 
-	console.log("[generateSceneAudioApi] Starting with params:", submitParams);
+	logger.debug(
+		"[generateSceneAudioApi]",
+		"Starting with params:",
+		submitParams,
+	);
 
 	// Step 1: Submit job to backend
 	const response = await authFetch("/api/generate-scene-audio", {
@@ -620,32 +709,33 @@ async function generateSceneAudioApi(params: {
 	});
 
 	const submitResult: SubmitJobResponse = await response.json();
-	console.log("[generateSceneAudioApi] Submit result:", submitResult);
+	logger.debug("[generateSceneAudioApi]", "Submit result:", submitResult);
 
 	if (!submitResult.success || !submitResult.jobId || !submitResult.mediaId) {
-		console.error("[generateSceneAudioApi] Submit failed:", submitResult);
+		logger.error("[generateSceneAudioApi]", "Submit failed:", submitResult);
 		return {
 			success: false,
 			error: submitResult.error || "Failed to submit audio job",
 		};
 	}
 
-	console.log(
-		`[generateSceneAudioApi] Job submitted: ${submitResult.jobId}, mediaId: ${submitResult.mediaId}`,
+	logger.debug(
+		"[generateSceneAudioApi]",
+		`Job submitted: ${submitResult.jobId}, mediaId: ${submitResult.mediaId}`,
 	);
 
 	// Step 2: Wait for job completion via Supabase Realtime
 	// When completed, fetch job status which includes media data
-	console.log("[generateSceneAudioApi] Waiting for job completion...");
+	logger.debug("[generateSceneAudioApi]", "Waiting for job completion...");
 	const jobResult = await waitForJobCompletion(submitResult.jobId, {
 		timeoutMs: 300000, // 5 minutes max
 		onStatusUpdate,
 	});
 
-	console.log("[generateSceneAudioApi] Job result:", jobResult);
+	logger.debug("[generateSceneAudioApi]", "Job result:", jobResult);
 
 	if (!jobResult.success || !jobResult.job) {
-		console.error("[generateSceneAudioApi] Job failed:", jobResult);
+		logger.error("[generateSceneAudioApi]", "Job failed:", jobResult);
 		return {
 			success: false,
 			error: jobResult.error || "Audio generation failed",
@@ -660,8 +750,9 @@ async function generateSceneAudioApi(params: {
 		try {
 			wordTimestamps = JSON.parse(job.wordTimestamps);
 		} catch (e) {
-			console.error(
-				"[generateSceneAudioApi] Failed to parse word timestamps:",
+			logger.error(
+				"[generateSceneAudioApi]",
+				"Failed to parse word timestamps:",
 				e,
 			);
 		}
@@ -711,11 +802,15 @@ async function generateSceneVideoApi(params: {
 }): Promise<CheckVideoStatusResponse> {
 	const { onStatusUpdate, ...submitParams } = params;
 
-	console.log("[generateSceneVideoApi] Starting with params:", submitParams);
+	logger.debug(
+		"[generateSceneVideoApi]",
+		"Starting with params:",
+		submitParams,
+	);
 
 	// Step 1: Submit job to backend
 	const submitResult = await submitVideoJobApi(submitParams);
-	console.log("[generateSceneVideoApi] Submit result:", submitResult);
+	logger.debug("[generateSceneVideoApi]", "Submit result:", submitResult);
 
 	// Backend returns jobId
 	const jobId = submitResult.jobId || submitResult.requestId;
@@ -727,7 +822,7 @@ async function generateSceneVideoApi(params: {
 			error: submitResult.error || "Failed to submit video job",
 		};
 	}
-	console.log(`[generateSceneVideoApi] Job submitted: ${jobId}`);
+	logger.debug("[generateSceneVideoApi]", `Job submitted: ${jobId}`);
 
 	// Step 2: Wait for job completion via Supabase Realtime
 	const jobResult = await waitForJobCompletion(jobId, {
@@ -735,7 +830,7 @@ async function generateSceneVideoApi(params: {
 		onStatusUpdate,
 	});
 
-	console.log("[generateSceneVideoApi] Job result:", jobResult);
+	logger.debug("[generateSceneVideoApi]", "Job result:", jobResult);
 
 	if (!jobResult.success || !jobResult.job) {
 		return {
@@ -925,7 +1020,7 @@ async function exportVideoApi(params: {
 		};
 	}
 
-	console.log(`[exportVideoApi] Job submitted: ${submitResult.jobId}`);
+	logger.debug("[exportVideoApi]", `Job submitted: ${submitResult.jobId}`);
 
 	// Step 2: Wait for job completion using Realtime
 	const completionResult = await waitForJobCompletion(submitResult.jobId, {
@@ -1071,7 +1166,8 @@ export async function fetchMediaStatus(
 	} catch (err) {
 		return {
 			success: false,
-			error: err instanceof Error ? err.message : "Failed to fetch media status",
+			error:
+				err instanceof Error ? err.message : "Failed to fetch media status",
 		};
 	}
 }
@@ -1097,7 +1193,11 @@ export async function pollMediaUntilReady(
 		const result = await fetchMediaStatus(mediaType, mediaId);
 
 		if (!result.success) {
-			console.error(`[pollMediaUntilReady] Error polling ${mediaType}:`, result.error);
+			logger.error(
+				"[pollMediaUntilReady]",
+				`Error polling ${mediaType}:`,
+				result.error,
+			);
 			return result;
 		}
 
@@ -1105,12 +1205,16 @@ export async function pollMediaUntilReady(
 
 		// Check for completed status (generation finished)
 		if (result.status === "completed") {
-			console.log(`[pollMediaUntilReady] ${mediaType} ${mediaId} is completed`);
+			logger.debug(
+				"[pollMediaUntilReady]",
+				`${mediaType} ${mediaId} is completed`,
+			);
 			return result;
 		}
 
-		console.log(
-			`[pollMediaUntilReady] ${mediaType} ${mediaId} status: ${result.status}, attempt ${attempts + 1}/${maxAttempts}`,
+		logger.debug(
+			"[pollMediaUntilReady]",
+			`${mediaType} ${mediaId} status: ${result.status}, attempt ${attempts + 1}/${maxAttempts}`,
 		);
 
 		attempts++;

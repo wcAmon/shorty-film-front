@@ -36,7 +36,8 @@ export const Route = createFileRoute("/api/update-scene-prompt")({
 						return Response.json(
 							{
 								success: false,
-								error: "At least one prompt (prompt or videoPrompt) is required",
+								error:
+									"At least one prompt (prompt or videoPrompt) is required",
 							},
 							{ status: 400 },
 						);

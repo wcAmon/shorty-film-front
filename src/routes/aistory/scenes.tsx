@@ -16,24 +16,27 @@ import {
 	Upload,
 	User,
 	Volume2,
+	X,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { CountdownProgress } from "@/components/countdown-progress";
+import { useDebouncedCallback } from "use-debounce";
 import { AssetPickerModal } from "@/components/asset-picker-modal";
+import { CountdownProgress } from "@/components/countdown-progress";
+import { ErrorWithRetry, InlineError } from "@/components/error-with-retry";
 import {
+	pollMediaUntilReady,
 	useGenerateCharacter,
 	useGenerateSceneAudio,
 	useGenerateSceneImage,
 	useGenerateSceneVideo,
+	useReorderScenes,
 	useUpdateSceneCaption,
 	useUpdateScenePrompt,
 	useUpdateSceneVoice,
-	useUploadCharacter,
 	useUpdateStorySettings,
-	useReorderScenes,
-	pollMediaUntilReady,
+	useUploadCharacter,
 } from "@/hooks/use-aistory-api";
-import { useDebouncedCallback } from "use-debounce";
+import { authFetch } from "@/hooks/use-auth";
 import {
 	aistoryActions,
 	aistoryStore,
@@ -41,12 +44,16 @@ import {
 	type VideoEngine,
 	type VoiceId,
 } from "@/stores/aistory.store";
-import { authFetch } from "@/hooks/use-auth";
+import {
+	generationQueueActions,
+	generationQueueStore,
+} from "@/stores/generation-queue.store";
 
 // Image engine options
 const IMAGE_ENGINES: { id: ImageEngine; label: string }[] = [
 	{ id: "flux-pro", label: "Flux Pro" },
 	{ id: "gpt-image-1.5", label: "GPT Image 1.5" },
+	{ id: "nano-banana-pro", label: "Nano Banana Pro" },
 ];
 
 // Video engine options
@@ -72,6 +79,46 @@ const VOICE_OPTIONS: { id: VoiceId; label: string }[] = [
 // Helper function to get video engine label
 function getVideoEngineLabel(engine: VideoEngine): string {
 	return VIDEO_ENGINES.find((e) => e.id === engine)?.label || engine;
+}
+
+// Queue indicator component
+function QueueIndicator({
+	sceneId,
+	mediaType,
+}: {
+	sceneId: string;
+	mediaType: "audio" | "image" | "video";
+}) {
+	const queueItems = useStore(generationQueueStore, (state) =>
+		(state.queues[sceneId]?.[mediaType] || []).filter(
+			(item) => item.status === "queued",
+		),
+	);
+
+	if (queueItems.length === 0) return null;
+
+	return (
+		<div className="mt-2 space-y-1">
+			{queueItems.map((item) => (
+				<div
+					key={item.id}
+					className="flex items-center justify-between px-3 py-1.5 bg-slate-700/50 rounded text-sm"
+				>
+					<span className="text-slate-300">Queue #{item.queuePosition}</span>
+					<button
+						type="button"
+						onClick={() =>
+							generationQueueActions.cancelQueued(sceneId, mediaType, item.id)
+						}
+						className="text-red-400 hover:text-red-300 text-xs flex items-center gap-1"
+					>
+						<X className="w-3 h-3" />
+						Cancel
+					</button>
+				</div>
+			))}
+		</div>
+	);
 }
 
 export const Route = createFileRoute("/aistory/scenes")({
@@ -182,6 +229,52 @@ function ScenesPage() {
 		aistoryStore,
 		(state) => state.exportedVideoUrl,
 	);
+
+	// Batch generation state
+	const isGeneratingAllImages = useStore(
+		aistoryStore,
+		(state) => state.isGeneratingAllImages,
+	);
+	const isGeneratingAllVideos = useStore(
+		aistoryStore,
+		(state) => state.isGeneratingAllVideos,
+	);
+	const batchImageProgress = useStore(
+		aistoryStore,
+		(state) => state.batchImageProgress,
+	);
+	const batchVideoProgress = useStore(
+		aistoryStore,
+		(state) => state.batchVideoProgress,
+	);
+
+	// Computed: scenes that need images (no imageId OR imageStatus !== 'completed')
+	const scenesNeedingImages = scenes.filter(
+		(scene) =>
+			!scene.imageId ||
+			(scene.imageStatus !== "completed" && scene.imageStatus !== undefined),
+	);
+	const pendingImageCount = scenesNeedingImages.length;
+
+	// Computed: check if ALL images are completed (required for video generation)
+	const allImagesCompleted = scenes.every(
+		(scene) =>
+			scene.imageId &&
+			(scene.imageStatus === "completed" || scene.imageStatus === undefined),
+	);
+
+	// Computed: scenes that need videos (has image + audio but no video)
+	const scenesNeedingVideos = scenes.filter(
+		(scene) =>
+			(!scene.videoId ||
+				(scene.videoStatus !== "completed" &&
+					scene.videoStatus !== undefined)) &&
+			scene.imageId &&
+			(scene.imageStatus === "completed" || scene.imageStatus === undefined) &&
+			scene.audioId &&
+			(scene.audioStatus === "completed" || scene.audioStatus === undefined),
+	);
+	const pendingVideoCount = scenesNeedingVideos.length;
 
 	// State for word-by-word caption display during audio playback
 	const [currentWordIndex, setCurrentWordIndex] = useState<number | null>(null);
@@ -341,7 +434,11 @@ function ScenesPage() {
 		resumeGeneratingMedia();
 		// Only run on mount and when scenes change
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [scenes.map((s) => `${s.id}-${s.imageStatus}-${s.videoStatus}-${s.audioStatus}`).join(",")]);
+	}, [
+		scenes
+			.map((s) => `${s.id}-${s.imageStatus}-${s.videoStatus}-${s.audioStatus}`)
+			.join(","),
+	]);
 
 	// Handle character image upload: crop to 9:16 aspect ratio and upload to OpenAI
 	const handleUploadCharacter = (
@@ -588,101 +685,141 @@ function ScenesPage() {
 		}, 0);
 	};
 
-	// Handle single scene image generation
-	const handleGenerateSceneImage = (sceneId: string) => {
+	// Process image generation (internal function called by queue)
+	const processImageGeneration = async (sceneId: string) => {
 		const scene = scenes.find((s) => s.id === sceneId);
-		if (!scene || !storyId) return;
+		if (!scene || !storyId) {
+			generationQueueActions.completeAndNext(sceneId, "image");
+			return;
+		}
 
 		aistoryActions.updateScene(sceneId, { isLoading: true });
 
-		generateSceneImageMutation.mutate(
-			{
+		try {
+			const result = await generateSceneImageMutation.mutateAsync({
 				prompt: scene.prompt,
 				storyId,
 				sceneId,
 				isCharacter: scene.isCharacter,
-				// All FAL engines use characterImageUrl (Supabase Storage URL)
-				characterImageUrl:
-					scene.isCharacter ? (characterImageUrl ?? undefined) : undefined,
+				characterImageUrl: scene.isCharacter
+					? (characterImageUrl ?? undefined)
+					: undefined,
 				imageEngine,
-			},
-			{
-				onSuccess: (result) => {
-					if (result.success && result.imageId && result.imageUrl) {
-						aistoryActions.updateScene(sceneId, {
-							imageId: result.imageId,
-							imageUrl: result.imageUrl,
-							isLoading: false,
-						});
-					} else {
-						aistoryActions.updateScene(sceneId, { isLoading: false });
-						aistoryActions.setSceneError(
-							result.error || "Failed to generate scene image",
-						);
-					}
-				},
-				onError: (err) => {
-					aistoryActions.updateScene(sceneId, { isLoading: false });
-					aistoryActions.setSceneError(
-						err instanceof Error ? err.message : "An unexpected error occurred",
-					);
-				},
-			},
-		);
+			});
+
+			if (result.success && result.imageId && result.imageUrl) {
+				aistoryActions.updateScene(sceneId, {
+					imageId: result.imageId,
+					imageUrl: result.imageUrl,
+					imageStatus: "completed",
+					isLoading: false,
+				});
+			} else {
+				aistoryActions.updateScene(sceneId, { isLoading: false });
+				aistoryActions.setSceneError(
+					result.error || "Failed to generate scene image",
+				);
+			}
+		} catch (err) {
+			aistoryActions.updateScene(sceneId, { isLoading: false });
+			aistoryActions.setSceneError(
+				err instanceof Error ? err.message : "An unexpected error occurred",
+			);
+		}
+
+		// Process next in queue
+		const nextItem = generationQueueActions.completeAndNext(sceneId, "image");
+		if (nextItem) {
+			processImageGeneration(sceneId);
+		}
 	};
 
-	// Handle single scene audio generation using ElevenLabs with word timestamps
-	// Uses per-scene voiceId and voiceSpeed settings
-	const handleGenerateSceneAudio = (sceneId: string) => {
+	// Handle single scene image generation with queue support
+	const handleGenerateSceneImage = (sceneId: string) => {
 		const scene = scenes.find((s) => s.id === sceneId);
 		if (!scene || !storyId) return;
+
+		// Add to queue
+		generationQueueActions.enqueue(sceneId, "image");
+
+		// Check if we need to start processing (queue length was 0 before enqueue, now 1)
+		const queueLength = generationQueueActions.getQueueLength(sceneId, "image");
+		if (queueLength === 1) {
+			processImageGeneration(sceneId);
+		}
+		// If queue length > 1, request is queued and will be processed when current completes
+	};
+
+	// Process audio generation (internal function called by queue)
+	const processAudioGeneration = async (sceneId: string) => {
+		const scene = scenes.find((s) => s.id === sceneId);
+		if (!scene || !storyId) {
+			generationQueueActions.completeAndNext(sceneId, "audio");
+			return;
+		}
 
 		aistoryActions.updateScene(sceneId, { isGeneratingAudio: true });
 
 		// Use scene-level voiceId/voiceSpeed if set, otherwise fall back to default voice
 		const sceneVoiceId = scene.voiceId || DEFAULT_VOICE_ID;
-		// Ensure voiceSpeed is a number (may come as string from database/history)
 		const sceneVoiceSpeed = Number(scene.voiceSpeed) || 1.0;
 
-		generateSceneAudioMutation.mutate(
-			{
+		try {
+			const result = await generateSceneAudioMutation.mutateAsync({
 				caption: scene.caption,
 				storyId,
 				sceneId,
 				voiceId: sceneVoiceId,
 				voiceSpeed: sceneVoiceSpeed,
-			},
-			{
-				onSuccess: (result) => {
-					if (result.success && result.audioId && result.audioUrl) {
-						aistoryActions.updateScene(sceneId, {
-							audioId: result.audioId,
-							audioUrl: result.audioUrl,
-							audioDuration: result.audioDuration,
-							wordTimestamps: result.wordTimestamps,
-							isGeneratingAudio: false,
-						});
-					} else {
-						aistoryActions.updateScene(sceneId, { isGeneratingAudio: false });
-						aistoryActions.setSceneError(
-							result.error || "Failed to generate scene audio",
-						);
-					}
-				},
-				onError: (err) => {
-					aistoryActions.updateScene(sceneId, { isGeneratingAudio: false });
-					aistoryActions.setSceneError(
-						err instanceof Error ? err.message : "An unexpected error occurred",
-					);
-				},
-			},
-		);
+			});
+
+			if (result.success && result.audioId && result.audioUrl) {
+				aistoryActions.updateScene(sceneId, {
+					audioId: result.audioId,
+					audioUrl: result.audioUrl,
+					audioDuration: result.audioDuration,
+					wordTimestamps: result.wordTimestamps,
+					audioStatus: "completed",
+					isGeneratingAudio: false,
+				});
+			} else {
+				aistoryActions.updateScene(sceneId, { isGeneratingAudio: false });
+				aistoryActions.setSceneError(
+					result.error || "Failed to generate scene audio",
+				);
+			}
+		} catch (err) {
+			aistoryActions.updateScene(sceneId, { isGeneratingAudio: false });
+			aistoryActions.setSceneError(
+				err instanceof Error ? err.message : "An unexpected error occurred",
+			);
+		}
+
+		// Process next in queue
+		const nextItem = generationQueueActions.completeAndNext(sceneId, "audio");
+		if (nextItem) {
+			processAudioGeneration(sceneId);
+		}
 	};
 
-	// Handle single scene video generation using FAL-AI Kling video model
-	// Using async/await with mutateAsync to avoid callback override when multiple mutations run concurrently
-	const handleGenerateSceneVideo = async (sceneId: string) => {
-		console.log(`[handleGenerateSceneVideo] Starting for sceneId: ${sceneId}`);
+	// Handle single scene audio generation with queue support
+	const handleGenerateSceneAudio = (sceneId: string) => {
+		const scene = scenes.find((s) => s.id === sceneId);
+		if (!scene || !storyId) return;
+
+		// Add to queue
+		generationQueueActions.enqueue(sceneId, "audio");
+
+		// Check if we need to start processing
+		const queueLength = generationQueueActions.getQueueLength(sceneId, "audio");
+		if (queueLength === 1) {
+			processAudioGeneration(sceneId);
+		}
+	};
+
+	// Process video generation (internal function called by queue)
+	const processVideoGeneration = async (sceneId: string) => {
+		console.log(`[processVideoGeneration] Starting for sceneId: ${sceneId}`);
 		const scene = scenes.find((s) => s.id === sceneId);
 		if (
 			!scene ||
@@ -692,8 +829,10 @@ function ScenesPage() {
 			!scene.audioDuration ||
 			!scene.imageId ||
 			!scene.audioId
-		)
+		) {
+			generationQueueActions.completeAndNext(sceneId, "video");
 			return;
+		}
 
 		aistoryActions.updateScene(sceneId, {
 			isGeneratingVideo: true,
@@ -727,6 +866,7 @@ function ScenesPage() {
 					videoId: result.videoId,
 					videoUrl: result.videoUrl,
 					videoDuration: result.videoDuration,
+					videoStatus: "completed",
 					isGeneratingVideo: false,
 					videoError: null,
 				});
@@ -748,6 +888,37 @@ function ScenesPage() {
 				videoError:
 					err instanceof Error ? err.message : "An unexpected error occurred",
 			});
+		}
+
+		// Process next in queue
+		const nextItem = generationQueueActions.completeAndNext(sceneId, "video");
+		if (nextItem) {
+			processVideoGeneration(sceneId);
+		}
+	};
+
+	// Handle single scene video generation with queue support
+	const handleGenerateSceneVideo = async (sceneId: string) => {
+		console.log(`[handleGenerateSceneVideo] Starting for sceneId: ${sceneId}`);
+		const scene = scenes.find((s) => s.id === sceneId);
+		if (
+			!scene ||
+			!storyId ||
+			!scene.imageUrl ||
+			!scene.audioUrl ||
+			!scene.audioDuration ||
+			!scene.imageId ||
+			!scene.audioId
+		)
+			return;
+
+		// Add to queue
+		generationQueueActions.enqueue(sceneId, "video");
+
+		// Check if we need to start processing
+		const queueLength = generationQueueActions.getQueueLength(sceneId, "video");
+		if (queueLength === 1) {
+			processVideoGeneration(sceneId);
 		}
 	};
 
@@ -838,6 +1009,134 @@ function ScenesPage() {
 		}
 	};
 
+	// Handle batch generation of all images
+	const handleGenerateAllImages = async () => {
+		if (!storyId || !characterImageUrl) return;
+
+		aistoryActions.setIsGeneratingAllImages(true);
+		aistoryActions.setBatchImageProgress({
+			current: 0,
+			total: scenesNeedingImages.length,
+		});
+
+		for (let i = 0; i < scenesNeedingImages.length; i++) {
+			const scene = scenesNeedingImages[i];
+			aistoryActions.setBatchImageProgress({
+				current: i + 1,
+				total: scenesNeedingImages.length,
+			});
+
+			try {
+				aistoryActions.updateScene(scene.id, { isLoading: true });
+
+				const result = await generateSceneImageMutation.mutateAsync({
+					prompt: scene.prompt,
+					storyId,
+					sceneId: scene.id,
+					isCharacter: scene.isCharacter,
+					characterImageUrl: scene.isCharacter ? characterImageUrl : undefined,
+					imageEngine,
+				});
+
+				if (result.success && result.imageId && result.imageUrl) {
+					aistoryActions.updateScene(scene.id, {
+						imageId: result.imageId,
+						imageUrl: result.imageUrl,
+						imageStatus: "completed",
+						isLoading: false,
+					});
+				} else {
+					aistoryActions.updateScene(scene.id, { isLoading: false });
+					console.error(
+						`Image generation failed for scene ${scene.id}:`,
+						result.error,
+					);
+				}
+			} catch (err) {
+				aistoryActions.updateScene(scene.id, { isLoading: false });
+				console.error(`Image generation error for scene ${scene.id}:`, err);
+			}
+		}
+
+		aistoryActions.setIsGeneratingAllImages(false);
+		aistoryActions.setBatchImageProgress(null);
+	};
+
+	// Handle batch generation of all videos
+	const handleGenerateAllVideos = async () => {
+		if (!storyId || !allImagesCompleted) return;
+
+		aistoryActions.setIsGeneratingAllVideos(true);
+		aistoryActions.setBatchVideoProgress({
+			current: 0,
+			total: scenesNeedingVideos.length,
+		});
+
+		for (let i = 0; i < scenesNeedingVideos.length; i++) {
+			const scene = scenesNeedingVideos[i];
+			aistoryActions.setBatchVideoProgress({
+				current: i + 1,
+				total: scenesNeedingVideos.length,
+			});
+
+			if (
+				!scene.imageUrl ||
+				!scene.audioUrl ||
+				!scene.audioDuration ||
+				!scene.imageId ||
+				!scene.audioId
+			) {
+				console.error(
+					`Scene ${scene.id} missing required data for video generation`,
+				);
+				continue;
+			}
+
+			try {
+				aistoryActions.updateScene(scene.id, {
+					isGeneratingVideo: true,
+					videoError: null,
+				});
+
+				const result = await generateSceneVideoMutation.mutateAsync({
+					storyId,
+					sceneId: scene.id,
+					videoPrompt: scene.video_prompt,
+					imageUrl: scene.imageUrl,
+					audioUrl: scene.audioUrl,
+					audioDuration: scene.audioDuration,
+					imageId: scene.imageId,
+					audioId: scene.audioId,
+					videoEngine,
+				});
+
+				if (result.success && result.videoId && result.videoUrl) {
+					aistoryActions.updateScene(scene.id, {
+						videoId: result.videoId,
+						videoUrl: result.videoUrl,
+						videoDuration: result.videoDuration,
+						videoStatus: "completed",
+						isGeneratingVideo: false,
+					});
+				} else {
+					aistoryActions.updateScene(scene.id, {
+						isGeneratingVideo: false,
+						videoError: result.error || "Failed to generate video",
+					});
+				}
+			} catch (err) {
+				aistoryActions.updateScene(scene.id, {
+					isGeneratingVideo: false,
+					videoError:
+						err instanceof Error ? err.message : "Video generation failed",
+				});
+			}
+		}
+
+		aistoryActions.setIsGeneratingAllVideos(false);
+		aistoryActions.setBatchVideoProgress(null);
+	};
+
 	return (
 		<div className="space-y-8">
 			{/* Hidden file upload input */}
@@ -886,12 +1185,16 @@ function ScenesPage() {
 				<div className="flex flex-wrap gap-2 mt-3">
 					<div className="px-3 py-1.5 bg-cyan-500/20 border border-cyan-500/30 rounded-lg">
 						<span className="text-xs text-cyan-400 font-medium">
-							Image: {IMAGE_ENGINES.find((e) => e.id === imageEngine)?.label || imageEngine}
+							Image:{" "}
+							{IMAGE_ENGINES.find((e) => e.id === imageEngine)?.label ||
+								imageEngine}
 						</span>
 					</div>
 					<div className="px-3 py-1.5 bg-amber-500/20 border border-amber-500/30 rounded-lg">
 						<span className="text-xs text-amber-400 font-medium">
-							Style: {imageStyle.charAt(0).toUpperCase() + imageStyle.slice(1).replace("-", " ")}
+							Style:{" "}
+							{imageStyle.charAt(0).toUpperCase() +
+								imageStyle.slice(1).replace("-", " ")}
 						</span>
 					</div>
 					<div className="px-3 py-1.5 bg-purple-500/20 border border-purple-500/30 rounded-lg">
@@ -969,14 +1272,16 @@ function ScenesPage() {
 								Style <span className="text-slate-500">(prompt-level)</span>
 							</label>
 							<div className="px-3 py-2 bg-slate-900/30 border border-slate-700 rounded-lg text-slate-400 text-sm">
-								{imageStyle.charAt(0).toUpperCase() + imageStyle.slice(1).replace("-", " ")}
+								{imageStyle.charAt(0).toUpperCase() +
+									imageStyle.slice(1).replace("-", " ")}
 							</div>
 						</div>
 
 						{/* LLM Engine (read-only) */}
 						<div>
 							<label className="block text-xs text-slate-400 mb-2 font-medium">
-								LLM Engine <span className="text-slate-500">(prompt-level)</span>
+								LLM Engine{" "}
+								<span className="text-slate-500">(prompt-level)</span>
 							</label>
 							<div className="px-3 py-2 bg-slate-900/30 border border-slate-700 rounded-lg text-slate-400 text-sm">
 								{llmEngine === "gpt-4.1" ? "GPT-4.1" : "Claude Opus 4.5"}
@@ -1090,11 +1395,92 @@ function ScenesPage() {
 				</div>
 			</div>
 
-			{/* Scene error message */}
-			{sceneError && (
-				<div className="p-4 bg-red-500/20 border border-red-500/50 rounded-xl text-red-300">
-					{sceneError}
+			{/* Batch Generation Controls */}
+			{scenes.length > 0 && !scenesDisabled && (
+				<div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+					<h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+						<Settings className="w-5 h-5 text-amber-400" />
+						Batch Generation
+					</h3>
+
+					<div className="grid grid-cols-2 gap-4">
+						{/* Generate All Images Button */}
+						<div>
+							<button
+								type="button"
+								onClick={handleGenerateAllImages}
+								disabled={
+									isGeneratingAllImages ||
+									pendingImageCount === 0 ||
+									!characterImageUrl
+								}
+								className="w-full py-3 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-400 hover:to-pink-400 disabled:from-slate-600 disabled:to-slate-600 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-all duration-300 flex items-center justify-center gap-2"
+							>
+								{isGeneratingAllImages ? (
+									<>
+										<Loader2 className="w-5 h-5 animate-spin" />
+										Generating Images ({batchImageProgress?.current || 0}/
+										{batchImageProgress?.total || 0})
+									</>
+								) : (
+									<>
+										<ImageIcon className="w-5 h-5" />
+										GENERATE ALL IMAGES
+									</>
+								)}
+							</button>
+							<p className="mt-2 text-xs text-slate-400 text-center">
+								{pendingImageCount} scene(s) need images
+							</p>
+						</div>
+
+						{/* Generate All Videos Button */}
+						<div>
+							<button
+								type="button"
+								onClick={handleGenerateAllVideos}
+								disabled={
+									isGeneratingAllVideos ||
+									!allImagesCompleted ||
+									pendingVideoCount === 0
+								}
+								title={
+									!allImagesCompleted
+										? "All scene images must be completed first"
+										: undefined
+								}
+								className="w-full py-3 bg-gradient-to-r from-indigo-500 to-violet-500 hover:from-indigo-400 hover:to-violet-400 disabled:from-slate-600 disabled:to-slate-600 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-all duration-300 flex items-center justify-center gap-2"
+							>
+								{isGeneratingAllVideos ? (
+									<>
+										<Loader2 className="w-5 h-5 animate-spin" />
+										Generating Videos ({batchVideoProgress?.current || 0}/
+										{batchVideoProgress?.total || 0})
+									</>
+								) : (
+									<>
+										<Film className="w-5 h-5" />
+										GENERATE ALL VIDEOS
+									</>
+								)}
+							</button>
+							<p className="mt-2 text-xs text-slate-400 text-center">
+								{!allImagesCompleted
+									? "Waiting for all images"
+									: `${pendingVideoCount} scene(s) need videos`}
+							</p>
+						</div>
+					</div>
 				</div>
+			)}
+
+			{/* Scene error message with dismiss */}
+			{sceneError && (
+				<ErrorWithRetry
+					error={sceneError.message}
+					onDismiss={() => aistoryActions.setSceneError(null)}
+					className="mb-4"
+				/>
 			)}
 
 			{/* Scene card list */}
@@ -1193,14 +1579,19 @@ function ScenesPage() {
 										type="button"
 										onClick={() => handleGenerateSceneImage(scene.id)}
 										disabled={
-											!scene.prompt.trim() || scene.isLoading || scenesDisabled
+											!scene.prompt.trim() ||
+											scene.isLoading ||
+											scene.imageStatus === "generating" ||
+											scenesDisabled
 										}
-										className={`${scene.isLoading ? "" : "mt-3"} w-full py-3 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-400 hover:to-pink-400 disabled:from-slate-600 disabled:to-slate-600 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-all duration-300 shadow-md shadow-purple-500/20 hover:shadow-purple-500/40 disabled:shadow-none flex items-center justify-center gap-2`}
+										className={`${scene.isLoading || scene.imageStatus === "generating" ? "" : "mt-3"} w-full py-3 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-400 hover:to-pink-400 disabled:from-slate-600 disabled:to-slate-600 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-all duration-300 shadow-md shadow-purple-500/20 hover:shadow-purple-500/40 disabled:shadow-none flex items-center justify-center gap-2`}
 									>
-										{scene.isLoading ? (
+										{scene.isLoading || scene.imageStatus === "generating" ? (
 											<>
 												<Loader2 className="w-5 h-5 animate-spin" />
-												Generating Image...
+												{scene.imageStatus === "generating"
+													? "Resuming..."
+													: "Generating Image..."}
 											</>
 										) : (
 											<>
@@ -1211,6 +1602,8 @@ function ScenesPage() {
 											</>
 										)}
 									</button>
+									{/* Image generation queue indicator */}
+									<QueueIndicator sceneId={scene.id} mediaType="image" />
 									{/* Caption editor */}
 									<div className="mt-3">
 										<span className="text-xs text-slate-400 font-medium uppercase tracking-wide">
@@ -1242,9 +1635,7 @@ function ScenesPage() {
 														undefined,
 													)
 												}
-												disabled={
-													scene.isGeneratingAudio || scenesDisabled
-												}
+												disabled={scene.isGeneratingAudio || scenesDisabled}
 												className="mt-1 w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors disabled:opacity-50"
 											>
 												{VOICE_OPTIONS.map((voice) => (
@@ -1268,9 +1659,7 @@ function ScenesPage() {
 														Number.parseFloat(e.target.value),
 													)
 												}
-												disabled={
-													scene.isGeneratingAudio || scenesDisabled
-												}
+												disabled={scene.isGeneratingAudio || scenesDisabled}
 												className="mt-1 w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors disabled:opacity-50"
 											>
 												<option value={0.7}>0.7x</option>
@@ -1291,14 +1680,18 @@ function ScenesPage() {
 											disabled={
 												!scene.caption.trim() ||
 												scene.isGeneratingAudio ||
+												scene.audioStatus === "generating" ||
 												scenesDisabled
 											}
 											className="w-full py-3 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 disabled:from-slate-600 disabled:to-slate-600 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-all duration-300 shadow-md shadow-emerald-500/20 hover:shadow-emerald-500/40 disabled:shadow-none flex items-center justify-center gap-2"
 										>
-											{scene.isGeneratingAudio ? (
+											{scene.isGeneratingAudio ||
+											scene.audioStatus === "generating" ? (
 												<>
 													<Loader2 className="w-5 h-5 animate-spin" />
-													Generating Audio...
+													{scene.audioStatus === "generating"
+														? "Resuming..."
+														: "Generating Audio..."}
 												</>
 											) : (
 												<>
@@ -1309,6 +1702,8 @@ function ScenesPage() {
 												</>
 											)}
 										</button>
+										{/* Audio generation queue indicator */}
+										<QueueIndicator sceneId={scene.id} mediaType="audio" />
 									</div>
 
 									{/* Video instruction + generate video button */}
@@ -1332,11 +1727,18 @@ function ScenesPage() {
 												}
 											/>
 										</div>
-										{/* Video generation error message */}
+										{/* Video generation error message with retry */}
 										{scene.videoError && (
-											<div className="mt-2 p-2 bg-red-500/20 border border-red-500/50 rounded-lg text-red-300 text-sm">
-												{scene.videoError}
-											</div>
+											<InlineError
+												error={scene.videoError}
+												onRetry={() => handleGenerateSceneVideo(scene.id)}
+												onDismiss={() =>
+													aistoryActions.updateScene(scene.id, {
+														videoError: null,
+													})
+												}
+												isRetrying={scene.isGeneratingVideo}
+											/>
 										)}
 										{/* Progress bar for video generation (3 minutes) */}
 										<CountdownProgress
@@ -1351,6 +1753,7 @@ function ScenesPage() {
 												!scene.imageUrl ||
 												!scene.audioDuration ||
 												scene.isGeneratingVideo ||
+												scene.videoStatus === "generating" ||
 												scenesDisabled
 											}
 											title={
@@ -1358,12 +1761,15 @@ function ScenesPage() {
 													? "Generate audio first to enable video generation"
 													: undefined
 											}
-											className={`${scene.isGeneratingVideo ? "" : "mt-3"} w-full py-3 bg-gradient-to-r from-indigo-500 to-violet-500 hover:from-indigo-400 hover:to-violet-400 disabled:from-slate-600 disabled:to-slate-600 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-all duration-300 shadow-md shadow-indigo-500/20 hover:shadow-indigo-500/40 disabled:shadow-none flex items-center justify-center gap-2`}
+											className={`${scene.isGeneratingVideo || scene.videoStatus === "generating" ? "" : "mt-3"} w-full py-3 bg-gradient-to-r from-indigo-500 to-violet-500 hover:from-indigo-400 hover:to-violet-400 disabled:from-slate-600 disabled:to-slate-600 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-all duration-300 shadow-md shadow-indigo-500/20 hover:shadow-indigo-500/40 disabled:shadow-none flex items-center justify-center gap-2`}
 										>
-											{scene.isGeneratingVideo ? (
+											{scene.isGeneratingVideo ||
+											scene.videoStatus === "generating" ? (
 												<>
 													<Loader2 className="w-5 h-5 animate-spin" />
-													Generating Video...
+													{scene.videoStatus === "generating"
+														? "Resuming..."
+														: "Generating Video..."}
 												</>
 											) : (
 												<>
@@ -1376,6 +1782,8 @@ function ScenesPage() {
 												</>
 											)}
 										</button>
+										{/* Video generation queue indicator */}
+										<QueueIndicator sceneId={scene.id} mediaType="video" />
 									</div>
 								</div>
 

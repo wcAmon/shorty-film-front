@@ -8,6 +8,7 @@ import {
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 import { useEffect } from "react";
 import Header from "../components/Header";
+import { ThemeProvider } from "../components/theme-provider";
 import TanStackQueryDevtools from "../integrations/tanstack-query/devtools";
 import { supabaseClient } from "../lib/supabase-client";
 import { authActions } from "../stores/auth.store";
@@ -65,28 +66,30 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 	}, []);
 
 	return (
-		<html lang="en">
+		<html lang="en" suppressHydrationWarning>
 			<head>
 				<HeadContent />
 			</head>
-			<body>
-				<Header />
-				{children}
-				{/* TanStack DevTools only shown in development */}
-				{showDevtools && (
-					<TanStackDevtools
-						config={{
-							position: "bottom-right",
-						}}
-						plugins={[
-							{
-								name: "Tanstack Router",
-								render: <TanStackRouterDevtoolsPanel />,
-							},
-							TanStackQueryDevtools,
-						]}
-					/>
-				)}
+			<body className="bg-background text-foreground">
+				<ThemeProvider defaultTheme="system" storageKey="shorty-film-theme">
+					<Header />
+					{children}
+					{/* TanStack DevTools only shown in development */}
+					{showDevtools && (
+						<TanStackDevtools
+							config={{
+								position: "bottom-right",
+							}}
+							plugins={[
+								{
+									name: "Tanstack Router",
+									render: <TanStackRouterDevtoolsPanel />,
+								},
+								TanStackQueryDevtools,
+							]}
+						/>
+					)}
+				</ThemeProvider>
 				<Scripts />
 			</body>
 		</html>

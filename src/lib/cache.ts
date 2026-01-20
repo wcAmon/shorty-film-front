@@ -57,6 +57,7 @@ export interface StoryMetadata {
 	// Common fields
 	storyId: string;
 	type: "aistory" | "podcast42" | string;
+	title?: string | null; // LLM-generated story title
 	createdAt: string;
 	updatedAt: string;
 
@@ -211,23 +212,27 @@ export function generateId(prefix = ""): string {
 
 /**
  * Delete entire story (database record + Supabase storage files)
+ *
+ * Deletion behavior:
+ * - Scenes: CASCADE deleted via FK
+ * - Audios: CASCADE deleted via FK + Storage files cleaned up
+ * - Images: SET NULL (kept for asset library reuse)
+ * - Videos: SET NULL (kept for asset library reuse)
  */
 export async function deleteStory(storyId: string): Promise<void> {
-	// Delete from database (cascades to scenes)
+	// Delete audio files from Supabase Storage BEFORE deleting DB records
+	// (need storyId prefix to find the files)
+	try {
+		await deleteStorageStoryFiles("audios", storyId);
+		console.log(`[cache] Deleted audio files from Supabase: ${storyId}`);
+	} catch (err) {
+		console.error(`[cache] Error deleting audio storage files:`, err);
+	}
+
+	// Delete from database (cascades to scenes and audios via FK)
+	// Images and videos are SET NULL (kept for asset library)
 	await deleteStoryById(storyId);
 	console.log(`[cache] Deleted story from DB: ${storyId}`);
-
-	// Delete files from Supabase Storage
-	try {
-		await Promise.all([
-			deleteStorageStoryFiles("images", storyId),
-			deleteStorageStoryFiles("audios", storyId),
-			deleteStorageStoryFiles("videos", storyId),
-		]);
-		console.log(`[cache] Deleted story files from Supabase: ${storyId}`);
-	} catch (err) {
-		console.error(`[cache] Error deleting storage files:`, err);
-	}
 }
 
 /**
@@ -253,6 +258,7 @@ export function dbToStoryMetadata(
 	return {
 		storyId: story.id,
 		type: story.type,
+		title: story.title ?? undefined,
 		createdAt: story.createdAt?.toISOString() ?? new Date().toISOString(),
 		updatedAt: story.updatedAt?.toISOString() ?? new Date().toISOString(),
 		script: story.script ?? undefined,

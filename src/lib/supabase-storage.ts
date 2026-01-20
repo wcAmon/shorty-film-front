@@ -21,7 +21,7 @@ export async function uploadToStorage(
 	buffer: Buffer,
 	contentType: string,
 ): Promise<string> {
-	const { data, error } = await supabase.storage
+	const { error } = await supabase.storage
 		.from(bucket)
 		.upload(path, buffer, {
 			contentType,

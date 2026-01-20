@@ -2,8 +2,8 @@ import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router";
 import { useStore } from "@tanstack/react-store";
 import { ArrowLeft, Sparkles } from "lucide-react";
 import { useEffect } from "react";
-import { authStore } from "@/stores/auth.store";
 import { aistoryActions } from "@/stores/aistory.store";
+import { authStore } from "@/stores/auth.store";
 
 export const Route = createFileRoute("/aistory")({
 	component: AIStoryLayout,

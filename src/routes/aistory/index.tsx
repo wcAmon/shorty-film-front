@@ -2,10 +2,12 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useStore } from "@tanstack/react-store";
 import { ArrowRight, Film, Loader2 } from "lucide-react";
 import { useId, useState } from "react";
+import { ErrorWithRetry } from "@/components/error-with-retry";
 import { useGeneratePrompts } from "@/hooks/use-aistory-api";
 import {
 	aistoryActions,
 	aistoryStore,
+	type CaptionLanguage,
 	type ImageEngine,
 	type ImageStyle,
 	type LLMEngine,
@@ -54,6 +56,12 @@ const IMAGE_ENGINES: { id: ImageEngine; label: string; description: string }[] =
 			id: "gpt-image-1.5",
 			label: "GPT Image 1.5",
 			description: "OpenAI GPT-Image via FAL AI, with character consistency",
+		},
+		{
+			id: "nano-banana-pro",
+			label: "Nano Banana Pro",
+			description:
+				"Fast character-consistent generation with reference support",
 		},
 	];
 
@@ -118,7 +126,8 @@ const VIDEO_ENGINES: { id: VideoEngine; label: string; description: string }[] =
 		{
 			id: "veo3.1",
 			label: "Veo 3.1",
-			description: "Google Veo 3.1 via FAL AI, high quality with audio generation",
+			description:
+				"Google Veo 3.1 via FAL AI, high quality with audio generation",
 		},
 		{
 			id: "veo3.1-fast",
@@ -139,6 +148,12 @@ const LLM_ENGINES: { id: LLMEngine; label: string; description: string }[] = [
 		label: "Claude Opus 4.5",
 		description: "Anthropic Claude Opus 4.5, excellent at creative writing",
 	},
+];
+
+// Caption language options
+const CAPTION_LANGUAGES: { id: CaptionLanguage; label: string }[] = [
+	{ id: "en", label: "English" },
+	{ id: "zh-TW", label: "繁體中文" },
 ];
 
 export const Route = createFileRoute("/aistory/")({
@@ -166,6 +181,10 @@ function PromptsPage() {
 	const imageStyle = useStore(aistoryStore, (state) => state.imageStyle);
 	const videoEngine = useStore(aistoryStore, (state) => state.videoEngine);
 	const llmEngine = useStore(aistoryStore, (state) => state.llmEngine);
+	const captionLanguage = useStore(
+		aistoryStore,
+		(state) => state.captionLanguage,
+	);
 	const error = useStore(aistoryStore, (state) => state.error);
 
 	// Local state for default voice selection (used when generating prompts)
@@ -193,6 +212,7 @@ function PromptsPage() {
 				llmEngine,
 				voiceId: defaultVoiceId,
 				videoEngine,
+				captionLanguage,
 			},
 			{
 				onSuccess: (result) => {
@@ -423,13 +443,42 @@ function PromptsPage() {
 						</label>
 					))}
 				</div>
+
+				{/* Caption Language Selection - Segmented Button */}
+				<div className="mt-6 pt-6 border-t border-slate-700">
+					<h3 className="text-sm font-medium text-slate-300 mb-3">
+						Caption Language
+					</h3>
+					<div
+						className={`inline-flex rounded-lg bg-slate-900/50 p-1 ${promptsGenerated ? "opacity-50 pointer-events-none" : ""}`}
+					>
+						{CAPTION_LANGUAGES.map((lang) => (
+							<button
+								key={lang.id}
+								type="button"
+								onClick={() => aistoryActions.setCaptionLanguage(lang.id)}
+								disabled={promptsGenerated}
+								className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${
+									captionLanguage === lang.id
+										? "bg-indigo-500 text-white shadow-sm"
+										: "text-slate-400 hover:text-white"
+								}`}
+							>
+								{lang.label}
+							</button>
+						))}
+					</div>
+				</div>
 			</div>
 
-			{/* Error Display */}
+			{/* Error Display with retry */}
 			{error && (
-				<div className="p-4 bg-red-500/20 border border-red-500/50 rounded-xl text-red-300">
-					{error}
-				</div>
+				<ErrorWithRetry
+					error={error.message}
+					onRetry={handleGeneratePrompts}
+					onDismiss={() => aistoryActions.setError(null)}
+					isRetrying={isGeneratingPrompts}
+				/>
 			)}
 
 			{/* Action Buttons */}

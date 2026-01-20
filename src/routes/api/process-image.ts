@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { requireAuth } from "@/lib/auth-middleware";
 import sharp from "sharp";
+import { requireAuth } from "@/lib/auth-middleware";
 
 type AspectRatio = "9:16" | "16:9" | "1:1";
 
@@ -22,7 +22,7 @@ export const Route = createFileRoute("/api/process-image")({
 		handlers: {
 			POST: async ({ request }) => {
 				// Require authentication
-				const { user, error: authError } = await requireAuth(request);
+				const { error: authError } = await requireAuth(request);
 				if (authError) return authError;
 
 				try {
@@ -34,8 +34,7 @@ export const Route = createFileRoute("/api/process-image")({
 						return Response.json(
 							{
 								success: false,
-								error:
-									"Invalid targetAspectRatio. Must be 9:16, 16:9, or 1:1",
+								error: "Invalid targetAspectRatio. Must be 9:16, 16:9, or 1:1",
 							},
 							{ status: 400 },
 						);

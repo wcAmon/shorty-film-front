@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { getAudioById, getImageById, getVideoById } from "@/db/queries";
 import { requireAuth } from "@/lib/auth-middleware";
-import { getImageById, getVideoById, getAudioById } from "@/db/queries";
 
 /**
  * API endpoint to get media status by ID
@@ -26,7 +26,15 @@ export const Route = createFileRoute("/api/get-media-status")({
 				}
 
 				try {
-					let media: { status: string; imageUrl?: string | null; videoUrl?: string | null; audioUrl?: string | null; duration?: number | null } | undefined;
+					let media:
+						| {
+								status: string;
+								imageUrl?: string | null;
+								videoUrl?: string | null;
+								audioUrl?: string | null;
+								duration?: number | null;
+						  }
+						| undefined;
 
 					switch (mediaType) {
 						case "image": {
@@ -87,7 +95,9 @@ export const Route = createFileRoute("/api/get-media-status")({
 						{
 							success: false,
 							error:
-								err instanceof Error ? err.message : "Failed to get media status",
+								err instanceof Error
+									? err.message
+									: "Failed to get media status",
 						},
 						{ status: 500 },
 					);

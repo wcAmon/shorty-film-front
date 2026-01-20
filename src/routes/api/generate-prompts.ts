@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import type { ImageStyle } from "@/lib/style-prompts";
 import { requireAuth } from "@/lib/auth-middleware";
 import { isBackendConfigured, proxyToBackend } from "@/lib/backend-proxy";
+import type { ImageStyle } from "@/lib/style-prompts";
 
 // Scene data type definition
 export interface Scene {

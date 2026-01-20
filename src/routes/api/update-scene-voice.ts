@@ -25,9 +25,7 @@ export const Route = createFileRoute("/api/update-scene-voice")({
 					const { sceneId, voiceId } = body;
 					// Ensure voiceSpeed is a number (may come as string from frontend)
 					const voiceSpeed =
-						body.voiceSpeed !== undefined
-							? Number(body.voiceSpeed)
-							: undefined;
+						body.voiceSpeed !== undefined ? Number(body.voiceSpeed) : undefined;
 
 					if (!sceneId) {
 						return Response.json(

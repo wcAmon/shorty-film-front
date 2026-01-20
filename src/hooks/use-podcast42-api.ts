@@ -1,4 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
+import { supabaseClient } from "@/lib/supabase-client";
 import type {
 	ImageEngine,
 	ImageStyle,
@@ -7,7 +8,6 @@ import type {
 	WordTimestamp,
 } from "./use-aistory-api";
 import { authFetch } from "./use-auth";
-import { supabaseClient } from "@/lib/supabase-client";
 
 // Avatar engine type for podcast42 (renamed from videoEngine)
 export type Podcast42AvatarEngine = "omnihuman" | "aurora";
@@ -648,7 +648,9 @@ async function updatePodcast42SettingsApi(params: {
 		...(settings.imageStyle && { imageStyle: settings.imageStyle }),
 		...(settings.person1VoiceId && { person1VoiceId: settings.person1VoiceId }),
 		...(settings.person2VoiceId && { person2VoiceId: settings.person2VoiceId }),
-		...(settings.avatarEngine && { podcast42VideoEngine: settings.avatarEngine }),
+		...(settings.avatarEngine && {
+			podcast42VideoEngine: settings.avatarEngine,
+		}),
 	};
 
 	// Save updated metadata

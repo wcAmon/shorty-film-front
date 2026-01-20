@@ -125,15 +125,58 @@ export function useSaveStoryMetadata() {
 }
 
 /**
- * Hook to delete a story
+ * Hook to delete a story with optimistic update
+ * Immediately removes the story from UI, rolls back on error
  */
 export function useDeleteStory() {
 	const queryClient = useQueryClient();
 
 	return useMutation({
 		mutationFn: deleteStoryApi,
-		onSuccess: () => {
-			// Invalidate the stories list
+		onMutate: async (storyId: string) => {
+			// Cancel any outgoing refetches to avoid overwriting optimistic update
+			await queryClient.cancelQueries({ queryKey: ["stories"] });
+
+			// Snapshot the previous value
+			const previousStories = queryClient.getQueryData<ListStoriesResponse>([
+				"stories",
+			]);
+
+			// Optimistically remove the story from cache
+			queryClient.setQueryData<ListStoriesResponse>(["stories"], (old) => {
+				if (!old?.stories) return old;
+				return {
+					...old,
+					stories: old.stories.filter((story) => story.storyId !== storyId),
+				};
+			});
+
+			// Also update any type-filtered queries
+			for (const type of ["aistory", "podcast42"] as const) {
+				queryClient.setQueryData<ListStoriesResponse>(
+					["stories", type],
+					(old) => {
+						if (!old?.stories) return old;
+						return {
+							...old,
+							stories: old.stories.filter((story) => story.storyId !== storyId),
+						};
+					},
+				);
+			}
+
+			// Return context with the previous value for rollback
+			return { previousStories };
+		},
+		onError: (_err, _storyId, context) => {
+			// Rollback to previous state on error
+			if (context?.previousStories) {
+				queryClient.setQueryData(["stories"], context.previousStories);
+			}
+		},
+		onSettled: () => {
+			// Always refetch after mutation settles (success or error)
+			// This ensures we're in sync with the server
 			queryClient.invalidateQueries({ queryKey: ["stories"] });
 		},
 	});

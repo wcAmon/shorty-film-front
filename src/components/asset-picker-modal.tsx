@@ -1,8 +1,8 @@
-import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { X, ImageIcon, Loader2, Check } from "lucide-react";
-import { getThumbnailUrl } from "@/lib/image-utils";
+import { Check, ImageIcon, Loader2, X } from "lucide-react";
+import { useState } from "react";
 import { authFetch } from "@/hooks/use-auth";
+import { getThumbnailUrl } from "@/lib/image-utils";
 
 interface AssetImage {
 	id: string;

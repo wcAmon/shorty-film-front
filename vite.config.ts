@@ -45,11 +45,6 @@ const config = defineConfig(({ mode }) => {
             },
           },
         },
-        // Increase body size limit for base64 image payloads (50MB)
-        maxBodySize: 50 * 1024 * 1024,
-        experimental: {
-          payloadExtraction: false,
-        },
         // Externalize native Node.js modules for proper server-side handling
         externals: {
           external: ['sharp', 'fluent-ffmpeg', '@ffmpeg-installer/ffmpeg', '@ffprobe-installer/ffprobe'],

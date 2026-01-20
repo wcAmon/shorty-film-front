@@ -31,7 +31,8 @@ function getVideoDuration(filePath: string): Promise<number> {
 }
 
 // Create a video clip from a static image (with silent audio track)
-function createImageClip(
+// @ts-expect-error Utility function for future use
+function _createImageClip(
 	imagePath: string,
 	outputPath: string,
 	duration: number,
@@ -85,7 +86,8 @@ function mergeVideoWithAudio(
 }
 
 // Extract a segment from a video
-function extractVideoSegment(
+// @ts-expect-error Utility function for future use
+function _extractVideoSegment(
 	inputPath: string,
 	startTime: number,
 	duration: number,

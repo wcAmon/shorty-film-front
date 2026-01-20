@@ -155,7 +155,7 @@ function ExportPage() {
 
 				{exportError && (
 					<div className="mb-4 p-4 bg-red-500/20 border border-red-500/50 rounded-xl text-red-300">
-						{exportError}
+						{exportError.message}
 					</div>
 				)}
 

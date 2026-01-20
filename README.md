@@ -1,150 +1,203 @@
-# AI story generator (Semi-Automatic)
+# Shorty Film Frontend
 
-**AI-Powered Story-to-Video Generation Tool**
+[中文](#中文) | [English](#english)
 
-Transform your narrative scripts into engaging cinematic short-form videos with consistent character portrayal and period-accurate scene backgrounds.
+## 中文
 
-## Overview
+半自動的「故事 → 影像」生成前端（TanStack Start）。將敘事腳本轉成可生成的角色/場景提示詞，並串接圖片、配音、影片生成與匯出流程。
 
-Shorty Film is an innovative full-stack application that leverages multiple AI services to generate high-quality video content from text narratives. The platform uniquely focuses on:
+### 功能概覽
 
-- **Character Consistency**: Maintains visual coherence of characters across all generated scenes using reference-based image generation
-- **Period-Accurate Backgrounds**: Creates historically and contextually appropriate scene environments that match your story's time period and setting
-- **Engaging Cinematic Scenes**: Produces dynamic video content with smooth motion and professional narration
+- **角色一致性**：使用參考圖/參考提示詞，讓同一角色在多個鏡頭維持一致外觀
+- **時代/場景背景**：產出符合故事年代與情境的場景背景
+- **多引擎支援**：可切換不同的圖片/影片模型以取得速度與品質平衡
+- **旁白與字幕**：ElevenLabs 配音並支援字級時間戳（對齊字幕）
+- **匯出**：混音（環境音 + 旁白）並下載成品
+- **佇列處理**：長任務以佇列方式處理並即時更新狀態
 
-## Features
+### 技術架構
 
-- **Dual Image Engine Support**: Choose between Flux Pro (fast, high-quality) or GPT Image (better character consistency)
-- **Multiple Video Engines**: Select from Kling v2.6 Pro, Kling Reference-to-Video, or LTX-2 19B based on your needs
-- **Professional Voice Narration**: Three distinct ElevenLabs voices with word-level caption synchronization
-- **Mixed Audio Export**: Combines video ambient audio with voice narration
-- **Queue-Based Processing**: Efficient handling of long-running AI tasks with real-time status updates
+#### Framework Stack
 
-## Technical Architecture
+- **TanStack Start**：全端 React（Nitro SSR）
+- **TanStack Router**：檔案式路由（型別安全）
+- **TanStack Store**：輕量狀態管理
+- **TanStack Query**：Server state 管理（含 SSR）
 
-### Framework Stack
+#### AI 服務整合
 
-- **TanStack Start**: Full-stack React framework with SSR via Nitro
-- **TanStack Router**: File-based routing with type-safe navigation
-- **TanStack Store**: Lightweight state management for application state
-- **TanStack Query**: Server state management with SSR integration
+| 服務 | 用途 |
+|---|---|
+| **FAL-AI Flux Pro** | 高品質圖片生成（text-to-image、image-to-image） |
+| **OpenAI GPT Image** | 參考圖導向的角色一致性圖片生成 |
+| **FAL-AI Kling Video** | 圖生影（多種模型選擇） |
+| **ElevenLabs** | 文字轉語音（含字級時間戳） |
+| **FFmpeg** | 影片處理、混音、匯出 |
 
-### AI Services Integration
-
-| Service | Purpose |
-|---------|---------|
-| **FAL-AI Flux Pro** | High-quality image generation (text-to-image, image-to-image) |
-| **OpenAI GPT Image** | Character-consistent image generation with file references |
-| **FAL-AI Kling Video** | Image-to-video generation with multiple model options |
-| **ElevenLabs** | Text-to-speech with word-level timestamps |
-| **FFmpeg** | Video processing, audio mixing, and final export |
-
-### Project Structure
+#### 專案結構
 
 ```
 src/
-├── routes/              # File-based routing
-│   ├── aistory.tsx      # Layout with shared header
+├── routes/              # 檔案式路由
+│   ├── aistory.tsx      # 共用 header 的 layout
 │   ├── aistory/
-│   │   ├── index.tsx    # Script input & engine selection
-│   │   ├── scenes.tsx   # Character & scene generation
-│   │   └── export.tsx   # Video merging & download
+│   │   ├── index.tsx    # 腳本輸入與引擎選擇
+│   │   ├── scenes.tsx   # 角色/場景生成
+│   │   └── export.tsx   # 合併與下載
 │   └── api/             # Server-side API endpoints
-├── stores/              # TanStack Store state management
-├── hooks/               # React Query mutations & API hooks
-├── components/          # Reusable UI components
-└── lib/                 # Utility functions
+├── stores/              # TanStack Store
+├── hooks/               # React Query hooks/mutations
+├── components/          # UI 元件
+└── lib/                 # 工具函式
 ```
 
-## Prerequisites
+### 先決條件
 
-Before running the application, you must obtain API keys from the following services:
+啟動前請先準備以下 API Key：
 
-| Service | Environment Variable | Get API Key |
-|---------|---------------------|-------------|
-| OpenAI | `OPENAI_API_KEY` | [platform.openai.com](https://platform.openai.com) |
-| FAL-AI | `FAL_API_KEY` | [fal.ai](https://fal.ai) |
-| ElevenLabs | `ELEVEN_API_KEY` | [elevenlabs.io](https://elevenlabs.io) |
+| 服務 | 環境變數 | 申請 |
+|---|---|---|
+| OpenAI | `OPENAI_API_KEY` | https://platform.openai.com |
+| FAL-AI | `FAL_API_KEY` | https://fal.ai |
+| ElevenLabs | `ELEVEN_API_KEY` | https://elevenlabs.io |
 
-## Setup
-
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd aistory-ts
-   ```
-
-2. **Install dependencies**
-   ```bash
-   pnpm install
-   ```
-
-3. **Configure environment variables**
-
-   Create a `.env` file in the project root:
-   ```env
-   OPENAI_API_KEY=your_openai_api_key
-   FAL_API_KEY=your_fal_api_key
-   ELEVEN_API_KEY=your_elevenlabs_api_key
-   ```
-
-4. **Start the development server**
-   ```bash
-   pnpm dev
-   ```
-
-5. **Open in browser**
-
-   Navigate to [http://localhost:3000](http://localhost:3000)
-
-## Usage Workflow
-
-### Step 1: Script & Configuration (`/aistory`)
-- Enter your narrative script with character descriptions and scene details
-- Select your preferred image generation engine (Flux Pro or GPT Image)
-- Choose a video generation engine based on quality/speed preferences
-- Pick a narration voice (Jonathan, Arabella, or Michael)
-- Click "Generate Prompts" to create character and scene prompts
-
-### Step 2: Content Generation (`/aistory/scenes`)
-- Generate or upload a character reference image
-- Generate images for each scene (maintains character consistency)
-- Generate audio narration with synchronized captions
-- Generate video for each scene
-
-### Step 3: Export (`/aistory/export`)
-- Merge all scenes into a final video
-- Preview the complete video with mixed audio
-- Download the finished video file
-
-## Available Commands
+### 安裝與啟動
 
 ```bash
-pnpm dev          # Start development server (port 3000)
-pnpm build        # Create production build
-pnpm test         # Run Vitest tests
-pnpm check        # Run Biome lint & format check
-pnpm format       # Format code with Biome
-pnpm lint         # Lint code with Biome
+cd shorty-film-front
+pnpm install
+pnpm dev
 ```
 
-## Engine Options
+瀏覽器開啟：`http://localhost:3000`
 
-### Image Engines
-- **Flux Pro** (Default): Fast generation with excellent quality
-- **GPT Image**: OpenAI native with superior character reference handling
+### 使用流程
 
-### Video Engines
-- **Kling v2.6 Pro Image-to-Video**: Best quality, includes audio generation
-- **Kling v2.6 Pro (No Audio)**: Same quality, 50% cheaper
-- **Kling Reference-to-Video**: Uses character reference for consistency
-- **LTX-2 19B**: Fast generation with good motion quality
+- **Step 1：腳本與設定**（`/aistory`）
+  - 輸入故事腳本（含角色描述與場景細節）
+  - 選擇圖片引擎與影片引擎、旁白聲音
+  - 產生角色/場景提示詞（prompts）
+- **Step 2：素材生成**（`/aistory/scenes`）
+  - 產生或上傳角色參考圖
+  - 逐鏡生成圖片、旁白（含字幕時間戳）、影片
+- **Step 3：匯出**（`/aistory/export`）
+  - 合併所有鏡頭並混音
+  - 預覽並下載成品影片
 
-### Voice Options
-- **Jonathan**: Male, warm and engaging storyteller voice
-- **Arabella**: Female, elegant and expressive narration
-- **Michael**: Male, deep and authoritative voice
+### 常用指令
 
-## License
+```bash
+pnpm dev          # 開發伺服器（port 3000）
+pnpm build        # 建置 production
+pnpm test         # Vitest
+pnpm check        # Biome lint & format check
+pnpm format       # Biome format
+pnpm lint         # Biome lint
+```
+
+### 引擎選項（摘要）
+
+- **圖片引擎**
+  - Flux Pro：速度快、品質佳
+  - GPT Image：角色參考處理較強
+- **影片引擎**
+  - Kling v2.6 Pro（含音訊）：品質最佳
+  - Kling v2.6 Pro（無音訊）：更便宜
+  - Kling Reference-to-Video：加強角色一致性
+  - LTX-2 19B：速度快、動態自然
+- **旁白聲音**
+  - Jonathan / Arabella / Michael
+
+### 授權
+
+MIT
+
+---
+
+## English
+
+Semi-automatic story-to-video frontend (TanStack Start). Turns narrative scripts into character/scene prompts and orchestrates image, narration, video generation, and export.
+
+### Highlights
+
+- **Character consistency** via reference images/prompts
+- **Period-accurate backgrounds** aligned with story setting
+- **Multiple engines** for image/video generation
+- **Narration + captions** with word-level timestamps (ElevenLabs)
+- **Export** with mixed audio (ambient + voice) and download
+- **Queue-based processing** with real-time status updates
+
+### Technical Architecture
+
+#### Framework Stack
+
+- **TanStack Start** (Nitro SSR)
+- **TanStack Router**
+- **TanStack Store**
+- **TanStack Query**
+
+#### AI Services
+
+| Service | Purpose |
+|---|---|
+| **FAL-AI Flux Pro** | High-quality image generation (text-to-image, image-to-image) |
+| **OpenAI GPT Image** | Character-consistent image generation using references |
+| **FAL-AI Kling Video** | Image-to-video generation (multiple models) |
+| **ElevenLabs** | Text-to-speech with word-level timestamps |
+| **FFmpeg** | Video processing, audio mixing, and export |
+
+#### Project Structure
+
+```
+src/
+├── routes/
+│   ├── aistory.tsx
+│   ├── aistory/
+│   │   ├── index.tsx
+│   │   ├── scenes.tsx
+│   │   └── export.tsx
+│   └── api/
+├── stores/
+├── hooks/
+├── components/
+└── lib/
+```
+
+### Prerequisites
+
+| Service | Env var |
+|---|---|
+| OpenAI | `OPENAI_API_KEY` |
+| FAL-AI | `FAL_API_KEY` |
+| ElevenLabs | `ELEVEN_API_KEY` |
+
+### Setup
+
+```bash
+cd shorty-film-front
+pnpm install
+pnpm dev
+```
+
+Open: `http://localhost:3000`
+
+### Workflow
+
+- **Step 1** (`/aistory`): script + engine/voice selection → generate prompts
+- **Step 2** (`/aistory/scenes`): character reference → generate images/audio/video per scene
+- **Step 3** (`/aistory/export`): merge scenes → preview → download
+
+### Commands
+
+```bash
+pnpm dev
+pnpm build
+pnpm test
+pnpm check
+pnpm format
+pnpm lint
+```
+
+### License
 
 MIT
