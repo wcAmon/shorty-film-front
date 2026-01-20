@@ -25,6 +25,16 @@ export const Route = createFileRoute("/api/export-video")({
 				try {
 					const body = (await request.json()) as {
 						storyId: string;
+						subtitleData?: {
+							segments: Array<{
+								text: string;
+								absoluteStartTime: number;
+								absoluteEndTime: number;
+								color: string;
+							}>;
+							globalSize: "small" | "medium" | "large";
+							globalPosition: "top" | "center" | "bottom";
+						};
 					};
 
 					// Proxy to backend with owner ID

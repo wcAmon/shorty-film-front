@@ -998,18 +998,31 @@ async function updateSceneCaptionApi(params: {
 	return response.json();
 }
 
+// Subtitle export data type
+interface SubtitleExportData {
+	segments: Array<{
+		text: string;
+		absoluteStartTime: number;
+		absoluteEndTime: number;
+		color: string;
+	}>;
+	globalSize: "small" | "medium" | "large";
+	globalPosition: "top" | "center" | "bottom";
+}
+
 // Export video API function - now submits job and waits for completion
 async function exportVideoApi(params: {
 	storyId: string;
+	subtitleData?: SubtitleExportData | null;
 	onStatusUpdate?: (status: JobStatus) => void;
 }): Promise<ExportVideoCompletedResponse> {
-	const { storyId, onStatusUpdate } = params;
+	const { storyId, subtitleData, onStatusUpdate } = params;
 
 	// Step 1: Submit export job to backend
 	const submitResponse = await authFetch("/api/export-video", {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({ storyId }),
+		body: JSON.stringify({ storyId, subtitleData }),
 	});
 	const submitResult: ExportVideoSubmitResponse = await submitResponse.json();
 
@@ -1046,11 +1059,13 @@ async function exportVideoApi(params: {
  * Hook to export final video with all scenes combined
  * Submits job to backend and monitors completion via Realtime
  * Returns videoUrl (Supabase Storage)
+ * Supports optional subtitle data for burned-in captions
  */
 export function useExportVideo() {
 	return useMutation({
 		mutationFn: (params: {
 			storyId: string;
+			subtitleData?: SubtitleExportData | null;
 			onStatusUpdate?: (status: JobStatus) => void;
 		}) => exportVideoApi(params),
 	});

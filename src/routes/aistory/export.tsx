@@ -1,8 +1,12 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute, redirect, Link } from "@tanstack/react-router";
 import { useStore } from "@tanstack/react-store";
-import { Clock, Download, Film, Loader2, PlayCircle } from "lucide-react";
+import { Captions, Clock, Download, Film, Loader2, Pencil, PlayCircle } from "lucide-react";
 import { useExportVideo } from "@/hooks/use-aistory-api";
 import { aistoryActions, aistoryStore } from "@/stores/aistory.store";
+import {
+	subtitleEditorStore,
+	subtitleEditorActions,
+} from "@/stores/subtitle-editor.store";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 
@@ -38,6 +42,29 @@ function ExportPage() {
 	);
 	const exportError = useStore(aistoryStore, (state) => state.exportError);
 
+	// Subscribe to subtitle editor store
+	const subtitleSegments = useStore(
+		subtitleEditorStore,
+		(state) => state.segments,
+	);
+	const subtitleIsInitialized = useStore(
+		subtitleEditorStore,
+		(state) => state.isInitialized,
+	);
+	const subtitleGlobalSize = useStore(
+		subtitleEditorStore,
+		(state) => state.globalSize,
+	);
+	const subtitleGlobalPosition = useStore(
+		subtitleEditorStore,
+		(state) => state.globalPosition,
+	);
+
+	// Check if any scenes have word timestamps (can use subtitle editor)
+	const hasWordTimestamps = scenes.some(
+		(s) => s.wordTimestamps && s.wordTimestamps.length > 0,
+	);
+
 	// Calculate total duration from all scene videos
 	const totalDuration = scenes.reduce(
 		(acc, scene) => acc + (scene.videoDuration || 0),
@@ -58,8 +85,11 @@ function ExportPage() {
 		aistoryActions.setIsExportingVideo(true);
 		aistoryActions.setExportError(null);
 
+		// Get subtitle data if initialized
+		const subtitleData = subtitleEditorActions.getExportData();
+
 		exportVideoMutation.mutate(
-			{ storyId },
+			{ storyId, subtitleData },
 			{
 				onSuccess: (result) => {
 					if (result.success && result.videoUrl) {
@@ -149,6 +179,60 @@ function ExportPage() {
 					</div>
 				</CardContent>
 			</Card>
+
+			{/* Subtitle Settings Card */}
+			{hasWordTimestamps && (
+				<Card>
+					<CardContent className="p-6">
+						<h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+							<Captions className="w-5 h-5 text-cyan-400" />
+							字幕設定
+						</h3>
+
+						{subtitleIsInitialized && subtitleSegments.length > 0 ? (
+							<div className="space-y-4">
+								<div className="flex items-center justify-between px-4 py-3 bg-cyan-500/10 border border-cyan-500/30 rounded-lg">
+									<div>
+										<p className="text-foreground font-medium">
+											已設定 {subtitleSegments.length} 個字幕片段
+										</p>
+										<p className="text-muted-foreground text-sm mt-1">
+											大小: {subtitleGlobalSize === "small" ? "小" : subtitleGlobalSize === "medium" ? "中" : "大"} |
+											位置: {subtitleGlobalPosition === "top" ? "上" : subtitleGlobalPosition === "center" ? "中" : "下"}
+										</p>
+									</div>
+									<Link to="/aistory/subtitles">
+										<Button variant="outline" className="flex items-center gap-2">
+											<Pencil className="w-4 h-4" />
+											編輯字幕
+										</Button>
+									</Link>
+								</div>
+								<p className="text-muted-foreground text-sm">
+									字幕將在匯出時燒錄進影片中
+								</p>
+							</div>
+						) : (
+							<div className="space-y-4">
+								<div className="flex items-center justify-between px-4 py-3 bg-muted border border-border rounded-lg">
+									<div>
+										<p className="text-foreground font-medium">尚未設定字幕</p>
+										<p className="text-muted-foreground text-sm mt-1">
+											您可以編輯字幕的顏色、大小和位置
+										</p>
+									</div>
+									<Link to="/aistory/subtitles">
+										<Button className="flex items-center gap-2 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400">
+											<Captions className="w-4 h-4" />
+											設定字幕
+										</Button>
+									</Link>
+								</div>
+							</div>
+						)}
+					</CardContent>
+				</Card>
+			)}
 
 			{/* Export Button Section */}
 			<Card>
