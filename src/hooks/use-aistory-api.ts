@@ -745,10 +745,19 @@ async function generateSceneAudioApi(params: {
 	const job = jobResult.job;
 
 	// Parse word timestamps from JSON string (backend returns it as string)
+	// Backend uses { word, start, end }, frontend expects { word, startTime, endTime }
 	let wordTimestamps: WordTimestamp[] | undefined;
 	if (job.wordTimestamps) {
 		try {
-			wordTimestamps = JSON.parse(job.wordTimestamps);
+			const parsed = JSON.parse(job.wordTimestamps);
+			// Normalize to frontend format
+			wordTimestamps = parsed.map(
+				(wt: { word: string; start?: number; end?: number; startTime?: number; endTime?: number }) => ({
+					word: wt.word,
+					startTime: wt.startTime ?? wt.start ?? 0,
+					endTime: wt.endTime ?? wt.end ?? 0,
+				}),
+			);
 		} catch (e) {
 			logger.error(
 				"[generateSceneAudioApi]",

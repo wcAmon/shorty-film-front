@@ -372,11 +372,20 @@ function HistoryTab() {
 
 				// Restore scenes with URL-based media and per-scene voice settings
 				const restoredScenes = scenes.map((scene: DbScene) => {
-					// Parse wordTimestamps from JSON string
+					// Parse wordTimestamps from JSON string and normalize field names
+					// Backend uses { word, start, end }, frontend expects { word, startTime, endTime }
 					let wordTimestamps;
 					if (scene.wordTimestamps) {
 						try {
-							wordTimestamps = JSON.parse(scene.wordTimestamps);
+							const parsed = JSON.parse(scene.wordTimestamps);
+							// Normalize to frontend format
+							wordTimestamps = parsed.map(
+								(wt: { word: string; start?: number; end?: number; startTime?: number; endTime?: number }) => ({
+									word: wt.word,
+									startTime: wt.startTime ?? wt.start ?? 0,
+									endTime: wt.endTime ?? wt.end ?? 0,
+								}),
+							);
 						} catch {
 							wordTimestamps = undefined;
 						}
