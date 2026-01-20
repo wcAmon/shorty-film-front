@@ -40,10 +40,7 @@ const COLOR_BORDER_MAP: Record<SubtitleColor, string> = {
 };
 
 // Scene background colors (alternating for visual distinction)
-const SCENE_COLORS = [
-	"bg-slate-800/50",
-	"bg-slate-700/50",
-];
+const SCENE_COLORS = ["bg-slate-800/30", "bg-slate-700/30"];
 
 // ============================================================================
 // Helper Functions
@@ -68,10 +65,10 @@ export function SubtitleTimeline({
 	onSegmentSelect,
 }: SubtitleTimelineProps) {
 	const containerRef = useRef<HTMLDivElement>(null);
-	const [pixelsPerSecond, setPixelsPerSecond] = useState(50); // Default zoom level
+	const [pixelsPerSecond, setPixelsPerSecond] = useState(40); // Default zoom level
 
-	// Calculate timeline width based on duration and zoom
-	const timelineWidth = totalDuration * pixelsPerSecond;
+	// Calculate timeline height based on duration and zoom
+	const timelineHeight = totalDuration * pixelsPerSecond;
 
 	// Time markers (every 5 seconds)
 	const timeMarkers: number[] = [];
@@ -84,7 +81,7 @@ export function SubtitleTimeline({
 		if (e.ctrlKey || e.metaKey) {
 			e.preventDefault();
 			const delta = e.deltaY > 0 ? -5 : 5;
-			setPixelsPerSecond((prev) => Math.max(20, Math.min(200, prev + delta)));
+			setPixelsPerSecond((prev) => Math.max(20, Math.min(100, prev + delta)));
 		}
 	};
 
@@ -101,7 +98,7 @@ export function SubtitleTimeline({
 		if (selectedSegmentId && containerRef.current) {
 			const segmentEl = document.getElementById(`segment-${selectedSegmentId}`);
 			if (segmentEl) {
-				segmentEl.scrollIntoView({ behavior: "smooth", inline: "center" });
+				segmentEl.scrollIntoView({ behavior: "smooth", block: "center" });
 			}
 		}
 	}, [selectedSegmentId]);
@@ -114,57 +111,57 @@ export function SubtitleTimeline({
 				<span>Total: {formatTime(totalDuration)}</span>
 			</div>
 
-			{/* Timeline container */}
+			{/* Timeline container - vertical scroll */}
 			<div
 				ref={containerRef}
-				className="relative overflow-x-auto border border-border rounded-lg bg-background"
-				style={{ height: "200px" }}
+				className="relative overflow-y-auto border border-border rounded-lg bg-background"
+				style={{ maxHeight: "500px" }}
 			>
 				<div
-					className="relative"
-					style={{ width: `${Math.max(timelineWidth, 800)}px`, height: "100%" }}
+					className="relative flex"
+					style={{ height: `${Math.max(timelineHeight, 400)}px` }}
 				>
-					{/* Time ruler */}
-					<div className="absolute top-0 left-0 right-0 h-6 border-b border-border bg-muted/50">
+					{/* Time ruler (left side) */}
+					<div className="sticky left-0 w-16 border-r border-border bg-muted/50 flex-shrink-0 z-10">
 						{timeMarkers.map((time) => (
 							<div
 								key={time}
-								className="absolute top-0 flex flex-col items-center"
-								style={{ left: `${time * pixelsPerSecond}px` }}
+								className="absolute left-0 w-full flex items-center justify-end pr-2"
+								style={{ top: `${time * pixelsPerSecond}px` }}
 							>
-								<div className="w-px h-3 bg-border" />
-								<span className="text-[10px] text-muted-foreground mt-0.5">
+								<span className="text-[10px] text-muted-foreground font-mono">
 									{formatTime(time)}
 								</span>
+								<div className="absolute right-0 w-2 h-px bg-border" />
 							</div>
 						))}
 					</div>
 
-					{/* Scene boundaries layer */}
-					<div className="absolute top-6 left-0 right-0 h-8 border-b border-border">
+					{/* Main timeline area */}
+					<div className="flex-1 relative">
+						{/* Scene boundaries (background stripes) */}
 						{sceneBoundaries.map((scene, index) => (
 							<div
 								key={scene.sceneId}
-								className={`absolute top-0 h-full ${SCENE_COLORS[index % 2]} border-r border-border flex items-center justify-center overflow-hidden ${!scene.hasTimestamps ? "opacity-50" : ""}`}
+								className={`absolute left-0 right-0 ${SCENE_COLORS[index % 2]} border-b border-border/50 ${!scene.hasTimestamps ? "opacity-50" : ""}`}
 								style={{
-									left: `${scene.startTime * pixelsPerSecond}px`,
-									width: `${(scene.endTime - scene.startTime) * pixelsPerSecond}px`,
+									top: `${scene.startTime * pixelsPerSecond}px`,
+									height: `${(scene.endTime - scene.startTime) * pixelsPerSecond}px`,
 								}}
-								title={scene.hasTimestamps ? scene.title : `${scene.title} (無音訊時間戳)`}
 							>
-								<span className="text-xs text-muted-foreground truncate px-2">
+								{/* Scene label */}
+								<div className="sticky top-0 px-3 py-1 text-xs text-muted-foreground bg-background/80 border-b border-border/30">
 									{scene.title}
 									{!scene.hasTimestamps && " (無字幕)"}
-								</span>
+								</div>
 							</div>
 						))}
-					</div>
 
-					{/* Subtitle segments layer */}
-					<div className="absolute top-14 left-0 right-0 bottom-0 py-2">
+						{/* Subtitle segments */}
 						{segments.map((segment) => {
 							const isSelected = segment.id === selectedSegmentId;
-							const width =
+							const topPosition = segment.absoluteStartTime * pixelsPerSecond;
+							const height =
 								(segment.absoluteEndTime - segment.absoluteStartTime) *
 								pixelsPerSecond;
 
@@ -174,22 +171,25 @@ export function SubtitleTimeline({
 									key={segment.id}
 									id={`segment-${segment.id}`}
 									onClick={() => onSegmentSelect(segment.id)}
-									className={`absolute h-12 rounded-md border-2 transition-all cursor-pointer hover:opacity-90 flex items-center justify-center overflow-hidden px-1 ${
+									className={`absolute left-20 right-4 rounded-md border-2 transition-all cursor-pointer hover:opacity-90 overflow-hidden ${
 										isSelected
 											? `${COLOR_BORDER_MAP[segment.color]} ring-2 ring-cyan-400 ring-offset-2 ring-offset-background`
 											: "border-transparent"
 									}`}
 									style={{
-										left: `${segment.absoluteStartTime * pixelsPerSecond}px`,
-										width: `${Math.max(width, 20)}px`,
-										top: `${(segment.sceneIndex % 3) * 40}px`,
+										top: `${topPosition + 24}px`, // +24 to account for scene label
+										minHeight: `${Math.max(height, 28)}px`,
 									}}
 									title={`${segment.text} (${formatTime(segment.absoluteStartTime)} - ${formatTime(segment.absoluteEndTime)})`}
 								>
 									<div
-										className={`w-full h-full ${COLOR_MAP[segment.color]} bg-opacity-80 rounded flex items-center justify-center`}
+										className={`w-full h-full ${COLOR_MAP[segment.color]} bg-opacity-80 rounded flex items-center px-3 py-1`}
 									>
-										<span className="text-xs text-black font-medium truncate px-1">
+										<span className="text-xs text-black font-medium truncate">
+											{formatTime(segment.absoluteStartTime)} ~ {formatTime(segment.absoluteEndTime)}
+										</span>
+										<span className="mx-2 text-black/50">|</span>
+										<span className="text-sm text-black font-medium truncate flex-1">
 											{segment.text}
 										</span>
 									</div>

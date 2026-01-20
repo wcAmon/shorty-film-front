@@ -1,5 +1,6 @@
 import { createFileRoute, redirect, Link } from "@tanstack/react-router";
 import { useStore } from "@tanstack/react-store";
+import { useState } from "react";
 import { Captions, Clock, Download, Film, Loader2, Pencil, PlayCircle } from "lucide-react";
 import { useExportVideo } from "@/hooks/use-aistory-api";
 import { aistoryActions, aistoryStore } from "@/stores/aistory.store";
@@ -65,6 +66,9 @@ function ExportPage() {
 		(s) => s.wordTimestamps && s.wordTimestamps.length > 0,
 	);
 
+	// State for enabling/disabling subtitle export
+	const [includeSubtitles, setIncludeSubtitles] = useState(true);
+
 	// Calculate total duration from all scene videos
 	const totalDuration = scenes.reduce(
 		(acc, scene) => acc + (scene.videoDuration || 0),
@@ -85,8 +89,8 @@ function ExportPage() {
 		aistoryActions.setIsExportingVideo(true);
 		aistoryActions.setExportError(null);
 
-		// Get subtitle data if initialized
-		const subtitleData = subtitleEditorActions.getExportData();
+		// Get subtitle data if initialized AND user wants subtitles
+		const subtitleData = includeSubtitles ? subtitleEditorActions.getExportData() : null;
 
 		exportVideoMutation.mutate(
 			{ storyId, subtitleData },
@@ -184,50 +188,75 @@ function ExportPage() {
 			{hasWordTimestamps && (
 				<Card>
 					<CardContent className="p-6">
-						<h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-							<Captions className="w-5 h-5 text-cyan-400" />
-							字幕設定
-						</h3>
+						<div className="flex items-center justify-between mb-4">
+							<h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+								<Captions className="w-5 h-5 text-cyan-400" />
+								字幕設定
+							</h3>
 
-						{subtitleIsInitialized && subtitleSegments.length > 0 ? (
-							<div className="space-y-4">
-								<div className="flex items-center justify-between px-4 py-3 bg-cyan-500/10 border border-cyan-500/30 rounded-lg">
-									<div>
-										<p className="text-foreground font-medium">
-											已設定 {subtitleSegments.length} 個字幕片段
-										</p>
-										<p className="text-muted-foreground text-sm mt-1">
-											大小: {subtitleGlobalSize === "small" ? "小" : subtitleGlobalSize === "medium" ? "中" : "大"} |
-											位置: {subtitleGlobalPosition === "top" ? "上" : subtitleGlobalPosition === "center" ? "中" : "下"}
-										</p>
+							{/* Toggle for including subtitles */}
+							<button
+								type="button"
+								onClick={() => setIncludeSubtitles(!includeSubtitles)}
+								className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors ${
+									includeSubtitles ? "bg-cyan-500" : "bg-muted"
+								}`}
+							>
+								<span
+									className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform ${
+										includeSubtitles ? "translate-x-7" : "translate-x-1"
+									}`}
+								/>
+							</button>
+						</div>
+
+						{includeSubtitles ? (
+							subtitleIsInitialized && subtitleSegments.length > 0 ? (
+								<div className="space-y-4">
+									<div className="flex items-center justify-between px-4 py-3 bg-cyan-500/10 border border-cyan-500/30 rounded-lg">
+										<div>
+											<p className="text-foreground font-medium">
+												已設定 {subtitleSegments.length} 個字幕片段
+											</p>
+											<p className="text-muted-foreground text-sm mt-1">
+												大小: {subtitleGlobalSize === "small" ? "小" : subtitleGlobalSize === "medium" ? "中" : "大"} |
+												位置: {subtitleGlobalPosition === "top" ? "上" : subtitleGlobalPosition === "center" ? "中" : "下"}
+											</p>
+										</div>
+										<Link to="/aistory/subtitles">
+											<Button variant="outline" className="flex items-center gap-2">
+												<Pencil className="w-4 h-4" />
+												編輯字幕
+											</Button>
+										</Link>
 									</div>
-									<Link to="/aistory/subtitles">
-										<Button variant="outline" className="flex items-center gap-2">
-											<Pencil className="w-4 h-4" />
-											編輯字幕
-										</Button>
-									</Link>
+									<p className="text-muted-foreground text-sm">
+										字幕將在匯出時燒錄進影片中
+									</p>
 								</div>
-								<p className="text-muted-foreground text-sm">
-									字幕將在匯出時燒錄進影片中
-								</p>
-							</div>
+							) : (
+								<div className="space-y-4">
+									<div className="flex items-center justify-between px-4 py-3 bg-muted border border-border rounded-lg">
+										<div>
+											<p className="text-foreground font-medium">尚未設定字幕</p>
+											<p className="text-muted-foreground text-sm mt-1">
+												您可以編輯字幕的顏色、大小和位置
+											</p>
+										</div>
+										<Link to="/aistory/subtitles">
+											<Button className="flex items-center gap-2 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400">
+												<Captions className="w-4 h-4" />
+												設定字幕
+											</Button>
+										</Link>
+									</div>
+								</div>
+							)
 						) : (
-							<div className="space-y-4">
-								<div className="flex items-center justify-between px-4 py-3 bg-muted border border-border rounded-lg">
-									<div>
-										<p className="text-foreground font-medium">尚未設定字幕</p>
-										<p className="text-muted-foreground text-sm mt-1">
-											您可以編輯字幕的顏色、大小和位置
-										</p>
-									</div>
-									<Link to="/aistory/subtitles">
-										<Button className="flex items-center gap-2 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400">
-											<Captions className="w-4 h-4" />
-											設定字幕
-										</Button>
-									</Link>
-								</div>
+							<div className="px-4 py-3 bg-muted/50 border border-border rounded-lg">
+								<p className="text-muted-foreground">
+									字幕已停用，匯出將不包含字幕
+								</p>
 							</div>
 						)}
 					</CardContent>
