@@ -683,9 +683,6 @@ function DirectorModePage() {
 		directorActions.setBatchProgress(null);
 	};
 
-	// Check if scenes should be disabled (need character image for generation)
-	const scenesDisabled = !character?.imageUrl;
-
 	return (
 		<>
 			<div className="space-y-8">
@@ -992,7 +989,7 @@ function DirectorModePage() {
 				)}
 
 				{/* Batch Generation Controls */}
-				{scenes.length > 0 && !scenesDisabled && (
+				{scenes.length > 0 && (
 					<Card>
 						<CardContent className="p-6">
 							<h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
@@ -1043,21 +1040,15 @@ function DirectorModePage() {
 				{/* Scene List */}
 				{scenes.length > 0 && (
 					<div className="space-y-6">
-						{scenesDisabled && (
-							<div className="p-4 bg-amber-500/20 border border-amber-500/50 rounded-xl text-amber-300 text-center">
-								Please generate or upload a character image first to enable scene generation
-							</div>
-						)}
-
 						{scenes.map((scene, index) => (
 							<SceneCard
 								key={scene.id}
 								scene={scene}
 								index={index}
 								totalScenes={scenes.length}
-								disabled={scenesDisabled}
 								isSettingsExpanded={expandedSceneSettings.has(scene.id)}
 								playingSceneId={playingSceneId}
+								hasCharacterImage={!!character?.imageUrl}
 								onToggleSettings={() => toggleSceneSettings(scene.id)}
 								onCaptionChange={handleCaptionChange}
 								onImagePromptChange={handleImagePromptChange}
@@ -1149,9 +1140,9 @@ interface SceneCardProps {
 	scene: DirectorSceneState;
 	index: number;
 	totalScenes: number;
-	disabled: boolean;
 	isSettingsExpanded: boolean;
 	playingSceneId: string | null;
+	hasCharacterImage: boolean;
 	onToggleSettings: () => void;
 	onCaptionChange: (sceneId: string, caption: string) => void;
 	onImagePromptChange: (sceneId: string, imagePrompt: string) => void;
@@ -1174,9 +1165,9 @@ function SceneCard({
 	scene,
 	index,
 	totalScenes,
-	disabled,
 	isSettingsExpanded,
 	playingSceneId,
+	hasCharacterImage,
 	onToggleSettings,
 	onCaptionChange,
 	onImagePromptChange,
@@ -1195,7 +1186,7 @@ function SceneCard({
 	onDelete,
 }: SceneCardProps) {
 	return (
-		<Card className={disabled ? "opacity-50 pointer-events-none" : ""}>
+		<Card>
 			<CardContent className="p-6">
 				{/* Scene header */}
 				<div className="flex items-center justify-between mb-4">
@@ -1305,6 +1296,8 @@ function SceneCard({
 									size="sm"
 									onClick={() => onToggleAvatarMode(scene.id, !scene.useAvatar)}
 									className="w-full"
+									disabled={!hasCharacterImage}
+									title={!hasCharacterImage ? "Generate or upload a character image first" : undefined}
 								>
 									{scene.useAvatar ? "Avatar ON" : "Avatar OFF"}
 								</Button>
