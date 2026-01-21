@@ -16,6 +16,7 @@ import {
 	User,
 	Volume2,
 } from "lucide-react";
+import { DirectorAssistant } from "@/components/director-assistant/DirectorAssistant";
 import { useRef, useState } from "react";
 import { useDebouncedCallback } from "use-debounce";
 import { CountdownProgress } from "@/components/countdown-progress";
@@ -584,6 +585,7 @@ function DirectorScenesPage() {
 	const scenesDisabled = !character?.imageUrl;
 
 	return (
+		<>
 		<div className="space-y-8">
 			{/* Default Engine Settings Display */}
 			<Card>
@@ -802,6 +804,8 @@ function DirectorScenesPage() {
 				</div>
 			)}
 		</div>
+		<DirectorAssistant />
+		</>
 	);
 }
 

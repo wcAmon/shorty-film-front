@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useStore } from "@tanstack/react-store";
-import { Mic, Play, Sparkles, Zap } from "lucide-react";
+import { Clapperboard, Mic, Play, Sparkles, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useAuth } from "@/hooks/use-auth";
@@ -73,12 +73,12 @@ function LandingPage() {
 					</Card>
 					<Card className="border-border bg-card/50 backdrop-blur">
 						<CardContent className="p-6 text-center">
-							<Zap className="mx-auto mb-4 h-10 w-10 text-purple-500" />
+							<Clapperboard className="mx-auto mb-4 h-10 w-10 text-purple-500" />
 							<h3 className="mb-2 text-lg font-semibold text-foreground">
-								Fast
+								Director Mode
 							</h3>
 							<p className="text-sm text-muted-foreground">
-								Generate professional videos in minutes
+								16:9 landscape with per-scene engine control
 							</p>
 						</CardContent>
 					</Card>
@@ -122,6 +122,13 @@ function Dashboard() {
 				>
 					<Mic className="h-8 w-8 group-hover:animate-pulse" />
 					Podcast 42
+				</Link>
+				<Link
+					to="/director-mode"
+					className="group inline-flex items-center gap-3 rounded-2xl bg-gradient-to-r from-purple-500 to-pink-500 px-12 py-6 text-2xl font-bold text-white shadow-2xl shadow-purple-500/30 transition-all duration-300 hover:scale-105 hover:from-purple-400 hover:to-pink-400 hover:shadow-purple-500/50"
+				>
+					<Clapperboard className="h-8 w-8 group-hover:animate-pulse" />
+					Director Mode
 				</Link>
 			</div>
 		</div>
