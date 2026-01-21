@@ -411,8 +411,8 @@ function HistoryTab() {
 					directorActions.setExportedVideoUrl(storyData.exportVideoUrl);
 				}
 
-				// Navigate to scenes page
-				navigate({ to: "/director-mode/scenes" });
+				// Navigate to director mode page
+				navigate({ to: "/director-mode" });
 			} else if (storyData.type === "podcast42") {
 				// Restore podcast42 state
 				podcast42Actions.reset();

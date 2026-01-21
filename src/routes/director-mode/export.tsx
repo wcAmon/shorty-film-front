@@ -23,7 +23,7 @@ export const Route = createFileRoute("/director-mode/export")({
 			state.scenes.every((scene) => scene.videoUrl && scene.audioUrl);
 
 		if (!allScenesHaveVideos) {
-			throw redirect({ to: "/director-mode/scenes" });
+			throw redirect({ to: "/director-mode" });
 		}
 	},
 	component: DirectorExportPage,

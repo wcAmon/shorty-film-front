@@ -26,7 +26,7 @@ export const Route = createFileRoute("/director-mode/subtitles")({
 			(s) => s.wordTimestamps && s.wordTimestamps.length > 0
 		);
 		if (!hasAnyTimestamps) {
-			throw redirect({ to: "/director-mode/scenes" });
+			throw redirect({ to: "/director-mode" });
 		}
 	},
 	component: DirectorSubtitlesPage,
@@ -145,10 +145,10 @@ function DirectorSubtitlesPage() {
 		<div className="space-y-6">
 			{/* Header with navigation */}
 			<div className="flex items-center justify-between">
-				<Link to="/director-mode/scenes">
+				<Link to="/director-mode">
 					<Button variant="ghost" className="flex items-center gap-2">
 						<ArrowLeft className="w-4 h-4" />
-						Back to Scenes
+						Back to Director Mode
 					</Button>
 				</Link>
 				<h1 className="text-xl font-bold text-foreground flex items-center gap-2">
