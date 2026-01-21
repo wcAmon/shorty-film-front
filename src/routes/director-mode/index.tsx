@@ -437,7 +437,9 @@ function DirectorModePage() {
 				sceneId,
 				prompt: scene.imagePrompt,
 				storyId,
-				imageEngine: scene.imageEngine || defaultImageEngine,
+				imageEngine: scene.useAvatar
+					? (scene.avatarEngine || defaultAvatarEngine)
+					: (scene.imageEngine || defaultImageEngine),
 				characterImageUrl: character?.imageUrl || undefined,
 			});
 
@@ -1290,14 +1292,26 @@ function SceneCard({
 					<div className="mb-4 p-4 bg-muted/50 rounded-lg border border-border">
 						<div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
 							<div>
-								<label className="block text-xs font-medium text-muted-foreground mb-1">Image Engine</label>
-								<select
-									value={scene.imageEngine}
-									onChange={(e) => onImageEngineChange(scene.id, e.target.value as DirectorImageEngine)}
-									className="w-full px-2 py-1 text-sm bg-background border border-border rounded"
-								>
-									{IMAGE_ENGINES.map((e) => <option key={e.id} value={e.id}>{e.label}</option>)}
-								</select>
+								<label className="block text-xs font-medium text-muted-foreground mb-1">
+									{scene.useAvatar ? "Avatar Engine" : "Image Engine"}
+								</label>
+								{scene.useAvatar ? (
+									<select
+										value={scene.avatarEngine || ""}
+										onChange={(e) => onAvatarEngineChange(scene.id, e.target.value as DirectorAvatarEngine)}
+										className="w-full px-2 py-1 text-sm bg-background border border-border rounded"
+									>
+										{AVATAR_ENGINES.map((e) => <option key={e.id} value={e.id}>{e.label}</option>)}
+									</select>
+								) : (
+									<select
+										value={scene.imageEngine}
+										onChange={(e) => onImageEngineChange(scene.id, e.target.value as DirectorImageEngine)}
+										className="w-full px-2 py-1 text-sm bg-background border border-border rounded"
+									>
+										{IMAGE_ENGINES.map((e) => <option key={e.id} value={e.id}>{e.label}</option>)}
+									</select>
+								)}
 							</div>
 							<div>
 								<label className="block text-xs font-medium text-muted-foreground mb-1">Video Engine</label>
@@ -1347,66 +1361,28 @@ function SceneCard({
 									{scene.useAvatar ? "Avatar ON" : "Avatar OFF"}
 								</Button>
 							</div>
-							{scene.useAvatar && (
-								<div>
-									<label className="block text-xs font-medium text-muted-foreground mb-1">Avatar Engine</label>
-									<select
-										value={scene.avatarEngine || ""}
-										onChange={(e) => onAvatarEngineChange(scene.id, e.target.value as DirectorAvatarEngine)}
-										className="w-full px-2 py-1 text-sm bg-background border border-border rounded"
-									>
-										{AVATAR_ENGINES.map((e) => <option key={e.id} value={e.id}>{e.label}</option>)}
-									</select>
-								</div>
-							)}
 						</div>
 					</div>
 				)}
 
-				{/* Scene content */}
-				<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-					{/* Left: Text inputs */}
-					<div className="space-y-4">
-						{/* Caption */}
-						<div>
-							<label className="block text-sm font-medium text-muted-foreground mb-2">Caption / Narration</label>
-							<textarea
-								value={scene.caption}
-								onChange={(e) => onCaptionChange(scene.id, e.target.value)}
-								className="w-full h-24 px-3 py-2 bg-background border border-border rounded-lg text-foreground text-sm placeholder-muted-foreground focus:outline-none focus:border-emerald-500 resize-none"
-								placeholder="Enter the narration text for this scene..."
-							/>
-						</div>
-
-						{/* Image Prompt */}
-						<div>
-							<label className="block text-sm font-medium text-muted-foreground mb-2">Image Prompt</label>
-							<textarea
-								value={scene.imagePrompt}
-								onChange={(e) => onImagePromptChange(scene.id, e.target.value)}
-								className="w-full h-24 px-3 py-2 bg-background border border-border rounded-lg text-foreground text-sm placeholder-muted-foreground focus:outline-none focus:border-purple-500 resize-none"
-								placeholder="Describe what should appear in this scene's image..."
-							/>
-						</div>
-
-						{/* Video Prompt */}
-						<div>
-							<label className="block text-sm font-medium text-muted-foreground mb-2">Video Instruction</label>
-							<textarea
-								value={scene.videoPrompt}
-								onChange={(e) => onVideoPromptChange(scene.id, e.target.value)}
-								className="w-full h-20 px-3 py-2 bg-background border border-border rounded-lg text-foreground text-sm placeholder-muted-foreground focus:outline-none focus:border-indigo-500 resize-none"
-								placeholder="Describe camera movement and action..."
-							/>
-							{scene.videoError && <InlineError error={scene.videoError} />}
-						</div>
-					</div>
-
-					{/* Right: Media previews + generation buttons */}
-					<div className="space-y-4">
-						{/* Image preview + generate */}
-						<div className="flex gap-3">
-							<div className="w-32 shrink-0">
+				{/* Scene content - Vertical flow */}
+				<div className="space-y-6">
+					{/* === IMAGE SECTION === */}
+					<div className="space-y-3">
+						<div className="flex gap-4">
+							{/* Left: Image Prompt */}
+							<div className="flex-1">
+								<label className="block text-sm font-medium text-muted-foreground mb-2">Image Prompt</label>
+								<textarea
+									value={scene.imagePrompt}
+									onChange={(e) => onImagePromptChange(scene.id, e.target.value)}
+									className="w-full h-24 px-3 py-2 bg-background border border-border rounded-lg text-foreground text-sm placeholder-muted-foreground focus:outline-none focus:border-purple-500 resize-none"
+									placeholder="Describe what should appear in this scene's image..."
+								/>
+							</div>
+							{/* Right: Image Preview */}
+							<div className="w-40 shrink-0">
+								<label className="block text-sm font-medium text-muted-foreground mb-2">Preview</label>
 								{scene.imageUrl ? (
 									<img src={scene.imageUrl} alt={`Scene ${index + 1}`} className="w-full rounded-lg object-cover" style={{ aspectRatio: "16/9" }} />
 								) : (
@@ -1415,31 +1391,77 @@ function SceneCard({
 									</div>
 								)}
 							</div>
-							<div className="flex-1 flex flex-col justify-center">
-								<Button
-									onClick={() => onGenerateImage(scene.id)}
-									disabled={scene.isGeneratingImage || !scene.imagePrompt.trim()}
-									size="sm"
-									className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-400 hover:to-pink-400 disabled:from-muted disabled:to-muted"
-								>
-									{scene.isGeneratingImage ? (
-										<><Loader2 className="w-4 h-4 animate-spin mr-2" />Generating...</>
+						</div>
+						{/* Generate Image Button */}
+						<div className="flex items-center gap-3">
+							<Button
+								onClick={() => onGenerateImage(scene.id)}
+								disabled={scene.isGeneratingImage || !scene.imagePrompt.trim()}
+								size="sm"
+								className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-400 hover:to-pink-400 disabled:from-muted disabled:to-muted"
+							>
+								{scene.isGeneratingImage ? (
+									<><Loader2 className="w-4 h-4 animate-spin mr-2" />Generating...</>
+								) : (
+									<><ImageIcon className="w-4 h-4 mr-2" />{scene.imageUrl ? "Regenerate" : "Generate"} Image</>
+								)}
+							</Button>
+							<CountdownProgress isActive={scene.isGeneratingImage} durationSeconds={30} />
+						</div>
+					</div>
+
+					<div className="border-t border-border" />
+
+					{/* === AUDIO SECTION === */}
+					<div className="space-y-3">
+						<div className="flex gap-4">
+							{/* Left: Caption */}
+							<div className="flex-1">
+								<label className="block text-sm font-medium text-muted-foreground mb-2">Caption / Narration</label>
+								<textarea
+									value={scene.caption}
+									onChange={(e) => onCaptionChange(scene.id, e.target.value)}
+									className="w-full h-24 px-3 py-2 bg-background border border-border rounded-lg text-foreground text-sm placeholder-muted-foreground focus:outline-none focus:border-emerald-500 resize-none"
+									placeholder="Enter the narration text for this scene..."
+								/>
+							</div>
+							{/* Right: Audio controls */}
+							<div className="w-40 shrink-0">
+								<label className="block text-sm font-medium text-muted-foreground mb-2">Audio</label>
+								<div className="h-24 bg-muted border border-border rounded-lg flex flex-col items-center justify-center gap-2">
+									{scene.audioUrl ? (
+										<>
+											<Button
+												onClick={() => onPlayAudio(scene.id)}
+												size="sm"
+												variant={playingSceneId === scene.id ? "default" : "outline"}
+												className="w-20"
+											>
+												{playingSceneId === scene.id ? (
+													<><Volume2 className="w-4 h-4 mr-1" />Playing</>
+												) : (
+													<><Play className="w-4 h-4 mr-1" />Play</>
+												)}
+											</Button>
+											{scene.audioDuration && (
+												<span className="text-xs text-muted-foreground">
+													{Math.floor(scene.audioDuration / 60)}:{String(Math.floor(scene.audioDuration % 60)).padStart(2, '0')}
+												</span>
+											)}
+										</>
 									) : (
-										<><ImageIcon className="w-4 h-4 mr-2" />{scene.imageUrl ? "Regenerate" : "Generate"} Image</>
+										<Volume2 className="w-6 h-6 text-muted-foreground opacity-50" />
 									)}
-								</Button>
-								<CountdownProgress isActive={scene.isGeneratingImage} durationSeconds={30} />
+								</div>
 							</div>
 						</div>
-
-						{/* Audio generate + play */}
-						<div className="flex gap-3 items-center">
+						{/* Generate Audio Button */}
+						<div className="flex items-center gap-3">
 							<Button
 								onClick={() => onGenerateAudio(scene.id)}
 								disabled={scene.isGeneratingAudio || !scene.caption.trim()}
 								size="sm"
 								variant="outline"
-								className="flex-1"
 							>
 								{scene.isGeneratingAudio ? (
 									<><Loader2 className="w-4 h-4 animate-spin mr-2" />Generating...</>
@@ -1447,20 +1469,28 @@ function SceneCard({
 									<><Volume2 className="w-4 h-4 mr-2" />{scene.audioUrl ? "Regenerate" : "Generate"} Audio</>
 								)}
 							</Button>
-							{scene.audioUrl && (
-								<Button
-									onClick={() => onPlayAudio(scene.id)}
-									size="sm"
-									variant={playingSceneId === scene.id ? "default" : "outline"}
-								>
-									<Play className="w-4 h-4" />
-								</Button>
-							)}
 						</div>
+					</div>
 
-						{/* Video preview + generate */}
-						<div className="flex gap-3">
-							<div className="w-32 shrink-0">
+					<div className="border-t border-border" />
+
+					{/* === VIDEO SECTION === */}
+					<div className="space-y-3">
+						<div className="flex gap-4">
+							{/* Left: Video Instruction */}
+							<div className="flex-1">
+								<label className="block text-sm font-medium text-muted-foreground mb-2">Video Instruction</label>
+								<textarea
+									value={scene.videoPrompt}
+									onChange={(e) => onVideoPromptChange(scene.id, e.target.value)}
+									className="w-full h-24 px-3 py-2 bg-background border border-border rounded-lg text-foreground text-sm placeholder-muted-foreground focus:outline-none focus:border-indigo-500 resize-none"
+									placeholder="Describe camera movement and action..."
+								/>
+								{scene.videoError && <InlineError error={scene.videoError} />}
+							</div>
+							{/* Right: Video Preview */}
+							<div className="w-40 shrink-0">
+								<label className="block text-sm font-medium text-muted-foreground mb-2">Preview</label>
 								{scene.videoUrl ? (
 									<video src={scene.videoUrl} className="w-full rounded-lg object-cover" style={{ aspectRatio: "16/9" }} controls muted />
 								) : (
@@ -1469,21 +1499,22 @@ function SceneCard({
 									</div>
 								)}
 							</div>
-							<div className="flex-1 flex flex-col justify-center">
-								<Button
-									onClick={() => onGenerateVideo(scene.id)}
-									disabled={scene.isGeneratingVideo || !scene.imageUrl || !scene.audioUrl}
-									size="sm"
-									className="bg-gradient-to-r from-indigo-500 to-violet-500 hover:from-indigo-400 hover:to-violet-400 disabled:from-muted disabled:to-muted"
-								>
-									{scene.isGeneratingVideo ? (
-										<><Loader2 className="w-4 h-4 animate-spin mr-2" />Generating...</>
-									) : (
-										<><Film className="w-4 h-4 mr-2" />{scene.videoUrl ? "Regenerate" : "Generate"} Video</>
-									)}
-								</Button>
-								<CountdownProgress isActive={scene.isGeneratingVideo} durationSeconds={120} />
-							</div>
+						</div>
+						{/* Generate Video Button */}
+						<div className="flex items-center gap-3">
+							<Button
+								onClick={() => onGenerateVideo(scene.id)}
+								disabled={scene.isGeneratingVideo || !scene.imageUrl || !scene.audioUrl}
+								size="sm"
+								className="bg-gradient-to-r from-indigo-500 to-violet-500 hover:from-indigo-400 hover:to-violet-400 disabled:from-muted disabled:to-muted"
+							>
+								{scene.isGeneratingVideo ? (
+									<><Loader2 className="w-4 h-4 animate-spin mr-2" />Generating...</>
+								) : (
+									<><Film className="w-4 h-4 mr-2" />{scene.videoUrl ? "Regenerate" : "Generate"} Video</>
+								)}
+							</Button>
+							<CountdownProgress isActive={scene.isGeneratingVideo} durationSeconds={120} />
 						</div>
 					</div>
 				</div>
