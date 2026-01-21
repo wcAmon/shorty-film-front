@@ -732,7 +732,7 @@ function DirectorModePage() {
 
 	return (
 		<>
-			<div className="space-y-8">
+			<div className="mx-auto max-w-4xl space-y-8">
 				{/* Hidden file input */}
 				<input
 					type="file"
@@ -930,10 +930,29 @@ function DirectorModePage() {
 						<div className="flex gap-6">
 							{/* Left side: prompt + buttons */}
 							<div className="flex-1 min-w-0">
+								{/* Image Engine Selector */}
+								<div className="mb-3">
+									<label className="block text-sm font-medium text-muted-foreground mb-1">Image Engine</label>
+									<select
+										value={character?.imageEngine || defaultImageEngine}
+										onChange={(e) => {
+											if (character) {
+												directorActions.updateCharacter({ imageEngine: e.target.value as DirectorImageEngine });
+											}
+											directorActions.setDefaultImageEngine(e.target.value as DirectorImageEngine);
+										}}
+										className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground text-sm focus:outline-none focus:border-cyan-500"
+									>
+										{IMAGE_ENGINES.map((engine) => (
+											<option key={engine.id} value={engine.id}>{engine.label}</option>
+										))}
+									</select>
+								</div>
+
 								<textarea
 									value={characterPrompt}
 									onChange={(e) => setCharacterPrompt(e.target.value)}
-									className="w-full h-40 px-4 py-3 bg-background border border-border rounded-lg text-foreground text-sm placeholder-muted-foreground focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-colors resize-none"
+									className="w-full h-32 px-4 py-3 bg-background border border-border rounded-lg text-foreground text-sm placeholder-muted-foreground focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-colors resize-none"
 									disabled={isGeneratingCharacter}
 									placeholder="Describe your character's appearance, clothing, pose, background... This will be used as reference for 16:9 landscape scenes."
 								/>
@@ -1365,156 +1384,146 @@ function SceneCard({
 					</div>
 				)}
 
-				{/* Scene content - Vertical flow */}
-				<div className="space-y-6">
+				{/* Scene content - Vertical flow: Left (prompt + button) | Right (preview) */}
+				<div className="space-y-4">
 					{/* === IMAGE SECTION === */}
-					<div className="space-y-3">
-						<div className="flex gap-4">
-							{/* Left: Image Prompt */}
-							<div className="flex-1">
-								<label className="block text-sm font-medium text-muted-foreground mb-2">Image Prompt</label>
-								<textarea
-									value={scene.imagePrompt}
-									onChange={(e) => onImagePromptChange(scene.id, e.target.value)}
-									className="w-full h-24 px-3 py-2 bg-background border border-border rounded-lg text-foreground text-sm placeholder-muted-foreground focus:outline-none focus:border-purple-500 resize-none"
-									placeholder="Describe what should appear in this scene's image..."
-								/>
-							</div>
-							{/* Right: Image Preview */}
-							<div className="w-40 shrink-0">
-								<label className="block text-sm font-medium text-muted-foreground mb-2">Preview</label>
-								{scene.imageUrl ? (
-									<img src={scene.imageUrl} alt={`Scene ${index + 1}`} className="w-full rounded-lg object-cover" style={{ aspectRatio: "16/9" }} />
-								) : (
-									<div className="w-full bg-muted border border-border rounded-lg flex items-center justify-center" style={{ aspectRatio: "16/9" }}>
-										<ImageIcon className="w-6 h-6 text-muted-foreground opacity-50" />
-									</div>
-								)}
+					<div className="flex gap-6">
+						{/* Left: Image Prompt + Generate Button */}
+						<div className="flex-1 flex flex-col">
+							<label className="block text-sm font-medium text-muted-foreground mb-2">Image Prompt</label>
+							<textarea
+								value={scene.imagePrompt}
+								onChange={(e) => onImagePromptChange(scene.id, e.target.value)}
+								className="flex-1 min-h-[100px] px-3 py-2 bg-background border border-border rounded-lg text-foreground text-sm placeholder-muted-foreground focus:outline-none focus:border-purple-500 resize-none"
+								placeholder="Describe what should appear in this scene's image..."
+							/>
+							<div className="flex items-center gap-3 mt-3">
+								<Button
+									onClick={() => onGenerateImage(scene.id)}
+									disabled={scene.isGeneratingImage || !scene.imagePrompt.trim()}
+									size="sm"
+									className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-400 hover:to-pink-400 disabled:from-muted disabled:to-muted"
+								>
+									{scene.isGeneratingImage ? (
+										<><Loader2 className="w-4 h-4 animate-spin mr-2" />Generating...</>
+									) : (
+										<><ImageIcon className="w-4 h-4 mr-2" />{scene.imageUrl ? "Regenerate" : "Generate"} Image</>
+									)}
+								</Button>
+								<CountdownProgress isActive={scene.isGeneratingImage} durationSeconds={30} />
 							</div>
 						</div>
-						{/* Generate Image Button */}
-						<div className="flex items-center gap-3">
-							<Button
-								onClick={() => onGenerateImage(scene.id)}
-								disabled={scene.isGeneratingImage || !scene.imagePrompt.trim()}
-								size="sm"
-								className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-400 hover:to-pink-400 disabled:from-muted disabled:to-muted"
-							>
-								{scene.isGeneratingImage ? (
-									<><Loader2 className="w-4 h-4 animate-spin mr-2" />Generating...</>
-								) : (
-									<><ImageIcon className="w-4 h-4 mr-2" />{scene.imageUrl ? "Regenerate" : "Generate"} Image</>
-								)}
-							</Button>
-							<CountdownProgress isActive={scene.isGeneratingImage} durationSeconds={30} />
+						{/* Right: Image Preview (larger) */}
+						<div className="w-56 shrink-0">
+							<label className="block text-sm font-medium text-muted-foreground mb-2">Preview</label>
+							{scene.imageUrl ? (
+								<img src={scene.imageUrl} alt={`Scene ${index + 1}`} className="w-full rounded-lg object-cover shadow-lg" style={{ aspectRatio: "16/9" }} />
+							) : (
+								<div className="w-full bg-muted border border-border rounded-lg flex items-center justify-center" style={{ aspectRatio: "16/9" }}>
+									<ImageIcon className="w-8 h-8 text-muted-foreground opacity-50" />
+								</div>
+							)}
 						</div>
 					</div>
 
 					<div className="border-t border-border" />
 
-					{/* === AUDIO SECTION === */}
-					<div className="space-y-3">
-						<div className="flex gap-4">
-							{/* Left: Caption */}
-							<div className="flex-1">
-								<label className="block text-sm font-medium text-muted-foreground mb-2">Caption / Narration</label>
-								<textarea
-									value={scene.caption}
-									onChange={(e) => onCaptionChange(scene.id, e.target.value)}
-									className="w-full h-24 px-3 py-2 bg-background border border-border rounded-lg text-foreground text-sm placeholder-muted-foreground focus:outline-none focus:border-emerald-500 resize-none"
-									placeholder="Enter the narration text for this scene..."
-								/>
-							</div>
-							{/* Right: Audio controls */}
-							<div className="w-40 shrink-0">
-								<label className="block text-sm font-medium text-muted-foreground mb-2">Audio</label>
-								<div className="h-24 bg-muted border border-border rounded-lg flex flex-col items-center justify-center gap-2">
-									{scene.audioUrl ? (
-										<>
-											<Button
-												onClick={() => onPlayAudio(scene.id)}
-												size="sm"
-												variant={playingSceneId === scene.id ? "default" : "outline"}
-												className="w-20"
-											>
-												{playingSceneId === scene.id ? (
-													<><Volume2 className="w-4 h-4 mr-1" />Playing</>
-												) : (
-													<><Play className="w-4 h-4 mr-1" />Play</>
-												)}
-											</Button>
-											{scene.audioDuration && (
-												<span className="text-xs text-muted-foreground">
-													{Math.floor(scene.audioDuration / 60)}:{String(Math.floor(scene.audioDuration % 60)).padStart(2, '0')}
-												</span>
-											)}
-										</>
+					{/* === AUDIO SECTION (shorter height) === */}
+					<div className="flex gap-6 items-start">
+						{/* Left: Caption + Generate Button */}
+						<div className="flex-1 flex flex-col">
+							<label className="block text-sm font-medium text-muted-foreground mb-2">Caption / Narration</label>
+							<textarea
+								value={scene.caption}
+								onChange={(e) => onCaptionChange(scene.id, e.target.value)}
+								className="h-16 px-3 py-2 bg-background border border-border rounded-lg text-foreground text-sm placeholder-muted-foreground focus:outline-none focus:border-emerald-500 resize-none"
+								placeholder="Enter the narration text for this scene..."
+							/>
+							<div className="flex items-center gap-3 mt-3">
+								<Button
+									onClick={() => onGenerateAudio(scene.id)}
+									disabled={scene.isGeneratingAudio || !scene.caption.trim()}
+									size="sm"
+									variant="outline"
+								>
+									{scene.isGeneratingAudio ? (
+										<><Loader2 className="w-4 h-4 animate-spin mr-2" />Generating...</>
 									) : (
-										<Volume2 className="w-6 h-6 text-muted-foreground opacity-50" />
+										<><Volume2 className="w-4 h-4 mr-2" />{scene.audioUrl ? "Regenerate" : "Generate"} Audio</>
 									)}
-								</div>
+								</Button>
 							</div>
 						</div>
-						{/* Generate Audio Button */}
-						<div className="flex items-center gap-3">
-							<Button
-								onClick={() => onGenerateAudio(scene.id)}
-								disabled={scene.isGeneratingAudio || !scene.caption.trim()}
-								size="sm"
-								variant="outline"
-							>
-								{scene.isGeneratingAudio ? (
-									<><Loader2 className="w-4 h-4 animate-spin mr-2" />Generating...</>
+						{/* Right: Audio controls (compact) */}
+						<div className="w-56 shrink-0">
+							<label className="block text-sm font-medium text-muted-foreground mb-2">Audio</label>
+							<div className="h-16 bg-muted border border-border rounded-lg flex items-center justify-center gap-4 px-4">
+								{scene.audioUrl ? (
+									<>
+										<Button
+											onClick={() => onPlayAudio(scene.id)}
+											size="sm"
+											variant={playingSceneId === scene.id ? "default" : "outline"}
+										>
+											{playingSceneId === scene.id ? (
+												<><Volume2 className="w-4 h-4 mr-1" />Playing</>
+											) : (
+												<><Play className="w-4 h-4 mr-1" />Play</>
+											)}
+										</Button>
+										{scene.audioDuration && (
+											<span className="text-sm text-muted-foreground font-medium">
+												{Math.floor(scene.audioDuration / 60)}:{String(Math.floor(scene.audioDuration % 60)).padStart(2, '0')}
+											</span>
+										)}
+									</>
 								) : (
-									<><Volume2 className="w-4 h-4 mr-2" />{scene.audioUrl ? "Regenerate" : "Generate"} Audio</>
+									<span className="text-sm text-muted-foreground">No audio yet</span>
 								)}
-							</Button>
+							</div>
 						</div>
 					</div>
 
 					<div className="border-t border-border" />
 
 					{/* === VIDEO SECTION === */}
-					<div className="space-y-3">
-						<div className="flex gap-4">
-							{/* Left: Video Instruction */}
-							<div className="flex-1">
-								<label className="block text-sm font-medium text-muted-foreground mb-2">Video Instruction</label>
-								<textarea
-									value={scene.videoPrompt}
-									onChange={(e) => onVideoPromptChange(scene.id, e.target.value)}
-									className="w-full h-24 px-3 py-2 bg-background border border-border rounded-lg text-foreground text-sm placeholder-muted-foreground focus:outline-none focus:border-indigo-500 resize-none"
-									placeholder="Describe camera movement and action..."
-								/>
-								{scene.videoError && <InlineError error={scene.videoError} />}
-							</div>
-							{/* Right: Video Preview */}
-							<div className="w-40 shrink-0">
-								<label className="block text-sm font-medium text-muted-foreground mb-2">Preview</label>
-								{scene.videoUrl ? (
-									<video src={scene.videoUrl} className="w-full rounded-lg object-cover" style={{ aspectRatio: "16/9" }} controls muted />
-								) : (
-									<div className="w-full bg-muted border border-border rounded-lg flex items-center justify-center" style={{ aspectRatio: "16/9" }}>
-										<Film className="w-6 h-6 text-muted-foreground opacity-50" />
-									</div>
-								)}
+					<div className="flex gap-6">
+						{/* Left: Video Instruction + Generate Button */}
+						<div className="flex-1 flex flex-col">
+							<label className="block text-sm font-medium text-muted-foreground mb-2">Video Instruction</label>
+							<textarea
+								value={scene.videoPrompt}
+								onChange={(e) => onVideoPromptChange(scene.id, e.target.value)}
+								className="flex-1 min-h-[100px] px-3 py-2 bg-background border border-border rounded-lg text-foreground text-sm placeholder-muted-foreground focus:outline-none focus:border-indigo-500 resize-none"
+								placeholder="Describe camera movement and action..."
+							/>
+							{scene.videoError && <InlineError error={scene.videoError} />}
+							<div className="flex items-center gap-3 mt-3">
+								<Button
+									onClick={() => onGenerateVideo(scene.id)}
+									disabled={scene.isGeneratingVideo || !scene.imageUrl || !scene.audioUrl}
+									size="sm"
+									className="bg-gradient-to-r from-indigo-500 to-violet-500 hover:from-indigo-400 hover:to-violet-400 disabled:from-muted disabled:to-muted"
+								>
+									{scene.isGeneratingVideo ? (
+										<><Loader2 className="w-4 h-4 animate-spin mr-2" />Generating...</>
+									) : (
+										<><Film className="w-4 h-4 mr-2" />{scene.videoUrl ? "Regenerate" : "Generate"} Video</>
+									)}
+								</Button>
+								<CountdownProgress isActive={scene.isGeneratingVideo} durationSeconds={120} />
 							</div>
 						</div>
-						{/* Generate Video Button */}
-						<div className="flex items-center gap-3">
-							<Button
-								onClick={() => onGenerateVideo(scene.id)}
-								disabled={scene.isGeneratingVideo || !scene.imageUrl || !scene.audioUrl}
-								size="sm"
-								className="bg-gradient-to-r from-indigo-500 to-violet-500 hover:from-indigo-400 hover:to-violet-400 disabled:from-muted disabled:to-muted"
-							>
-								{scene.isGeneratingVideo ? (
-									<><Loader2 className="w-4 h-4 animate-spin mr-2" />Generating...</>
-								) : (
-									<><Film className="w-4 h-4 mr-2" />{scene.videoUrl ? "Regenerate" : "Generate"} Video</>
-								)}
-							</Button>
-							<CountdownProgress isActive={scene.isGeneratingVideo} durationSeconds={120} />
+						{/* Right: Video Preview (larger) */}
+						<div className="w-56 shrink-0">
+							<label className="block text-sm font-medium text-muted-foreground mb-2">Preview</label>
+							{scene.videoUrl ? (
+								<video src={scene.videoUrl} className="w-full rounded-lg object-cover shadow-lg" style={{ aspectRatio: "16/9" }} controls muted />
+							) : (
+								<div className="w-full bg-muted border border-border rounded-lg flex items-center justify-center" style={{ aspectRatio: "16/9" }}>
+									<Film className="w-8 h-8 text-muted-foreground opacity-50" />
+								</div>
+							)}
 						</div>
 					</div>
 				</div>
