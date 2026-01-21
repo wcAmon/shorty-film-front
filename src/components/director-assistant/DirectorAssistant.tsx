@@ -124,7 +124,8 @@ export function DirectorAssistant() {
 	};
 
 	const handleKeyDown = (e: React.KeyboardEvent) => {
-		if (e.key === "Enter" && !e.shiftKey) {
+		// Send on Shift+Enter, allow regular Enter for newlines
+		if (e.key === "Enter" && e.shiftKey) {
 			e.preventDefault();
 			handleSend();
 		}
@@ -235,7 +236,7 @@ export function DirectorAssistant() {
 						value={inputValue}
 						onChange={(e) => setInputValue(e.target.value)}
 						onKeyDown={handleKeyDown}
-						placeholder="Ask me anything about your video..."
+						placeholder="Ask me anything... (Shift+Enter to send)"
 						className="flex-1 resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-purple-500 focus:outline-none"
 						rows={2}
 						disabled={isLoading}
