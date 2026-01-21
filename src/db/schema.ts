@@ -18,6 +18,7 @@ export const shortySchema = pgSchema("shorty");
 export const storyTypeEnum = shortySchema.enum("story_type", [
 	"aistory",
 	"podcast42",
+	"director-mode",
 ]);
 
 export const mediaStatusEnum = shortySchema.enum("media_status", [
@@ -199,6 +200,11 @@ export const scenes = shortySchema.table("scenes", {
 	voiceId: text("voice_id"),
 	voiceSpeed: real("voice_speed").default(1.0),
 
+	// Per-scene engine settings (for director-mode)
+	imageEngine: text("image_engine"), // "flux-pro" | "gpt-image-1.5" | "nano-banana-pro"
+	videoEngine: text("video_engine"), // "kling-video" | "sora-2" | "veo3.1" etc
+	avatarEngine: text("avatar_engine"), // "omnihuman" | "aurora" (optional)
+
 	// Foreign keys to media tables (nullable, 1:1 at scene level)
 	imageId: text("image_id").references(() => images.id, {
 		onDelete: "set null",
@@ -272,4 +278,4 @@ export type NewScene = typeof scenes.$inferInsert;
 // Media status type
 export type MediaStatus = "ready" | "generating" | "completed";
 export type ImageType = "scene" | "character" | "person1" | "person2";
-export type StoryType = "aistory" | "podcast42";
+export type StoryType = "aistory" | "podcast42" | "director-mode";

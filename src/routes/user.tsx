@@ -33,6 +33,14 @@ import type { StoryMetadata } from "@/lib/cache";
 import { getThumbnailUrl } from "@/lib/image-utils";
 import { aistoryActions } from "@/stores/aistory.store";
 import { authStore } from "@/stores/auth.store";
+import {
+	directorActions,
+	type DirectorImageEngine,
+	type DirectorVideoEngine,
+	type DirectorAvatarEngine,
+	type DirectorImageStyle,
+	type DirectorVoiceId,
+} from "@/stores/director.store";
 import { podcast42Actions } from "@/stores/podcast42.store";
 
 // Asset types
@@ -64,6 +72,7 @@ interface AssetLibraryResponse {
 // Database scene types (from API response)
 interface DbScene {
 	id: string;
+	orderIndex?: number;
 	title?: string;
 	prompt?: string;
 	videoPrompt?: string;
@@ -81,6 +90,10 @@ interface DbScene {
 	voiceId?: string;
 	voiceSpeed?: number | string;
 	speaker?: string;
+	// Per-scene engine settings (for director-mode)
+	imageEngine?: string;
+	videoEngine?: string;
+	avatarEngine?: string | null;
 }
 
 // Type guard for VoiceId
@@ -300,7 +313,107 @@ function HistoryTab() {
 			const scenes = result.scenes || [];
 			const characterImages = result.characterImages || {};
 
-			if (storyData.type === "podcast42") {
+			if (storyData.type === "director-mode") {
+				// Restore director-mode state
+				directorActions.reset();
+
+				// Set basic info
+				directorActions.setStoryId(storyData.id);
+				directorActions.setTitle(storyData.title || "");
+
+				// Restore default engines from story-level
+				directorActions.setDefaultImageEngine(
+					(storyData.imageEngine || "flux-pro") as DirectorImageEngine,
+				);
+				directorActions.setDefaultImageStyle(
+					(storyData.imageStyle || "cinematic") as DirectorImageStyle,
+				);
+				directorActions.setDefaultVideoEngine(
+					(storyData.videoEngine || "kling-video") as DirectorVideoEngine,
+				);
+				if (storyData.voiceId) {
+					directorActions.setDefaultVoiceId(storyData.voiceId as DirectorVoiceId);
+				}
+
+				// Restore character from characterImages
+				if (characterImages.character) {
+					directorActions.setCharacter({
+						id: "character",
+						name: "Main Character",
+						imagePrompt: storyData.characterPrompt || "",
+						imageUrl: characterImages.character.imageUrl,
+						imageId: characterImages.character.imageId,
+						imageSource: "generate",
+						imageEngine: (storyData.imageEngine || "flux-pro") as DirectorImageEngine,
+						voiceId: (storyData.voiceId || "PIGsltMj3gFMR34aFDI3") as DirectorVoiceId,
+						voiceSpeed: 1.0,
+						videoEngine: (storyData.videoEngine || "kling-video") as DirectorVideoEngine,
+						isGenerating: false,
+						imageStatus: "completed",
+					});
+				}
+
+				// Restore scenes with per-scene engines
+				const restoredScenes = scenes.map((scene: DbScene, index: number) => {
+					// Parse wordTimestamps from JSON string
+					let wordTimestamps = null;
+					if (scene.wordTimestamps) {
+						try {
+							const parsed = JSON.parse(scene.wordTimestamps);
+							wordTimestamps = parsed.map(
+								(wt: { word: string; start?: number; end?: number; startTime?: number; endTime?: number }) => ({
+									word: wt.word,
+									startTime: wt.startTime ?? wt.start ?? 0,
+									endTime: wt.endTime ?? wt.end ?? 0,
+								}),
+							);
+						} catch {
+							wordTimestamps = null;
+						}
+					}
+
+					return {
+						id: scene.id,
+						orderIndex: scene.orderIndex ?? index,
+						caption: scene.caption || "",
+						imagePrompt: scene.prompt || "",
+						videoPrompt: scene.videoPrompt || "",
+						imageId: scene.imageId || null,
+						imageUrl: scene.imageUrl || null,
+						audioId: scene.audioId || null,
+						audioUrl: scene.audioUrl || null,
+						videoId: scene.videoId || null,
+						videoUrl: scene.videoUrl || null,
+						imageStatus: scene.imageUrl ? "completed" as const : null,
+						audioStatus: scene.audioUrl ? "completed" as const : null,
+						videoStatus: scene.videoUrl ? "completed" as const : null,
+						audioDuration: scene.audioDuration || null,
+						videoDuration: scene.videoDuration || null,
+						wordTimestamps,
+						// Per-scene engines (fall back to story defaults)
+						imageEngine: (scene.imageEngine || storyData.imageEngine || "flux-pro") as DirectorImageEngine,
+						voiceId: (scene.voiceId || storyData.voiceId || "PIGsltMj3gFMR34aFDI3") as DirectorVoiceId,
+						voiceSpeed: Number(scene.voiceSpeed) || 1.0,
+						videoEngine: (scene.videoEngine || storyData.videoEngine || "kling-video") as DirectorVideoEngine,
+						avatarEngine: (scene.avatarEngine || "omnihuman") as DirectorAvatarEngine | null,
+						useAvatar: !!scene.avatarEngine,
+						isGeneratingImage: false,
+						isGeneratingAudio: false,
+						isGeneratingVideo: false,
+						videoError: null,
+					};
+				});
+				directorActions.setScenes(restoredScenes);
+				directorActions.setPromptsGenerated(true);
+
+				// Restore exported video URL if available
+				if (storyData.exportVideoUrl) {
+					directorActions.setExportedVideoUrl(storyData.exportVideoUrl);
+				}
+
+				// Navigate to scenes page
+				navigate({ to: "/director-mode/scenes" });
+			} else if (storyData.type === "podcast42") {
 				// Restore podcast42 state
 				podcast42Actions.reset();
 				podcast42Actions.setStoryId(storyData.id);

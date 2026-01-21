@@ -35,6 +35,7 @@ export const Route = createFileRoute("/api/export-video")({
 							globalSize: "small" | "medium" | "large";
 							globalPosition: "top" | "center" | "bottom";
 						};
+						aspectRatio?: "16:9" | "9:16"; // Director mode uses 16:9, aistory uses 9:16
 					};
 
 					// Proxy to backend with owner ID
