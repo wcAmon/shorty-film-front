@@ -195,15 +195,23 @@ export function DirectorAssistant() {
 
 			// Handle update_scene - update local store
 			if (tool.name === "update_scene" && result.success) {
-				const sceneIndex = result.sceneIndex as number;
+				// Get values from tool.arguments (not result, since backend doesn't return the values)
+				const args = tool.arguments;
+				const sceneIndex = args.sceneIndex as number;
 				const currentScenes = directorStore.state.scenes;
 				if (sceneIndex >= 0 && sceneIndex < currentScenes.length) {
 					const sceneId = currentScenes[sceneIndex].id;
 					const updates: Record<string, unknown> = {};
-					if (result.caption) updates.caption = result.caption;
-					if (result.imagePrompt) updates.imagePrompt = result.imagePrompt;
-					if (result.videoPrompt) updates.videoPrompt = result.videoPrompt;
-					directorActions.updateScene(sceneId, updates);
+					// Only update if value is not null (null means keep unchanged)
+					if (args.caption !== null && args.caption !== undefined)
+						updates.caption = args.caption;
+					if (args.imagePrompt !== null && args.imagePrompt !== undefined)
+						updates.imagePrompt = args.imagePrompt;
+					if (args.videoPrompt !== null && args.videoPrompt !== undefined)
+						updates.videoPrompt = args.videoPrompt;
+					if (Object.keys(updates).length > 0) {
+						directorActions.updateScene(sceneId, updates);
+					}
 				}
 			}
 

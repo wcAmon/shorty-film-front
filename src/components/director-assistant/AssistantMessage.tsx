@@ -1,5 +1,6 @@
 import type { AssistantMessage } from "@/stores/director-assistant.store";
 import { User, Bot } from "lucide-react";
+import Markdown from "react-markdown";
 
 interface Props {
 	message: AssistantMessage;
@@ -23,7 +24,13 @@ export function AssistantMessageBubble({ message }: Props) {
 						: "rounded-bl-md bg-muted text-foreground"
 				}`}
 			>
-				<p className="whitespace-pre-wrap text-sm">{message.content}</p>
+				{isUser ? (
+					<p className="whitespace-pre-wrap text-sm">{message.content}</p>
+				) : (
+					<div className="prose prose-sm prose-invert max-w-none text-foreground prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-headings:my-2 prose-headings:text-foreground prose-strong:text-foreground prose-code:text-purple-300 prose-code:bg-purple-500/20 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-black/30 prose-pre:p-2 prose-a:text-purple-400 prose-a:no-underline hover:prose-a:underline">
+						<Markdown>{message.content}</Markdown>
+					</div>
+				)}
 			</div>
 
 			{isUser && (
