@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { requireAuth } from "@/lib/auth-middleware";
-import { isBackendConfigured, proxyToBackend } from "@/lib/backend-proxy";
+import { isBackendConfigured } from "@/lib/backend-proxy";
 
 export interface ConversationMessage {
 	id: string;

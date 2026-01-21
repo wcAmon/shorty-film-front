@@ -1,8 +1,5 @@
 import { useStore } from "@tanstack/react-store";
 import { useState, useRef, useEffect, useCallback } from "react";
-import { MessageSquare, X, Minus, Send, Loader2, Trash2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import {
 	directorAssistantStore,
 	directorAssistantActions,
@@ -19,10 +16,13 @@ import {
 	type ToolCallResult,
 	type ConversationMessage,
 } from "@/hooks/use-assistant-api";
-import { AssistantMessageBubble } from "./AssistantMessage";
-import { AssistantToolCall } from "./AssistantToolCall";
 
-export function DirectorAssistant() {
+/**
+ * Hook that encapsulates all Director Assistant chat logic.
+ * Can be used by both the floating widget (DirectorAssistant) and
+ * the embedded panel (DirectorAssistantPanel).
+ */
+export function useDirectorAssistant() {
 	const isOpen = useStore(directorAssistantStore, (s) => s.isOpen);
 	const isMinimized = useStore(directorAssistantStore, (s) => s.isMinimized);
 	const messages = useStore(directorAssistantStore, (s) => s.messages);
@@ -154,7 +154,7 @@ export function DirectorAssistant() {
 	}, [storyId, title, defaultImageStyle, character, scenes]);
 
 	// Process tool results to update local store when needed
-	const processToolResults = (toolCalls: ToolCallResult[] | undefined) => {
+	const processToolResults = useCallback((toolCalls: ToolCallResult[] | undefined) => {
 		if (!toolCalls) return;
 
 		for (const tool of toolCalls) {
@@ -245,6 +245,8 @@ export function DirectorAssistant() {
 						updates.imagePrompt = args.imagePrompt;
 					if (args.videoPrompt !== null && args.videoPrompt !== undefined)
 						updates.videoPrompt = args.videoPrompt;
+					if (args.useAvatar !== null && args.useAvatar !== undefined)
+						updates.useAvatar = args.useAvatar;
 					if (Object.keys(updates).length > 0) {
 						directorActions.updateScene(sceneId, updates);
 					}
@@ -259,11 +261,12 @@ export function DirectorAssistant() {
 					caption: string | null;
 					imagePrompt: string | null;
 					videoPrompt: string | null;
+					useAvatar?: boolean | null;
 				}>;
 				const currentScenes = directorStore.state.scenes;
 
 				for (const update of updates) {
-					const { sceneIndex, caption, imagePrompt, videoPrompt } = update;
+					const { sceneIndex, caption, imagePrompt, videoPrompt, useAvatar } = update;
 					if (sceneIndex >= 0 && sceneIndex < currentScenes.length) {
 						const sceneId = currentScenes[sceneIndex].id;
 						const sceneUpdates: Record<string, unknown> = {};
@@ -274,6 +277,8 @@ export function DirectorAssistant() {
 							sceneUpdates.imagePrompt = imagePrompt;
 						if (videoPrompt !== null && videoPrompt !== undefined)
 							sceneUpdates.videoPrompt = videoPrompt;
+						if (useAvatar !== null && useAvatar !== undefined)
+							sceneUpdates.useAvatar = useAvatar;
 						if (Object.keys(sceneUpdates).length > 0) {
 							directorActions.updateScene(sceneId, sceneUpdates);
 						}
@@ -286,9 +291,9 @@ export function DirectorAssistant() {
 				directorActions.setTitle(result.title as string);
 			}
 		}
-	};
+	}, []);
 
-	const handleSend = async () => {
+	const handleSend = useCallback(async () => {
 		if (!inputValue.trim() || isLoading) return;
 
 		const userMessage = inputValue.trim();
@@ -338,17 +343,17 @@ export function DirectorAssistant() {
 		} finally {
 			directorAssistantActions.setIsLoading(false);
 		}
-	};
+	}, [inputValue, isLoading, storyId, sendMessage, processToolResults]);
 
-	const handleKeyDown = (e: React.KeyboardEvent) => {
+	const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
 		// Send on Shift+Enter, allow regular Enter for newlines
 		if (e.key === "Enter" && e.shiftKey) {
 			e.preventDefault();
 			handleSend();
 		}
-	};
+	}, [handleSend]);
 
-	const handleClearConversation = () => {
+	const handleClearConversation = useCallback(() => {
 		if (!storyId) return;
 
 		// Clear local store
@@ -361,150 +366,32 @@ export function DirectorAssistant() {
 				setLoadedForStoryId(storyId);
 			},
 		});
+	}, [storyId, clearConversation]);
+
+	return {
+		// State
+		isOpen,
+		isMinimized,
+		messages,
+		isLoading,
+		isLoadingHistory,
+		error,
+		inputValue,
+		storyId,
+
+		// Refs
+		messagesEndRef,
+		inputRef,
+
+		// Mutations
+		clearConversation,
+
+		// Setters
+		setInputValue,
+
+		// Handlers
+		handleSend,
+		handleKeyDown,
+		handleClearConversation,
 	};
-
-	// Floating button when closed
-	if (!isOpen) {
-		return (
-			<button
-				onClick={() => directorAssistantActions.setIsOpen(true)}
-				className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg transition-all hover:scale-110 hover:from-purple-400 hover:to-pink-400"
-				title="Open AI Assistant"
-			>
-				<MessageSquare className="h-6 w-6" />
-			</button>
-		);
-	}
-
-	// Minimized state
-	if (isMinimized) {
-		return (
-			<button
-				onClick={() => directorAssistantActions.setIsMinimized(false)}
-				className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 px-4 py-2 text-white shadow-lg transition-all hover:from-purple-400 hover:to-pink-400"
-			>
-				<MessageSquare className="h-5 w-5" />
-				<span className="font-medium">Director AI</span>
-			</button>
-		);
-	}
-
-	// Full chat widget
-	return (
-		<Card className="fixed bottom-6 right-6 z-50 flex h-[32rem] w-96 flex-col border-purple-500/30 shadow-2xl">
-			{/* Header */}
-			<div className="flex items-center justify-between rounded-t-lg border-b border-border bg-gradient-to-r from-purple-500/20 to-pink-500/20 p-4">
-				<div className="flex items-center gap-2">
-					<MessageSquare className="h-5 w-5 text-purple-400" />
-					<span className="font-semibold text-foreground">
-						Director Assistant
-					</span>
-				</div>
-				<div className="flex items-center gap-1">
-					{messages.length > 0 && (
-						<button
-							onClick={handleClearConversation}
-							className="rounded-md p-1.5 transition-colors hover:bg-red-500/20"
-							title="Clear conversation"
-							disabled={clearConversation.isPending}
-						>
-							<Trash2 className="h-4 w-4 text-muted-foreground hover:text-red-400" />
-						</button>
-					)}
-					<button
-						onClick={() => directorAssistantActions.setIsMinimized(true)}
-						className="rounded-md p-1.5 transition-colors hover:bg-muted"
-						title="Minimize"
-					>
-						<Minus className="h-4 w-4 text-muted-foreground" />
-					</button>
-					<button
-						onClick={() => directorAssistantActions.setIsOpen(false)}
-						className="rounded-md p-1.5 transition-colors hover:bg-muted"
-						title="Close"
-					>
-						<X className="h-4 w-4 text-muted-foreground" />
-					</button>
-				</div>
-			</div>
-
-			{/* Messages */}
-			<CardContent className="flex-1 space-y-4 overflow-y-auto p-4">
-				{isLoadingHistory && (
-					<div className="flex items-center justify-center py-8">
-						<Loader2 className="h-6 w-6 animate-spin text-purple-400" />
-						<span className="ml-2 text-sm text-muted-foreground">
-							Loading conversation...
-						</span>
-					</div>
-				)}
-
-				{!isLoadingHistory && messages.length === 0 && (
-					<div className="py-8 text-center text-muted-foreground">
-						<MessageSquare className="mx-auto mb-4 h-12 w-12 opacity-30" />
-						<p className="text-sm">
-							Hi! I'm your Director Assistant. I can help you:
-						</p>
-						<ul className="mt-2 space-y-1 text-xs">
-							<li>- Design engaging video narratives</li>
-							<li>- Create compelling hooks</li>
-							<li>- Add/edit/delete scenes</li>
-							<li>- Search for references & trends</li>
-						</ul>
-					</div>
-				)}
-
-				{messages.map((message) => (
-					<div key={message.id}>
-						<AssistantMessageBubble message={message} />
-						{message.toolResults?.map((tr, idx) => (
-							<AssistantToolCall key={`${message.id}-tool-${idx}`} toolResult={tr} />
-						))}
-					</div>
-				))}
-
-				{isLoading && (
-					<div className="flex items-center gap-2 text-muted-foreground">
-						<Loader2 className="h-4 w-4 animate-spin" />
-						<span className="text-sm">Thinking...</span>
-					</div>
-				)}
-
-				{error && (
-					<div className="rounded-lg bg-red-500/10 p-3 text-sm text-red-400">
-						{error}
-					</div>
-				)}
-
-				<div ref={messagesEndRef} />
-			</CardContent>
-
-			{/* Input */}
-			<div className="border-t border-border p-4">
-				<div className="flex gap-2">
-					<textarea
-						ref={inputRef}
-						value={inputValue}
-						onChange={(e) => setInputValue(e.target.value)}
-						onKeyDown={handleKeyDown}
-						placeholder="Ask me anything... (Shift+Enter to send)"
-						className="flex-1 resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-purple-500 focus:outline-none"
-						rows={2}
-						disabled={isLoading}
-					/>
-					<Button
-						onClick={handleSend}
-						disabled={!inputValue.trim() || isLoading}
-						className="bg-gradient-to-r from-purple-500 to-pink-500 px-3 hover:from-purple-400 hover:to-pink-400"
-					>
-						{isLoading ? (
-							<Loader2 className="h-4 w-4 animate-spin" />
-						) : (
-							<Send className="h-4 w-4" />
-						)}
-					</Button>
-				</div>
-			</div>
-		</Card>
-	);
 }

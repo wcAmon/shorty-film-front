@@ -18,6 +18,7 @@ export const Route = createFileRoute("/api/director/create-story")({
 
 				try {
 					const body = (await request.json()) as {
+						title?: string;
 						imageEngine?: string;
 						imageStyle?: string;
 						voiceId?: string;
@@ -46,6 +47,7 @@ export const Route = createFileRoute("/api/director/create-story")({
 							},
 							body: JSON.stringify({
 								ownerId: user.id,
+								title: body.title,
 								imageEngine: body.imageEngine,
 								imageStyle: body.imageStyle,
 								voiceId: body.voiceId,

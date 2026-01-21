@@ -1225,6 +1225,7 @@ interface CreateDirectorStoryResponse {
  * Create an empty director-mode story
  */
 async function createDirectorStoryApi(params: {
+	title?: string;
 	imageEngine?: string;
 	imageStyle?: string;
 	voiceId?: string;
