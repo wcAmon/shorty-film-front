@@ -397,6 +397,7 @@ function HistoryTab() {
 						videoEngine: (scene.videoEngine || storyData.videoEngine || "kling-video") as DirectorVideoEngine,
 						avatarEngine: (scene.avatarEngine || "omnihuman") as DirectorAvatarEngine | null,
 						useAvatar: !!scene.avatarEngine,
+						useCharacterReference: true, // Default to true when restoring
 						isGeneratingImage: false,
 						isGeneratingAudio: false,
 						isGeneratingVideo: false,

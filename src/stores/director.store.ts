@@ -108,6 +108,7 @@ export interface DirectorSceneState {
 	videoEngine: DirectorVideoEngine;
 	avatarEngine: DirectorAvatarEngine | null; // Optional: use avatar OR regular video
 	useAvatar: boolean; // Toggle: true = use avatarEngine, false = use videoEngine
+	useCharacterReference: boolean; // Whether to use character image as reference for this scene's image
 
 	// UI state
 	isGeneratingImage: boolean;
@@ -259,6 +260,7 @@ function createNewScene(state: DirectorState): DirectorSceneState {
 		videoEngine: state.defaultVideoEngine,
 		avatarEngine: state.defaultAvatarEngine,
 		useAvatar: false,
+		useCharacterReference: true, // Default to using character reference for consistency
 		isGeneratingImage: false,
 		isGeneratingAudio: false,
 		isGeneratingVideo: false,
@@ -383,6 +385,7 @@ export const directorActions = {
 				videoEngine: s.defaultVideoEngine,
 				avatarEngine: s.defaultAvatarEngine,
 				useAvatar: false,
+				useCharacterReference: true,
 				isGeneratingImage: false,
 				isGeneratingAudio: false,
 				isGeneratingVideo: false,
@@ -480,6 +483,14 @@ export const directorActions = {
 			...s,
 			scenes: s.scenes.map((sc) =>
 				sc.id === sceneId ? { ...sc, useAvatar } : sc,
+			),
+		})),
+
+	toggleSceneCharacterReference: (sceneId: string, useCharacterReference: boolean) =>
+		directorStore.setState((s) => ({
+			...s,
+			scenes: s.scenes.map((sc) =>
+				sc.id === sceneId ? { ...sc, useCharacterReference } : sc,
 			),
 		})),
 

@@ -91,6 +91,10 @@ interface GetStoryResponse {
 		// Voice settings per scene
 		voiceId?: string | null;
 		voiceSpeed?: number | null;
+		// Engine settings per scene
+		imageEngine?: string | null;
+		videoEngine?: string | null;
+		avatarEngine?: string | null;
 	}>;
 	// Character images (for podcast42)
 	characterImages?: {
@@ -186,6 +190,10 @@ export const Route = createFileRoute("/api/story-metadata")({
 								// Voice settings per scene
 								voiceId: scene.voiceId ?? null,
 								voiceSpeed: scene.voiceSpeed ?? null,
+								// Engine settings per scene
+								imageEngine: scene.imageEngine ?? null,
+								videoEngine: scene.videoEngine ?? null,
+								avatarEngine: scene.avatarEngine ?? null,
 							}),
 						);
 
@@ -195,8 +203,8 @@ export const Route = createFileRoute("/api/story-metadata")({
 						if (story.person1ImageId) {
 							const person1Image = await getImageById(story.person1ImageId);
 							if (person1Image) {
-								// For aistory, show as "character"; for podcast42, show as "person1"
-								if (story.type === "aistory") {
+								// For aistory/director-mode, show as "character"; for podcast42, show as "person1"
+								if (story.type === "aistory" || story.type === "director-mode") {
 									characterImages.character = {
 										imageId: person1Image.id,
 										imageUrl: person1Image.imageUrl,
@@ -250,7 +258,7 @@ export const Route = createFileRoute("/api/story-metadata")({
 							if (story.person1ImageId) {
 								const person1Image = await getImageById(story.person1ImageId);
 								if (person1Image) {
-									if (story.type === "aistory") {
+									if (story.type === "aistory" || story.type === "director-mode") {
 										characterImageUrl = person1Image.imageUrl;
 									} else {
 										person1ImageUrl = person1Image.imageUrl;

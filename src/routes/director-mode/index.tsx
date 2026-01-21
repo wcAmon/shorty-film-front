@@ -440,7 +440,8 @@ function DirectorModePage() {
 				imageEngine: scene.useAvatar
 					? (scene.avatarEngine || defaultAvatarEngine)
 					: (scene.imageEngine || defaultImageEngine),
-				characterImageUrl: character?.imageUrl || undefined,
+				// Only pass character reference if checkbox is checked and character has an image
+				characterImageUrl: scene.useCharacterReference && character?.imageUrl ? character.imageUrl : undefined,
 			});
 
 			if (result.success && result.imageUrl) {
@@ -1125,6 +1126,7 @@ function DirectorModePage() {
 								onVoiceChange={handleSceneVoiceChange}
 								onVoiceSpeedChange={handleSceneVoiceSpeedChange}
 								onToggleAvatarMode={handleToggleAvatarMode}
+								onToggleCharacterReference={(sceneId, useRef) => directorActions.toggleSceneCharacterReference(sceneId, useRef)}
 								onGenerateImage={handleGenerateSceneImage}
 								onGenerateAudio={handleGenerateSceneAudio}
 								onGenerateVideo={handleGenerateSceneVideo}
@@ -1219,6 +1221,7 @@ interface SceneCardProps {
 	onVoiceChange: (sceneId: string, voiceId: DirectorVoiceId) => void;
 	onVoiceSpeedChange: (sceneId: string, speed: number) => void;
 	onToggleAvatarMode: (sceneId: string, useAvatar: boolean) => void;
+	onToggleCharacterReference: (sceneId: string, useCharacterReference: boolean) => void;
 	onGenerateImage: (sceneId: string) => void;
 	onGenerateAudio: (sceneId: string) => void;
 	onGenerateVideo: (sceneId: string) => void;
@@ -1244,6 +1247,7 @@ function SceneCard({
 	onVoiceChange,
 	onVoiceSpeedChange,
 	onToggleAvatarMode,
+	onToggleCharacterReference,
 	onGenerateImage,
 	onGenerateAudio,
 	onGenerateVideo,
@@ -1410,6 +1414,19 @@ function SceneCard({
 										<><ImageIcon className="w-4 h-4 mr-2" />{scene.imageUrl ? "Regenerate" : "Generate"} Image</>
 									)}
 								</Button>
+								{/* Character Reference Checkbox */}
+								<label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
+									<input
+										type="checkbox"
+										checked={scene.useCharacterReference}
+										onChange={(e) => onToggleCharacterReference(scene.id, e.target.checked)}
+										disabled={!hasCharacterImage}
+										className="w-4 h-4 rounded border-border bg-background text-purple-500 focus:ring-purple-500 disabled:opacity-50"
+									/>
+									<span className={!hasCharacterImage ? "opacity-50" : ""}>
+										Use Character
+									</span>
+								</label>
 								<CountdownProgress isActive={scene.isGeneratingImage} durationSeconds={30} />
 							</div>
 						</div>
