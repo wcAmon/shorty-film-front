@@ -8,10 +8,11 @@ import {
 	directorAssistantActions,
 	buildSystemPrompt,
 } from "@/stores/director-assistant.store";
-import { directorStore } from "@/stores/director.store";
+import { directorStore, directorActions } from "@/stores/director.store";
 import {
 	useSendAssistantMessage,
 	useUserPreferences,
+	type ToolCallResult,
 } from "@/hooks/use-assistant-api";
 import { AssistantMessageBubble } from "./AssistantMessage";
 import { AssistantToolCall } from "./AssistantToolCall";
@@ -74,6 +75,71 @@ export function DirectorAssistant() {
 		});
 	}, [storyId, title, character, scenes]);
 
+	// Process tool results to update local store when needed
+	const processToolResults = (toolCalls: ToolCallResult[] | undefined) => {
+		if (!toolCalls) return;
+
+		for (const tool of toolCalls) {
+			const result = tool.result as Record<string, unknown> | null;
+			if (!result || result.error) continue;
+
+			// Handle update_character with localOnly flag
+			if (tool.name === "update_character" && result.localOnly && result.imagePrompt) {
+				const currentCharacter = directorStore.state.character;
+				if (currentCharacter) {
+					directorActions.updateCharacter({
+						imagePrompt: result.imagePrompt as string,
+					});
+				} else {
+					// Create a new character with the prompt (no image yet)
+					directorActions.setCharacter({
+						id: `char-${Date.now()}`,
+						name: "Main Character",
+						imagePrompt: result.imagePrompt as string,
+						imageUrl: null,
+						imageId: null,
+						imageSource: "generate",
+						imageEngine: directorStore.state.defaultImageEngine,
+						voiceId: directorStore.state.defaultVoiceId,
+						voiceSpeed: directorStore.state.defaultVoiceSpeed,
+						videoEngine: directorStore.state.defaultVideoEngine,
+						isGenerating: false,
+						imageStatus: null,
+					});
+				}
+			}
+
+			// Handle add_scene - update local store with new scene
+			if (tool.name === "add_scene" && result.success && result.scene) {
+				const sceneData = result.scene as Record<string, unknown>;
+				directorActions.updateScene(sceneData.id as string, {
+					caption: sceneData.caption as string,
+					imagePrompt: sceneData.imagePrompt as string,
+					videoPrompt: sceneData.videoPrompt as string,
+				});
+			}
+
+			// Handle update_scene - update local store
+			if (tool.name === "update_scene" && result.success) {
+				const sceneIndex = result.sceneIndex as number;
+				const currentScenes = directorStore.state.scenes;
+				if (sceneIndex >= 0 && sceneIndex < currentScenes.length) {
+					const sceneId = currentScenes[sceneIndex].id;
+					const updates: Record<string, unknown> = {};
+					if (result.caption) updates.caption = result.caption;
+					if (result.imagePrompt) updates.imagePrompt = result.imagePrompt;
+					if (result.videoPrompt) updates.videoPrompt = result.videoPrompt;
+					directorActions.updateScene(sceneId, updates);
+				}
+			}
+
+			// Handle set_story_title - update local store
+			if (tool.name === "set_story_title" && result.success && result.title) {
+				directorActions.setTitle(result.title as string);
+			}
+		}
+	};
+
 	const handleSend = async () => {
 		if (!inputValue.trim() || isLoading) return;
 
@@ -107,6 +173,9 @@ export function DirectorAssistant() {
 				messages: conversationHistory,
 				systemPrompt,
 			});
+
+			// Process tool results to update local store
+			processToolResults(result.toolCalls);
 
 			// Add assistant response
 			directorAssistantActions.addMessage({

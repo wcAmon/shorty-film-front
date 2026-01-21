@@ -54,6 +54,7 @@ import { Route as AistorySubtitlesRouteImport } from './routes/aistory/subtitles
 import { Route as AistoryScenesRouteImport } from './routes/aistory/scenes'
 import { Route as AistoryExportRouteImport } from './routes/aistory/export'
 import { Route as ApiDirectorUpdateTitleRouteImport } from './routes/api/director/update-title'
+import { Route as ApiDirectorCreateStoryRouteImport } from './routes/api/director/create-story'
 
 const UserRoute = UserRouteImport.update({
   id: '/user',
@@ -284,6 +285,11 @@ const ApiDirectorUpdateTitleRoute = ApiDirectorUpdateTitleRouteImport.update({
   path: '/api/director/update-title',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiDirectorCreateStoryRoute = ApiDirectorCreateStoryRouteImport.update({
+  id: '/api/director/create-story',
+  path: '/api/director/create-story',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -330,6 +336,7 @@ export interface FileRoutesByFullPath {
   '/aistory/': typeof AistoryIndexRoute
   '/director-mode': typeof DirectorModeIndexRoute
   '/podcast42/': typeof Podcast42IndexRoute
+  '/api/director/create-story': typeof ApiDirectorCreateStoryRoute
   '/api/director/update-title': typeof ApiDirectorUpdateTitleRoute
 }
 export interface FileRoutesByTo {
@@ -375,6 +382,7 @@ export interface FileRoutesByTo {
   '/aistory': typeof AistoryIndexRoute
   '/director-mode': typeof DirectorModeIndexRoute
   '/podcast42': typeof Podcast42IndexRoute
+  '/api/director/create-story': typeof ApiDirectorCreateStoryRoute
   '/api/director/update-title': typeof ApiDirectorUpdateTitleRoute
 }
 export interface FileRoutesById {
@@ -423,6 +431,7 @@ export interface FileRoutesById {
   '/aistory/': typeof AistoryIndexRoute
   '/director-mode/': typeof DirectorModeIndexRoute
   '/podcast42/': typeof Podcast42IndexRoute
+  '/api/director/create-story': typeof ApiDirectorCreateStoryRoute
   '/api/director/update-title': typeof ApiDirectorUpdateTitleRoute
 }
 export interface FileRouteTypes {
@@ -472,6 +481,7 @@ export interface FileRouteTypes {
     | '/aistory/'
     | '/director-mode'
     | '/podcast42/'
+    | '/api/director/create-story'
     | '/api/director/update-title'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -517,6 +527,7 @@ export interface FileRouteTypes {
     | '/aistory'
     | '/director-mode'
     | '/podcast42'
+    | '/api/director/create-story'
     | '/api/director/update-title'
   id:
     | '__root__'
@@ -564,6 +575,7 @@ export interface FileRouteTypes {
     | '/aistory/'
     | '/director-mode/'
     | '/podcast42/'
+    | '/api/director/create-story'
     | '/api/director/update-title'
   fileRoutesById: FileRoutesById
 }
@@ -605,6 +617,7 @@ export interface RootRouteChildren {
   DirectorModeScenesRoute: typeof DirectorModeScenesRoute
   DirectorModeSubtitlesRoute: typeof DirectorModeSubtitlesRoute
   DirectorModeIndexRoute: typeof DirectorModeIndexRoute
+  ApiDirectorCreateStoryRoute: typeof ApiDirectorCreateStoryRoute
   ApiDirectorUpdateTitleRoute: typeof ApiDirectorUpdateTitleRoute
 }
 
@@ -925,6 +938,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiDirectorUpdateTitleRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/director/create-story': {
+      id: '/api/director/create-story'
+      path: '/api/director/create-story'
+      fullPath: '/api/director/create-story'
+      preLoaderRoute: typeof ApiDirectorCreateStoryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -999,6 +1019,7 @@ const rootRouteChildren: RootRouteChildren = {
   DirectorModeScenesRoute: DirectorModeScenesRoute,
   DirectorModeSubtitlesRoute: DirectorModeSubtitlesRoute,
   DirectorModeIndexRoute: DirectorModeIndexRoute,
+  ApiDirectorCreateStoryRoute: ApiDirectorCreateStoryRoute,
   ApiDirectorUpdateTitleRoute: ApiDirectorUpdateTitleRoute,
 }
 export const routeTree = rootRouteImport

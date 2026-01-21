@@ -1210,3 +1210,39 @@ export function useUpdateStoryTitle() {
 		mutationFn: updateStoryTitleApi,
 	});
 }
+
+// ============================================================================
+// Create Director Mode Story
+// ============================================================================
+
+interface CreateDirectorStoryResponse {
+	success: boolean;
+	storyId?: string;
+	error?: string;
+}
+
+/**
+ * Create an empty director-mode story
+ */
+async function createDirectorStoryApi(params: {
+	imageEngine?: string;
+	imageStyle?: string;
+	voiceId?: string;
+	videoEngine?: string;
+}): Promise<CreateDirectorStoryResponse> {
+	const response = await authFetch("/api/director/create-story", {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify(params),
+	});
+	return response.json();
+}
+
+/**
+ * Hook to create an empty director-mode story
+ */
+export function useCreateDirectorStory() {
+	return useMutation({
+		mutationFn: createDirectorStoryApi,
+	});
+}

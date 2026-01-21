@@ -25,6 +25,7 @@ import { CountdownProgress } from "@/components/countdown-progress";
 import { DirectorAssistant } from "@/components/director-assistant/DirectorAssistant";
 import { ErrorWithRetry, InlineError } from "@/components/error-with-retry";
 import {
+	useCreateDirectorStory,
 	useGenerateDirectorCharacter,
 	useGenerateDirectorSceneAudio,
 	useGenerateDirectorSceneImage,
@@ -111,6 +112,7 @@ function DirectorModePage() {
 	const navigate = useNavigate();
 
 	// React Query mutations
+	const createStoryMutation = useCreateDirectorStory();
 	const generateCharacterMutation = useGenerateDirectorCharacter();
 	const uploadCharacterMutation = useUploadDirectorCharacter();
 	const generateSceneImageMutation = useGenerateDirectorSceneImage();
@@ -149,11 +151,44 @@ function DirectorModePage() {
 	const [isUploadMenuOpen, setIsUploadMenuOpen] = useState(false);
 	const [isSettingsExpanded, setIsSettingsExpanded] = useState(false);
 	const [expandedSceneSettings, setExpandedSceneSettings] = useState<Set<string>>(new Set());
+	const [isCreatingStory, setIsCreatingStory] = useState(false);
 
 	// Refs
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const uploadMenuRef = useRef<HTMLDivElement>(null);
 	const audioRef = useRef<HTMLAudioElement | null>(null);
+
+	// Effect: Auto-create story when page loads without a storyId
+	useEffect(() => {
+		if (!storyId && !isCreatingStory && !createStoryMutation.isPending) {
+			setIsCreatingStory(true);
+			createStoryMutation.mutate(
+				{
+					imageEngine: defaultImageEngine,
+					imageStyle: defaultImageStyle,
+					voiceId: defaultVoiceId,
+					videoEngine: defaultVideoEngine,
+				},
+				{
+					onSuccess: (result) => {
+						if (result.success && result.storyId) {
+							directorActions.setStoryId(result.storyId);
+							console.log(`[director-mode] Created new story: ${result.storyId}`);
+						} else {
+							console.error("[director-mode] Failed to create story:", result.error);
+							directorActions.setError(new Error(result.error || "Failed to create story"));
+						}
+						setIsCreatingStory(false);
+					},
+					onError: (err) => {
+						console.error("[director-mode] Error creating story:", err);
+						directorActions.setError(err instanceof Error ? err : new Error("Failed to create story"));
+						setIsCreatingStory(false);
+					},
+				},
+			);
+		}
+	}, [storyId, isCreatingStory, createStoryMutation, defaultImageEngine, defaultImageStyle, defaultVoiceId, defaultVideoEngine]);
 
 	// Effect: Sync character prompt from store
 	useEffect(() => {
@@ -682,6 +717,16 @@ function DirectorModePage() {
 		directorActions.setIsGeneratingAllVideos(false);
 		directorActions.setBatchProgress(null);
 	};
+
+	// Show loading state while creating story
+	if (isCreatingStory || (!storyId && createStoryMutation.isPending)) {
+		return (
+			<div className="flex flex-col items-center justify-center min-h-100">
+				<Loader2 className="w-12 h-12 animate-spin text-purple-500 mb-4" />
+				<p className="text-muted-foreground">Creating new project...</p>
+			</div>
+		);
+	}
 
 	return (
 		<>
