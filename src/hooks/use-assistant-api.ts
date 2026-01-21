@@ -107,6 +107,105 @@ export function useUpdateUserPreferences() {
 	});
 }
 
+// ============================================================================
+// Conversation History API
+// ============================================================================
+
+import type {
+	ConversationMessage,
+	GetConversationResponse,
+	SaveConversationResponse,
+} from "@/routes/api/assistant-conversation";
+
+/**
+ * Fetch conversation history for a story
+ */
+export function useConversationHistory(storyId: string | null) {
+	return useQuery({
+		queryKey: ["conversationHistory", storyId],
+		queryFn: async (): Promise<GetConversationResponse> => {
+			if (!storyId) {
+				return { success: true, messages: [] };
+			}
+
+			const response = await authFetch(
+				`/api/assistant-conversation?storyId=${storyId}`,
+			);
+
+			if (!response.ok) {
+				const error = await response.json();
+				throw new Error(error.error || "Failed to fetch conversation");
+			}
+
+			return response.json();
+		},
+		enabled: !!storyId,
+		staleTime: 0, // Always fetch fresh data
+	});
+}
+
+/**
+ * Save conversation history
+ */
+export function useSaveConversationHistory() {
+	const queryClient = useQueryClient();
+
+	return useMutation({
+		mutationFn: async (params: {
+			storyId: string;
+			messages: ConversationMessage[];
+		}): Promise<SaveConversationResponse> => {
+			const response = await authFetch("/api/assistant-conversation", {
+				method: "PUT",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(params),
+			});
+
+			if (!response.ok) {
+				const error = await response.json();
+				throw new Error(error.error || "Failed to save conversation");
+			}
+
+			return response.json();
+		},
+		onSuccess: (_, variables) => {
+			queryClient.invalidateQueries({
+				queryKey: ["conversationHistory", variables.storyId],
+			});
+		},
+	});
+}
+
+/**
+ * Clear conversation history
+ */
+export function useClearConversationHistory() {
+	const queryClient = useQueryClient();
+
+	return useMutation({
+		mutationFn: async (storyId: string): Promise<SaveConversationResponse> => {
+			const response = await authFetch("/api/assistant-conversation", {
+				method: "DELETE",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ storyId }),
+			});
+
+			if (!response.ok) {
+				const error = await response.json();
+				throw new Error(error.error || "Failed to clear conversation");
+			}
+
+			return response.json();
+		},
+		onSuccess: (_, storyId) => {
+			queryClient.invalidateQueries({
+				queryKey: ["conversationHistory", storyId],
+			});
+		},
+	});
+}
+
 // Re-export types for convenience
 export type { ChatMessage, ChatResponse, ToolCallResult };
 export type { VideoPreferences, UserPreferencesResponse };
+export type { ConversationMessage };

@@ -48,6 +48,7 @@ import { Route as ApiGeneratePromptsRouteImport } from './routes/api/generate-pr
 import { Route as ApiGenerateCharacterRouteImport } from './routes/api/generate-character'
 import { Route as ApiExportVideoRouteImport } from './routes/api/export-video'
 import { Route as ApiCronCleanupJobsRouteImport } from './routes/api/cron-cleanup-jobs'
+import { Route as ApiAssistantConversationRouteImport } from './routes/api/assistant-conversation'
 import { Route as ApiAssistantChatRouteImport } from './routes/api/assistant-chat'
 import { Route as ApiAssetLibraryRouteImport } from './routes/api/asset-library'
 import { Route as AistorySubtitlesRouteImport } from './routes/aistory/subtitles'
@@ -255,6 +256,12 @@ const ApiCronCleanupJobsRoute = ApiCronCleanupJobsRouteImport.update({
   path: '/api/cron-cleanup-jobs',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAssistantConversationRoute =
+  ApiAssistantConversationRouteImport.update({
+    id: '/api/assistant-conversation',
+    path: '/api/assistant-conversation',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiAssistantChatRoute = ApiAssistantChatRouteImport.update({
   id: '/api/assistant-chat',
   path: '/api/assistant-chat',
@@ -303,6 +310,7 @@ export interface FileRoutesByFullPath {
   '/aistory/subtitles': typeof AistorySubtitlesRoute
   '/api/asset-library': typeof ApiAssetLibraryRoute
   '/api/assistant-chat': typeof ApiAssistantChatRoute
+  '/api/assistant-conversation': typeof ApiAssistantConversationRoute
   '/api/cron-cleanup-jobs': typeof ApiCronCleanupJobsRoute
   '/api/export-video': typeof ApiExportVideoRoute
   '/api/generate-character': typeof ApiGenerateCharacterRoute
@@ -349,6 +357,7 @@ export interface FileRoutesByTo {
   '/aistory/subtitles': typeof AistorySubtitlesRoute
   '/api/asset-library': typeof ApiAssetLibraryRoute
   '/api/assistant-chat': typeof ApiAssistantChatRoute
+  '/api/assistant-conversation': typeof ApiAssistantConversationRoute
   '/api/cron-cleanup-jobs': typeof ApiCronCleanupJobsRoute
   '/api/export-video': typeof ApiExportVideoRoute
   '/api/generate-character': typeof ApiGenerateCharacterRoute
@@ -398,6 +407,7 @@ export interface FileRoutesById {
   '/aistory/subtitles': typeof AistorySubtitlesRoute
   '/api/asset-library': typeof ApiAssetLibraryRoute
   '/api/assistant-chat': typeof ApiAssistantChatRoute
+  '/api/assistant-conversation': typeof ApiAssistantConversationRoute
   '/api/cron-cleanup-jobs': typeof ApiCronCleanupJobsRoute
   '/api/export-video': typeof ApiExportVideoRoute
   '/api/generate-character': typeof ApiGenerateCharacterRoute
@@ -448,6 +458,7 @@ export interface FileRouteTypes {
     | '/aistory/subtitles'
     | '/api/asset-library'
     | '/api/assistant-chat'
+    | '/api/assistant-conversation'
     | '/api/cron-cleanup-jobs'
     | '/api/export-video'
     | '/api/generate-character'
@@ -494,6 +505,7 @@ export interface FileRouteTypes {
     | '/aistory/subtitles'
     | '/api/asset-library'
     | '/api/assistant-chat'
+    | '/api/assistant-conversation'
     | '/api/cron-cleanup-jobs'
     | '/api/export-video'
     | '/api/generate-character'
@@ -542,6 +554,7 @@ export interface FileRouteTypes {
     | '/aistory/subtitles'
     | '/api/asset-library'
     | '/api/assistant-chat'
+    | '/api/assistant-conversation'
     | '/api/cron-cleanup-jobs'
     | '/api/export-video'
     | '/api/generate-character'
@@ -588,6 +601,7 @@ export interface RootRouteChildren {
   UserRoute: typeof UserRoute
   ApiAssetLibraryRoute: typeof ApiAssetLibraryRoute
   ApiAssistantChatRoute: typeof ApiAssistantChatRoute
+  ApiAssistantConversationRoute: typeof ApiAssistantConversationRoute
   ApiCronCleanupJobsRoute: typeof ApiCronCleanupJobsRoute
   ApiExportVideoRoute: typeof ApiExportVideoRoute
   ApiGenerateCharacterRoute: typeof ApiGenerateCharacterRoute
@@ -896,6 +910,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiCronCleanupJobsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/assistant-conversation': {
+      id: '/api/assistant-conversation'
+      path: '/api/assistant-conversation'
+      fullPath: '/api/assistant-conversation'
+      preLoaderRoute: typeof ApiAssistantConversationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/assistant-chat': {
       id: '/api/assistant-chat'
       path: '/api/assistant-chat'
@@ -990,6 +1011,7 @@ const rootRouteChildren: RootRouteChildren = {
   UserRoute: UserRoute,
   ApiAssetLibraryRoute: ApiAssetLibraryRoute,
   ApiAssistantChatRoute: ApiAssistantChatRoute,
+  ApiAssistantConversationRoute: ApiAssistantConversationRoute,
   ApiCronCleanupJobsRoute: ApiCronCleanupJobsRoute,
   ApiExportVideoRoute: ApiExportVideoRoute,
   ApiGenerateCharacterRoute: ApiGenerateCharacterRoute,

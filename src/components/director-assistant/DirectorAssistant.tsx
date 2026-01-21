@@ -1,18 +1,23 @@
 import { useStore } from "@tanstack/react-store";
-import { useState, useRef, useEffect } from "react";
-import { MessageSquare, X, Minus, Send, Loader2 } from "lucide-react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { MessageSquare, X, Minus, Send, Loader2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
 	directorAssistantStore,
 	directorAssistantActions,
 	buildSystemPrompt,
+	type AssistantMessage,
 } from "@/stores/director-assistant.store";
 import { directorStore, directorActions } from "@/stores/director.store";
 import {
 	useSendAssistantMessage,
 	useUserPreferences,
+	useConversationHistory,
+	useSaveConversationHistory,
+	useClearConversationHistory,
 	type ToolCallResult,
+	type ConversationMessage,
 } from "@/hooks/use-assistant-api";
 import { AssistantMessageBubble } from "./AssistantMessage";
 import { AssistantToolCall } from "./AssistantToolCall";
@@ -25,11 +30,76 @@ export function DirectorAssistant() {
 	const error = useStore(directorAssistantStore, (s) => s.error);
 
 	const [inputValue, setInputValue] = useState("");
+	const [hasLoadedHistory, setHasLoadedHistory] = useState(false);
 	const messagesEndRef = useRef<HTMLDivElement>(null);
 	const inputRef = useRef<HTMLTextAreaElement>(null);
 
 	const sendMessage = useSendAssistantMessage();
 	const { data: preferencesData } = useUserPreferences();
+	const saveConversation = useSaveConversationHistory();
+	const clearConversation = useClearConversationHistory();
+
+	// Get storyId from director store
+	const storyId = useStore(directorStore, (s) => s.storyId);
+
+	// Fetch conversation history
+	const { data: conversationData, isLoading: isLoadingHistory } =
+		useConversationHistory(storyId);
+
+	// Load conversation history into store when data is fetched
+	useEffect(() => {
+		if (
+			conversationData?.success &&
+			conversationData.messages.length > 0 &&
+			!hasLoadedHistory &&
+			storyId
+		) {
+			// Convert ConversationMessage[] to AssistantMessage[]
+			const loadedMessages: Omit<AssistantMessage, "id" | "timestamp">[] =
+				conversationData.messages.map((m) => ({
+					role: m.role,
+					content: m.content,
+					toolResults: m.toolResults,
+				}));
+
+			// Clear existing messages and load from database
+			directorAssistantActions.clearMessages();
+			for (const msg of loadedMessages) {
+				directorAssistantActions.addMessage(msg);
+			}
+			setHasLoadedHistory(true);
+		}
+	}, [conversationData, hasLoadedHistory, storyId]);
+
+	// Reset hasLoadedHistory when storyId changes
+	useEffect(() => {
+		setHasLoadedHistory(false);
+		directorAssistantActions.clearMessages();
+	}, [storyId]);
+
+	// Auto-save conversation after messages change
+	const saveConversationToDb = useCallback(() => {
+		if (!storyId || messages.length === 0) return;
+
+		const messagesToSave: ConversationMessage[] = messages.map((m) => ({
+			id: m.id,
+			role: m.role as "user" | "assistant",
+			content: m.content,
+			toolResults: m.toolResults,
+			timestamp: m.timestamp,
+		}));
+
+		saveConversation.mutate({ storyId, messages: messagesToSave });
+	}, [storyId, messages, saveConversation]);
+
+	// Save conversation when messages change (debounced by dependency)
+	useEffect(() => {
+		if (hasLoadedHistory && messages.length > 0 && storyId) {
+			// Use a small timeout to batch rapid changes
+			const timer = setTimeout(saveConversationToDb, 500);
+			return () => clearTimeout(timer);
+		}
+	}, [messages, hasLoadedHistory, storyId, saveConversationToDb]);
 
 	// Auto-scroll to bottom
 	useEffect(() => {
@@ -46,7 +116,6 @@ export function DirectorAssistant() {
 	}, [preferencesData]);
 
 	// Sync project context from director store
-	const storyId = useStore(directorStore, (s) => s.storyId);
 	const title = useStore(directorStore, (s) => s.title);
 	const character = useStore(directorStore, (s) => s.character);
 	const scenes = useStore(directorStore, (s) => s.scenes);
@@ -83,8 +152,8 @@ export function DirectorAssistant() {
 			const result = tool.result as Record<string, unknown> | null;
 			if (!result || result.error) continue;
 
-			// Handle update_character with localOnly flag
-			if (tool.name === "update_character" && result.localOnly && result.imagePrompt) {
+			// Handle update_character - update local store (works with or without storyId)
+			if (tool.name === "update_character" && result.success && result.imagePrompt) {
 				const currentCharacter = directorStore.state.character;
 				if (currentCharacter) {
 					directorActions.updateCharacter({
@@ -109,14 +178,19 @@ export function DirectorAssistant() {
 				}
 			}
 
-			// Handle add_scene - update local store with new scene
-			if (tool.name === "add_scene" && result.success && result.scene) {
-				const sceneData = result.scene as Record<string, unknown>;
-				directorActions.updateScene(sceneData.id as string, {
-					caption: sceneData.caption as string,
-					imagePrompt: sceneData.imagePrompt as string,
-					videoPrompt: sceneData.videoPrompt as string,
-				});
+			// Handle add_scene - add new scene to local store
+			if (tool.name === "add_scene" && result.success && result.sceneId) {
+				// Get scene data from tool arguments (not result)
+				const args = tool.arguments;
+				directorActions.addSceneWithData(
+					result.sceneId as string,
+					result.orderIndex as number,
+					{
+						caption: args.caption as string | undefined,
+						imagePrompt: args.imagePrompt as string | undefined,
+						videoPrompt: args.videoPrompt as string | undefined,
+					},
+				);
 			}
 
 			// Handle update_scene - update local store
@@ -200,6 +274,20 @@ export function DirectorAssistant() {
 		}
 	};
 
+	const handleClearConversation = () => {
+		if (!storyId) return;
+
+		// Clear local store
+		directorAssistantActions.clearMessages();
+
+		// Clear from database
+		clearConversation.mutate(storyId, {
+			onSuccess: () => {
+				setHasLoadedHistory(true); // Mark as loaded so auto-save works again
+			},
+		});
+	};
+
 	// Floating button when closed
 	if (!isOpen) {
 		return (
@@ -238,6 +326,16 @@ export function DirectorAssistant() {
 					</span>
 				</div>
 				<div className="flex items-center gap-1">
+					{messages.length > 0 && (
+						<button
+							onClick={handleClearConversation}
+							className="rounded-md p-1.5 transition-colors hover:bg-red-500/20"
+							title="Clear conversation"
+							disabled={clearConversation.isPending}
+						>
+							<Trash2 className="h-4 w-4 text-muted-foreground hover:text-red-400" />
+						</button>
+					)}
 					<button
 						onClick={() => directorAssistantActions.setIsMinimized(true)}
 						className="rounded-md p-1.5 transition-colors hover:bg-muted"
@@ -257,7 +355,16 @@ export function DirectorAssistant() {
 
 			{/* Messages */}
 			<CardContent className="flex-1 space-y-4 overflow-y-auto p-4">
-				{messages.length === 0 && (
+				{isLoadingHistory && (
+					<div className="flex items-center justify-center py-8">
+						<Loader2 className="h-6 w-6 animate-spin text-purple-400" />
+						<span className="ml-2 text-sm text-muted-foreground">
+							Loading conversation...
+						</span>
+					</div>
+				)}
+
+				{!isLoadingHistory && messages.length === 0 && (
 					<div className="py-8 text-center text-muted-foreground">
 						<MessageSquare className="mx-auto mb-4 h-12 w-12 opacity-30" />
 						<p className="text-sm">

@@ -352,6 +352,54 @@ export const directorActions = {
 		});
 	},
 
+	// Add a scene with specific ID and data (for AI assistant tool results)
+	addSceneWithData: (
+		sceneId: string,
+		orderIndex: number,
+		data: { caption?: string; imagePrompt?: string; videoPrompt?: string },
+	) => {
+		directorStore.setState((s) => {
+			const newScene: DirectorSceneState = {
+				id: sceneId,
+				orderIndex,
+				caption: data.caption || "",
+				imagePrompt: data.imagePrompt || "",
+				videoPrompt: data.videoPrompt || "",
+				imageId: null,
+				imageUrl: null,
+				audioId: null,
+				audioUrl: null,
+				videoId: null,
+				videoUrl: null,
+				imageStatus: null,
+				audioStatus: null,
+				videoStatus: null,
+				audioDuration: null,
+				videoDuration: null,
+				wordTimestamps: null,
+				imageEngine: s.defaultImageEngine,
+				voiceId: s.defaultVoiceId,
+				voiceSpeed: s.defaultVoiceSpeed,
+				videoEngine: s.defaultVideoEngine,
+				avatarEngine: s.defaultAvatarEngine,
+				useAvatar: false,
+				isGeneratingImage: false,
+				isGeneratingAudio: false,
+				isGeneratingVideo: false,
+				videoError: null,
+			};
+
+			// Insert at the correct position based on orderIndex
+			const newScenes = [...s.scenes];
+			newScenes.splice(orderIndex, 0, newScene);
+			// Re-index all scenes
+			return {
+				...s,
+				scenes: newScenes.map((sc, i) => ({ ...sc, orderIndex: i })),
+			};
+		});
+	},
+
 	updateScene: (sceneId: string, updates: Partial<DirectorSceneState>) =>
 		directorStore.setState((s) => ({
 			...s,
