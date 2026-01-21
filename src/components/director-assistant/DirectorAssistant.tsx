@@ -117,6 +117,7 @@ export function DirectorAssistant() {
 
 	// Sync project context from director store
 	const title = useStore(directorStore, (s) => s.title);
+	const defaultImageStyle = useStore(directorStore, (s) => s.defaultImageStyle);
 	const character = useStore(directorStore, (s) => s.character);
 	const scenes = useStore(directorStore, (s) => s.scenes);
 
@@ -124,6 +125,7 @@ export function DirectorAssistant() {
 		directorAssistantActions.setProjectContext({
 			storyId,
 			title,
+			imageStyle: defaultImageStyle,
 			character: character
 				? {
 						name: character.name,
@@ -142,7 +144,7 @@ export function DirectorAssistant() {
 				hasVideo: !!s.videoUrl,
 			})),
 		});
-	}, [storyId, title, character, scenes]);
+	}, [storyId, title, defaultImageStyle, character, scenes]);
 
 	// Process tool results to update local store when needed
 	const processToolResults = (toolCalls: ToolCallResult[] | undefined) => {

@@ -54,6 +54,7 @@ export interface SceneSummary {
 export interface ProjectContext {
 	storyId: string | null;
 	title: string;
+	imageStyle: string;
 	character: CharacterSummary | null;
 	scenes: SceneSummary[];
 }
@@ -198,13 +199,51 @@ CRITICAL GUIDELINES:
 - You CAN add, modify, or delete scenes
 - You CAN modify the character description/prompt
 
-CHARACTER REFERENCE IN IMAGE PROMPTS:
-- When a scene needs to feature the main character (for consistency), the image prompt SHOULD include phrases like:
-  "use character image as reference" or "character reference: [describe character's role in scene]"
-- When a scene does NOT need the main character (e.g., landscape, object close-up, text overlay),
-  the image prompt should NOT mention character reference
-- The user has a "Use Character" checkbox that controls whether to use character reference model
-- Help the user understand when to enable/disable character reference based on scene content
+**CRITICAL** - CHARACTER REFERENCE IN IMAGE PROMPTS:
+The system uses a character reference model to maintain visual consistency of the main character across scenes.
+For this to work, you MUST include specific phrases in the image prompt.
+
+MANDATORY RULES:
+1. If a scene features the main character (person appearing in the scene), you MUST include one of these phrases at the START of the image prompt:
+   - "use character image as reference, "
+   - "reference the character image, "
+   - "based on character reference, "
+   Example: "use character image as reference, a young woman sitting at a cafe, looking thoughtfully out the window, soft afternoon light"
+
+2. If a scene does NOT feature the main character (landscape, object close-up, text overlay, establishing shot without people), do NOT include character reference phrases.
+   Example: "aerial view of a bustling city at sunset, golden hour lighting"
+
+3. The user has a "Use Character" checkbox next to the generate image button. When checked, the system will use the character reference model. Your job is to ensure the IMAGE PROMPT contains the reference phrase so the model knows to apply character consistency.
+
+4. ALWAYS remind users: "建議勾選 Use Character 以保持角色一致性" when the scene should feature the character.
+
+EXAMPLES OF CORRECT IMAGE PROMPTS:
+✓ "use character image as reference, the protagonist walking through a rainy street at night, neon lights reflecting on wet pavement"
+✓ "reference the character image, close-up emotional shot of the main character crying, tears streaming down face"
+✓ "based on character reference, the woman dancing joyfully in a flower field, golden hour"
+✗ "a woman walking through a rainy street" (WRONG - missing character reference phrase!)
+✗ "the protagonist crying" (WRONG - missing character reference phrase!)
+
+**IMAGE STYLE** - Apply style keywords to ALL image prompts:
+The user selects an image style that determines the visual aesthetic. You MUST include the appropriate style keywords in EVERY image prompt.
+
+STYLE DEFINITIONS:
+- cinematic: "Realistic cinematic film still, high quality, strong composition, cinematic lighting"
+- comic: "1950s American comic book cover style, bold ink outlines, halftone dots shading, pulp print texture, vintage color palette, dramatic heroic pose, cinematic rim light, strong shadows, high quality illustration, retro print look"
+- low-poly: "Oil-Paint Diorama with Low-Poly Statues"
+- japanese-anime: "Classic 1990s Japanese anime/manga style, traditional hand-drawn cel animation, bold black ink outlines, dramatic screentone shading, intense expressive eyes, dynamic action framing, vintage shonen anime aesthetic"
+- clay: "Clay animation style, claymation, stop-motion miniature diorama, handcrafted clay figurines, visible polymer clay texture, subtle handmade imperfections, soft diffused lighting, tilt-shift miniature photography"
+
+HOW TO APPLY STYLE:
+1. Check the current Image Style setting in the project context
+2. Add the style keywords at the END of every image prompt
+3. For styles with negative prompts (comic, low-poly, japanese-anime, clay), also add "Negative prompt: [negative keywords]" at the very end
+
+EXAMPLE (cinematic style):
+"use character image as reference, a young woman sitting at a cafe, soft afternoon light, Realistic cinematic film still, high quality, strong composition, cinematic lighting"
+
+EXAMPLE (japanese-anime style):
+"use character image as reference, a young warrior standing on a cliff, wind blowing through hair, Classic 1990s Japanese anime/manga style, traditional hand-drawn cel animation, bold black ink outlines, dramatic screentone shading, intense expressive eyes. Negative prompt: modern mobile game style, gacha game, chibi, cute moe style, 3D render, photorealistic"
 
 AVAILABLE TOOLS:
 1. web_search - Search the web for references, trends, or inspiration
@@ -234,6 +273,7 @@ ${state.userPreferences}
 CURRENT PROJECT STATE:
 - Title: ${ctx.title || "(untitled)"}
 - Story ID: ${ctx.storyId || "(not saved yet)"}
+- Image Style: ${ctx.imageStyle || "cinematic"} (IMPORTANT: Apply this style to ALL image prompts!)
 `;
 
 		if (ctx.character) {
