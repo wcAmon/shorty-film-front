@@ -33,15 +33,9 @@ const TOOL_LABELS: Record<string, string> = {
 export function AssistantToolCall({ toolResult }: Props) {
 	const Icon = TOOL_ICONS[toolResult.name] || Wrench;
 	const label = TOOL_LABELS[toolResult.name] || toolResult.name;
-	const isSuccess =
-		toolResult.result &&
-		typeof toolResult.result === "object" &&
-		"success" in toolResult.result &&
-		(toolResult.result as { success: boolean }).success;
-	const hasError =
-		toolResult.result &&
-		typeof toolResult.result === "object" &&
-		"error" in toolResult.result;
+	const result = toolResult.result as Record<string, unknown> | null | undefined;
+	const isSuccess = result && typeof result === "object" && "success" in result && result.success === true;
+	const hasError = result && typeof result === "object" && "error" in result;
 
 	return (
 		<div
@@ -63,7 +57,7 @@ export function AssistantToolCall({ toolResult }: Props) {
 			</div>
 			{hasError && (
 				<p className="mt-1 text-xs text-red-400">
-					{(toolResult.result as { error: string }).error}
+					{String(result?.error || "Unknown error")}
 				</p>
 			)}
 		</div>

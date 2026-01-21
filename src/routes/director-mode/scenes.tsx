@@ -28,6 +28,7 @@ import {
 	useGenerateDirectorAvatarVideo,
 	useUpdateDirectorScene,
 	useReorderDirectorScenes,
+	useUpdateStoryTitle,
 } from "@/hooks/use-director-api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -102,16 +103,19 @@ function DirectorScenesPage() {
 	const generateAvatarVideoMutation = useGenerateDirectorAvatarVideo();
 	const updateSceneMutation = useUpdateDirectorScene();
 	const reorderScenesMutation = useReorderDirectorScenes();
+	const updateTitleMutation = useUpdateStoryTitle();
 
 	// Subscribe to store state
 	const storyId = useStore(directorStore, (s) => s.storyId);
+	const title = useStore(directorStore, (s) => s.title);
 	const character = useStore(directorStore, (s) => s.character);
 	const scenes = useStore(directorStore, (s) => s.scenes);
 	const defaultImageEngine = useStore(directorStore, (s) => s.defaultImageEngine);
 	const defaultVideoEngine = useStore(directorStore, (s) => s.defaultVideoEngine);
 	const defaultAvatarEngine = useStore(directorStore, (s) => s.defaultAvatarEngine);
-	const defaultVoiceId = useStore(directorStore, (s) => s.defaultVoiceId);
-	const defaultVoiceSpeed = useStore(directorStore, (s) => s.defaultVoiceSpeed);
+	// Note: These are intentionally commented out as they're not currently used
+	// const defaultVoiceId = useStore(directorStore, (s) => s.defaultVoiceId);
+	// const defaultVoiceSpeed = useStore(directorStore, (s) => s.defaultVoiceSpeed);
 	const defaultImageStyle = useStore(directorStore, (s) => s.defaultImageStyle);
 	const sceneError = useStore(directorStore, (s) => s.sceneError);
 	const playingSceneId = useStore(directorStore, (s) => s.playingSceneId);
@@ -130,6 +134,12 @@ function DirectorScenesPage() {
 	const audioRef = useRef<HTMLAudioElement | null>(null);
 
 	// Debounced save callbacks (1.5s delay)
+	const debouncedSaveTitle = useDebouncedCallback((newTitle: string) => {
+		if (storyId) {
+			updateTitleMutation.mutate({ storyId, title: newTitle });
+		}
+	}, 1500);
+
 	const debouncedSaveCaption = useDebouncedCallback((sceneId: string, caption: string) => {
 		updateSceneMutation.mutate({ sceneId, updates: { caption } });
 	}, 1500);
@@ -162,6 +172,12 @@ function DirectorScenesPage() {
 			}
 			return next;
 		});
+	};
+
+	// Handle title change (immediate store update + debounced save)
+	const handleTitleChange = (newTitle: string) => {
+		directorActions.setTitle(newTitle);
+		debouncedSaveTitle(newTitle);
 	};
 
 	// Handle field updates (immediate store update + debounced save)
@@ -587,6 +603,17 @@ function DirectorScenesPage() {
 	return (
 		<>
 		<div className="space-y-8">
+			{/* Story Title */}
+			<div>
+				<textarea
+					value={title}
+					onChange={(e) => handleTitleChange(e.target.value)}
+					placeholder="Enter story title..."
+					className="w-full px-4 py-3 bg-background border border-border rounded-lg text-xl font-semibold text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-purple-500 resize-none"
+					rows={1}
+				/>
+			</div>
+
 			{/* Default Engine Settings Display */}
 			<Card>
 				<CardContent className="p-4">
@@ -848,7 +875,7 @@ function SceneCard({
 	isSettingsExpanded,
 	playingSceneId,
 	currentWordIndex,
-	characterImageUrl,
+	characterImageUrl: _characterImageUrl,
 	onToggleSettings,
 	onCaptionChange,
 	onImagePromptChange,

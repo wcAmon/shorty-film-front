@@ -1186,3 +1186,27 @@ export function useUpdateDirectorStorySettings() {
 		mutationFn: updateDirectorStorySettingsApi,
 	});
 }
+
+/**
+ * Update story title API
+ */
+async function updateStoryTitleApi(params: {
+	storyId: string;
+	title: string;
+}): Promise<{ success: boolean; error?: string }> {
+	const response = await authFetch("/api/director/update-title", {
+		method: "PUT",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify(params),
+	});
+	return response.json();
+}
+
+/**
+ * Hook to update story title
+ */
+export function useUpdateStoryTitle() {
+	return useMutation({
+		mutationFn: updateStoryTitleApi,
+	});
+}

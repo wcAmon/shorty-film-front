@@ -117,9 +117,9 @@ function DirectorSubtitlesPage() {
 						word: wt.word,
 						startTime: wt.startTime,
 						endTime: wt.endTime,
-					})) || null,
-					audioDuration: scene.audioDuration,
-					videoDuration: scene.videoDuration,
+					})) ?? undefined,
+					audioDuration: scene.audioDuration ?? undefined,
+					videoDuration: scene.videoDuration ?? undefined,
 				}));
 				subtitleEditorActions.initializeFromScenes(storyId, scenesWithTimestamps);
 			}

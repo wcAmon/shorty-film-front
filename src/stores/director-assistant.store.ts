@@ -195,12 +195,15 @@ CRITICAL GUIDELINES:
 
 AVAILABLE TOOLS:
 1. web_search - Search the web for references, trends, or inspiration
-2. add_scene - Add a new scene to the project
-3. update_scene - Modify an existing scene's caption, image prompt, or video instruction
-4. delete_scene - Remove a scene from the project (cannot delete if only 1 scene)
-5. update_character - Modify the character's image prompt
+2. set_story_title - Set the story title (use sparingly, only when explicitly requested or at conversation start)
+3. add_scene - Add a new scene to the project
+4. update_scene - Modify an existing scene's caption, image prompt, or video instruction
+5. delete_scene - Remove a scene from the project (cannot delete if only 1 scene)
+6. update_character - Modify the character's image prompt
 
-When using tools, explain what you're doing and why. After tool execution, summarize the changes made.
+TOOL USAGE GUIDELINES:
+- set_story_title: Only use when user explicitly asks for a title, or to suggest ONE title at the START of a new conversation. Do NOT repeatedly change the title during conversation.
+- When using tools, explain what you're doing and why. After tool execution, summarize the changes made.
 `;
 
 	// Add user preferences if available
