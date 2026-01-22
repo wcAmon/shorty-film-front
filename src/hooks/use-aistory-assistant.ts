@@ -51,29 +51,28 @@ export function useAIStoryAssistant() {
 	}, [storyId]);
 
 	// Auto-save conversation after messages change
-	const saveConversationToDb = useCallback(() => {
-		if (!storyId || messages.length === 0) return;
+	// Use ref to avoid dependency on saveConversation mutation object
+	const saveConversationRef = useRef(saveConversation);
+	saveConversationRef.current = saveConversation;
 
-		const messagesToSave: ConversationMessage[] = messages.map((m) => ({
-			id: m.id,
-			role: m.role as "user" | "assistant",
-			content: m.content,
-			toolResults: m.toolResults,
-			timestamp: m.timestamp,
-		}));
-
-		saveConversation.mutate({ storyId, messages: messagesToSave });
-	}, [storyId, messages, saveConversation]);
-
-	// Save conversation when messages change (debounced by dependency)
+	// Save conversation when messages change (debounced)
 	useEffect(() => {
 		// Only save after we've loaded (or confirmed empty) for this storyId
 		if (loadedForStoryId === storyId && messages.length > 0 && storyId) {
 			// Use a small timeout to batch rapid changes
-			const timer = setTimeout(saveConversationToDb, 500);
+			const timer = setTimeout(() => {
+				const messagesToSave: ConversationMessage[] = messages.map((m) => ({
+					id: m.id,
+					role: m.role as "user" | "assistant",
+					content: m.content,
+					toolResults: m.toolResults,
+					timestamp: m.timestamp,
+				}));
+				saveConversationRef.current.mutate({ storyId, messages: messagesToSave });
+			}, 500);
 			return () => clearTimeout(timer);
 		}
-	}, [messages, loadedForStoryId, storyId, saveConversationToDb]);
+	}, [messages, loadedForStoryId, storyId]);
 
 	// Auto-scroll to bottom
 	useEffect(() => {
@@ -123,19 +122,11 @@ export function useAIStoryAssistant() {
 
 	// Process tool results to update local store when needed
 	const processToolResults = useCallback((toolCalls: ToolCallResult[] | undefined) => {
-		console.log("[AIStoryAssistant] processToolResults called with:", toolCalls);
-		if (!toolCalls) {
-			console.log("[AIStoryAssistant] No toolCalls, returning early");
-			return;
-		}
+		if (!toolCalls) return;
 
 		for (const tool of toolCalls) {
-			console.log("[AIStoryAssistant] Processing tool:", tool.name, "result:", tool.result);
 			const result = tool.result as Record<string, unknown> | null;
-			if (!result || result.error) {
-				console.log("[AIStoryAssistant] Skipping tool due to no result or error:", result);
-				continue;
-			}
+			if (!result || result.error) continue;
 
 			// Handle update_character - update local store
 			if (tool.name === "update_character" && result.success && result.imagePrompt) {
@@ -157,6 +148,8 @@ export function useAIStoryAssistant() {
 						updates.prompt = args.imagePrompt; // AIStory uses 'prompt' instead of 'imagePrompt'
 					if (args.videoPrompt !== null && args.videoPrompt !== undefined)
 						updates.video_prompt = args.videoPrompt; // AIStory uses 'video_prompt' with underscore
+					if (args.useAvatar !== null && args.useAvatar !== undefined)
+						updates.useAvatar = args.useAvatar;
 					if (Object.keys(updates).length > 0) {
 						aistoryActions.updateScene(sceneId, updates);
 					}
@@ -171,11 +164,12 @@ export function useAIStoryAssistant() {
 					caption: string | null;
 					imagePrompt: string | null;
 					videoPrompt: string | null;
+					useAvatar?: boolean | null;
 				}>;
 				const currentScenes = aistoryStore.state.scenes;
 
 				for (const update of updates) {
-					const { sceneIndex, caption, imagePrompt, videoPrompt } = update;
+					const { sceneIndex, caption, imagePrompt, videoPrompt, useAvatar } = update;
 					if (sceneIndex >= 0 && sceneIndex < currentScenes.length) {
 						const sceneId = currentScenes[sceneIndex].id;
 						const sceneUpdates: Record<string, unknown> = {};
@@ -186,6 +180,8 @@ export function useAIStoryAssistant() {
 							sceneUpdates.prompt = imagePrompt; // AIStory uses 'prompt' instead of 'imagePrompt'
 						if (videoPrompt !== null && videoPrompt !== undefined)
 							sceneUpdates.video_prompt = videoPrompt; // AIStory uses 'video_prompt' with underscore
+						if (useAvatar !== null && useAvatar !== undefined)
+							sceneUpdates.useAvatar = useAvatar;
 						if (Object.keys(sceneUpdates).length > 0) {
 							aistoryActions.updateScene(sceneId, sceneUpdates);
 						}
@@ -195,9 +191,7 @@ export function useAIStoryAssistant() {
 
 			// Handle delete_scene - update local store
 			if (tool.name === "delete_scene" && result.success) {
-				// Use deletedSceneId from result (most reliable)
 				if (result.deletedSceneId) {
-					console.log("[AIStoryAssistant] Deleting scene by ID:", result.deletedSceneId);
 					aistoryActions.deleteScene(result.deletedSceneId as string);
 				}
 			}
@@ -205,8 +199,6 @@ export function useAIStoryAssistant() {
 			// Handle delete_scenes (batch) - update local store
 			if (tool.name === "delete_scenes" && result.success) {
 				const deletedSceneIds = result.deletedSceneIds as string[];
-				console.log("[AIStoryAssistant] Batch deleting scenes:", deletedSceneIds);
-				// Delete in the order provided (already sorted descending by backend)
 				for (const sceneId of deletedSceneIds) {
 					aistoryActions.deleteScene(sceneId);
 				}
@@ -214,7 +206,6 @@ export function useAIStoryAssistant() {
 
 			// Handle update_character_and_scenes - update both character and scenes in local store
 			if (tool.name === "update_character_and_scenes" && result.success) {
-				console.log("[AIStoryAssistant] update_character_and_scenes triggered", { tool, result });
 				const args = tool.arguments;
 				const characterImagePrompt = args.characterImagePrompt as string;
 				const sceneUpdates = args.sceneUpdates as Array<{
@@ -222,30 +213,19 @@ export function useAIStoryAssistant() {
 					imagePrompt: string;
 				}>;
 
-				console.log("[AIStoryAssistant] Character prompt:", characterImagePrompt);
-				console.log("[AIStoryAssistant] Scene updates:", sceneUpdates);
-
 				// Update character
 				aistoryActions.setCharacterPrompt(characterImagePrompt);
-				console.log("[AIStoryAssistant] Character prompt updated in store");
 
 				// Update scenes
 				if (sceneUpdates && sceneUpdates.length > 0) {
 					const currentScenes = aistoryStore.state.scenes;
-					console.log("[AIStoryAssistant] Current scenes count:", currentScenes.length);
 					for (const update of sceneUpdates) {
 						const { sceneIndex, imagePrompt } = update;
-						console.log(`[AIStoryAssistant] Updating scene ${sceneIndex}:`, imagePrompt.substring(0, 50) + "...");
 						if (sceneIndex >= 0 && sceneIndex < currentScenes.length) {
 							const sceneId = currentScenes[sceneIndex].id;
-							console.log(`[AIStoryAssistant] Scene ID: ${sceneId}`);
 							aistoryActions.updateScene(sceneId, { prompt: imagePrompt });
-						} else {
-							console.warn(`[AIStoryAssistant] Invalid scene index: ${sceneIndex}`);
 						}
 					}
-				} else {
-					console.log("[AIStoryAssistant] No scene updates to apply");
 				}
 			}
 
@@ -289,7 +269,6 @@ export function useAIStoryAssistant() {
 			});
 
 			// Process tool results to update local store
-			console.log("[AIStoryAssistant] toolCalls received:", result.toolCalls);
 			processToolResults(result.toolCalls);
 
 			// Add assistant response

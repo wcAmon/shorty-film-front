@@ -56,29 +56,28 @@ export function useDirectorAssistant() {
 	}, [storyId]);
 
 	// Auto-save conversation after messages change
-	const saveConversationToDb = useCallback(() => {
-		if (!storyId || messages.length === 0) return;
+	// Use ref to avoid dependency on saveConversation mutation object
+	const saveConversationRef = useRef(saveConversation);
+	saveConversationRef.current = saveConversation;
 
-		const messagesToSave: ConversationMessage[] = messages.map((m) => ({
-			id: m.id,
-			role: m.role as "user" | "assistant",
-			content: m.content,
-			toolResults: m.toolResults,
-			timestamp: m.timestamp,
-		}));
-
-		saveConversation.mutate({ storyId, messages: messagesToSave });
-	}, [storyId, messages, saveConversation]);
-
-	// Save conversation when messages change (debounced by dependency)
+	// Save conversation when messages change (debounced)
 	useEffect(() => {
 		// Only save after we've loaded (or confirmed empty) for this storyId
 		if (loadedForStoryId === storyId && messages.length > 0 && storyId) {
 			// Use a small timeout to batch rapid changes
-			const timer = setTimeout(saveConversationToDb, 500);
+			const timer = setTimeout(() => {
+				const messagesToSave: ConversationMessage[] = messages.map((m) => ({
+					id: m.id,
+					role: m.role as "user" | "assistant",
+					content: m.content,
+					toolResults: m.toolResults,
+					timestamp: m.timestamp,
+				}));
+				saveConversationRef.current.mutate({ storyId, messages: messagesToSave });
+			}, 500);
 			return () => clearTimeout(timer);
 		}
-	}, [messages, loadedForStoryId, storyId, saveConversationToDb]);
+	}, [messages, loadedForStoryId, storyId]);
 
 	// Auto-scroll to bottom
 	useEffect(() => {
@@ -265,9 +264,7 @@ export function useDirectorAssistant() {
 
 			// Handle delete_scene - update local store
 			if (tool.name === "delete_scene" && result.success) {
-				// Use deletedSceneId from result (most reliable)
 				if (result.deletedSceneId) {
-					console.log("[DirectorAssistant] Deleting scene by ID:", result.deletedSceneId);
 					directorActions.deleteScene(result.deletedSceneId as string);
 				}
 			}
@@ -275,8 +272,6 @@ export function useDirectorAssistant() {
 			// Handle delete_scenes (batch) - update local store
 			if (tool.name === "delete_scenes" && result.success) {
 				const deletedSceneIds = result.deletedSceneIds as string[];
-				console.log("[DirectorAssistant] Batch deleting scenes:", deletedSceneIds);
-				// Delete in the order provided (already sorted descending by backend)
 				for (const sceneId of deletedSceneIds) {
 					directorActions.deleteScene(sceneId);
 				}

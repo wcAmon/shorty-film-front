@@ -48,30 +48,50 @@ export function useAuth() {
 /**
  * Helper to create authenticated fetch
  */
+
+// Track recent calls to detect infinite loops
+const recentCalls: Map<string, number[]> = new Map();
+const LOOP_DETECTION_WINDOW = 5000; // 5 seconds
+const LOOP_DETECTION_THRESHOLD = 5; // 5 calls in window = warning
+
+function detectInfiniteLoop(url: string): void {
+	const now = Date.now();
+	const urlPath = new URL(url, window.location.origin).pathname;
+
+	// Get or create call history for this endpoint
+	const calls = recentCalls.get(urlPath) || [];
+
+	// Remove old calls outside the window
+	const recentCallsFiltered = calls.filter(
+		(time) => now - time < LOOP_DETECTION_WINDOW,
+	);
+
+	// Add current call
+	recentCallsFiltered.push(now);
+	recentCalls.set(urlPath, recentCallsFiltered);
+
+	// Check for rapid repeated calls
+	if (recentCallsFiltered.length >= LOOP_DETECTION_THRESHOLD) {
+		console.warn(
+			`[authFetch] ⚠️ Possible infinite loop detected: ${urlPath} called ${recentCallsFiltered.length} times in ${LOOP_DETECTION_WINDOW / 1000}s`,
+		);
+	}
+}
+
 export async function authFetch(
 	url: string,
 	options: RequestInit = {},
 ): Promise<Response> {
+	// Check for infinite loop pattern
+	detectInfiniteLoop(url);
+
 	const {
 		data: { session },
 	} = await supabaseClient.auth.getSession();
 
-	console.log(
-		"[authFetch] Session check for",
-		url,
-		"- has session:",
-		!!session,
-		"has token:",
-		!!session?.access_token,
-	);
-
 	const headers = new Headers(options.headers);
 	if (session?.access_token) {
 		headers.set("Authorization", `Bearer ${session.access_token}`);
-	} else {
-		console.warn(
-			"[authFetch] No access token available - request will be unauthenticated",
-		);
 	}
 
 	return fetch(url, {
