@@ -123,11 +123,19 @@ export function useAIStoryAssistant() {
 
 	// Process tool results to update local store when needed
 	const processToolResults = useCallback((toolCalls: ToolCallResult[] | undefined) => {
-		if (!toolCalls) return;
+		console.log("[AIStoryAssistant] processToolResults called with:", toolCalls);
+		if (!toolCalls) {
+			console.log("[AIStoryAssistant] No toolCalls, returning early");
+			return;
+		}
 
 		for (const tool of toolCalls) {
+			console.log("[AIStoryAssistant] Processing tool:", tool.name, "result:", tool.result);
 			const result = tool.result as Record<string, unknown> | null;
-			if (!result || result.error) continue;
+			if (!result || result.error) {
+				console.log("[AIStoryAssistant] Skipping tool due to no result or error:", result);
+				continue;
+			}
 
 			// Handle update_character - update local store
 			if (tool.name === "update_character" && result.success && result.imagePrompt) {
@@ -206,6 +214,7 @@ export function useAIStoryAssistant() {
 
 			// Handle update_character_and_scenes - update both character and scenes in local store
 			if (tool.name === "update_character_and_scenes" && result.success) {
+				console.log("[AIStoryAssistant] update_character_and_scenes triggered", { tool, result });
 				const args = tool.arguments;
 				const characterImagePrompt = args.characterImagePrompt as string;
 				const sceneUpdates = args.sceneUpdates as Array<{
@@ -213,19 +222,30 @@ export function useAIStoryAssistant() {
 					imagePrompt: string;
 				}>;
 
+				console.log("[AIStoryAssistant] Character prompt:", characterImagePrompt);
+				console.log("[AIStoryAssistant] Scene updates:", sceneUpdates);
+
 				// Update character
 				aistoryActions.setCharacterPrompt(characterImagePrompt);
+				console.log("[AIStoryAssistant] Character prompt updated in store");
 
 				// Update scenes
 				if (sceneUpdates && sceneUpdates.length > 0) {
 					const currentScenes = aistoryStore.state.scenes;
+					console.log("[AIStoryAssistant] Current scenes count:", currentScenes.length);
 					for (const update of sceneUpdates) {
 						const { sceneIndex, imagePrompt } = update;
+						console.log(`[AIStoryAssistant] Updating scene ${sceneIndex}:`, imagePrompt.substring(0, 50) + "...");
 						if (sceneIndex >= 0 && sceneIndex < currentScenes.length) {
 							const sceneId = currentScenes[sceneIndex].id;
+							console.log(`[AIStoryAssistant] Scene ID: ${sceneId}`);
 							aistoryActions.updateScene(sceneId, { prompt: imagePrompt });
+						} else {
+							console.warn(`[AIStoryAssistant] Invalid scene index: ${sceneIndex}`);
 						}
 					}
+				} else {
+					console.log("[AIStoryAssistant] No scene updates to apply");
 				}
 			}
 
