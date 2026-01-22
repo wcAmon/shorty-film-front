@@ -175,6 +175,13 @@ export interface DirectorState {
 	isGeneratingAllAudios: boolean;
 	isGeneratingAllVideos: boolean;
 	batchProgress: { current: number; total: number; type: string } | null;
+	batchCancelled: boolean;
+
+	// Pending regenerate queue (for requests made during batch generation)
+	pendingRegenerateQueue: Array<{
+		sceneId: string;
+		type: "image" | "audio" | "video";
+	}>;
 }
 
 // ============================================================================
@@ -211,6 +218,8 @@ const initialState: DirectorState = {
 	isGeneratingAllAudios: false,
 	isGeneratingAllVideos: false,
 	batchProgress: null,
+	batchCancelled: false,
+	pendingRegenerateQueue: [],
 };
 
 // ============================================================================
@@ -602,6 +611,38 @@ export const directorActions = {
 		progress: { current: number; total: number; type: string } | null,
 	) => directorStore.setState((s) => ({ ...s, batchProgress: progress })),
 
+	setBatchCancelled: (val: boolean) =>
+		directorStore.setState((s) => ({ ...s, batchCancelled: val })),
+
+	cancelBatchGeneration: () =>
+		directorStore.setState((s) => ({ ...s, batchCancelled: true })),
+
+	// Pending regenerate queue actions
+	addToPendingQueue: (sceneId: string, type: "image" | "audio" | "video") =>
+		directorStore.setState((s) => ({
+			...s,
+			pendingRegenerateQueue: [
+				...s.pendingRegenerateQueue.filter(
+					(item) => !(item.sceneId === sceneId && item.type === type),
+				),
+				{ sceneId, type },
+			],
+		})),
+
+	removeFromPendingQueue: (sceneId: string, type: "image" | "audio" | "video") =>
+		directorStore.setState((s) => ({
+			...s,
+			pendingRegenerateQueue: s.pendingRegenerateQueue.filter(
+				(item) => !(item.sceneId === sceneId && item.type === type),
+			),
+		})),
+
+	clearPendingQueue: () =>
+		directorStore.setState((s) => ({ ...s, pendingRegenerateQueue: [] })),
+
+	getPendingQueueByType: (type: "image" | "audio" | "video") =>
+		directorStore.state.pendingRegenerateQueue.filter((item) => item.type === type),
+
 	// ========================================================================
 	// Reset
 	// ========================================================================
@@ -624,5 +665,7 @@ export const directorActions = {
 			isGeneratingAllAudios: false,
 			isGeneratingAllVideos: false,
 			batchProgress: null,
+			batchCancelled: false,
+			pendingRegenerateQueue: [],
 		})),
 };

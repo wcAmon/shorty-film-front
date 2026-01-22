@@ -172,6 +172,7 @@ export interface AIStoryState {
 	isGeneratingAllVideos: boolean;
 	batchImageProgress: { current: number; total: number } | null;
 	batchVideoProgress: { current: number; total: number } | null;
+	batchCancelled: boolean;
 }
 
 // Initial state
@@ -201,6 +202,7 @@ const initialState: AIStoryState = {
 	isGeneratingAllVideos: false,
 	batchImageProgress: null,
 	batchVideoProgress: null,
+	batchCancelled: false,
 };
 
 // Create the store
@@ -412,6 +414,14 @@ export const aistoryActions = {
 		aistoryStore.setState((state) => ({ ...state, batchVideoProgress }));
 	},
 
+	setBatchCancelled: (batchCancelled: boolean) => {
+		aistoryStore.setState((state) => ({ ...state, batchCancelled }));
+	},
+
+	cancelBatchGeneration: () => {
+		aistoryStore.setState((state) => ({ ...state, batchCancelled: true }));
+	},
+
 	// Reset all state except script
 	resetPrompts: () => {
 		aistoryStore.setState((state) => ({
@@ -432,6 +442,7 @@ export const aistoryActions = {
 			isGeneratingAllVideos: false,
 			batchImageProgress: null,
 			batchVideoProgress: null,
+			batchCancelled: false,
 		}));
 	},
 

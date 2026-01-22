@@ -18,6 +18,7 @@ import {
 	Upload,
 	User,
 	Volume2,
+	X,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useDebouncedCallback } from "use-debounce";
@@ -159,6 +160,8 @@ function DirectorScenesPage() {
 	const isGeneratingAllAudios = useStore(directorStore, (s) => s.isGeneratingAllAudios);
 	const isGeneratingAllVideos = useStore(directorStore, (s) => s.isGeneratingAllVideos);
 	const batchProgress = useStore(directorStore, (s) => s.batchProgress);
+	const batchCancelled = useStore(directorStore, (s) => s.batchCancelled);
+	const pendingRegenerateQueue = useStore(directorStore, (s) => s.pendingRegenerateQueue);
 
 	// Effective storyId (URL param takes precedence)
 	const storyId = urlStoryId || storeStoryId;
@@ -422,8 +425,8 @@ function DirectorScenesPage() {
 		});
 	};
 
-	// Scene generation handlers
-	const handleGenerateSceneImage = async (sceneId: string) => {
+	// Scene generation handlers - internal implementation
+	const executeGenerateSceneImage = async (sceneId: string) => {
 		const scene = scenes.find((s) => s.id === sceneId);
 		if (!scene || !storyId) return;
 
@@ -466,7 +469,17 @@ function DirectorScenesPage() {
 		}
 	};
 
-	const handleGenerateSceneAudio = async (sceneId: string) => {
+	// Wrapper that queues during batch generation
+	const handleGenerateSceneImage = async (sceneId: string) => {
+		// If batch image generation is in progress, add to queue instead
+		if (directorStore.state.isGeneratingAllImages) {
+			directorActions.addToPendingQueue(sceneId, "image");
+			return;
+		}
+		await executeGenerateSceneImage(sceneId);
+	};
+
+	const executeGenerateSceneAudio = async (sceneId: string) => {
 		const scene = scenes.find((s) => s.id === sceneId);
 		if (!scene || !storyId) return;
 
@@ -510,7 +523,17 @@ function DirectorScenesPage() {
 		}
 	};
 
-	const handleGenerateSceneVideo = async (sceneId: string) => {
+	// Wrapper that queues during batch generation
+	const handleGenerateSceneAudio = async (sceneId: string) => {
+		// If batch audio generation is in progress, add to queue instead
+		if (directorStore.state.isGeneratingAllAudios) {
+			directorActions.addToPendingQueue(sceneId, "audio");
+			return;
+		}
+		await executeGenerateSceneAudio(sceneId);
+	};
+
+	const executeGenerateSceneVideo = async (sceneId: string) => {
 		const scene = scenes.find((s) => s.id === sceneId);
 		if (!scene || !storyId) return;
 
@@ -573,6 +596,16 @@ function DirectorScenesPage() {
 		}
 	};
 
+	// Wrapper that queues during batch generation
+	const handleGenerateSceneVideo = async (sceneId: string) => {
+		// If batch video generation is in progress, add to queue instead
+		if (directorStore.state.isGeneratingAllVideos) {
+			directorActions.addToPendingQueue(sceneId, "video");
+			return;
+		}
+		await executeGenerateSceneVideo(sceneId);
+	};
+
 	const handlePlaySceneAudio = (sceneId: string) => {
 		const scene = scenes.find((s) => s.id === sceneId);
 		if (!scene?.audioUrl) return;
@@ -625,38 +658,91 @@ function DirectorScenesPage() {
 
 	const handleGenerateAllImages = async () => {
 		directorActions.setIsGeneratingAllImages(true);
+		directorActions.setBatchCancelled(false);
 		directorActions.setBatchProgress({ current: 0, total: scenesNeedingImages.length, type: "image" });
 
 		for (let i = 0; i < scenesNeedingImages.length; i++) {
+			// Check if cancelled before starting next item
+			if (directorStore.state.batchCancelled) {
+				break;
+			}
 			const scene = scenesNeedingImages[i];
 			directorActions.setBatchProgress({ current: i + 1, total: scenesNeedingImages.length, type: "image" });
-			await handleGenerateSceneImage(scene.id);
+			await executeGenerateSceneImage(scene.id);
 		}
 
 		directorActions.setIsGeneratingAllImages(false);
 		directorActions.setBatchProgress(null);
+		directorActions.setBatchCancelled(false);
+
+		// Process pending queue for images
+		const pendingImages = directorStore.state.pendingRegenerateQueue.filter((item) => item.type === "image");
+		if (pendingImages.length > 0) {
+			for (const item of pendingImages) {
+				directorActions.removeFromPendingQueue(item.sceneId, "image");
+				await executeGenerateSceneImage(item.sceneId);
+			}
+		}
+	};
+
+	const handleCancelBatchImages = () => {
+		directorActions.cancelBatchGeneration();
+		// Clear pending image queue when cancelled
+		const pendingImages = directorStore.state.pendingRegenerateQueue.filter((item) => item.type === "image");
+		for (const item of pendingImages) {
+			directorActions.removeFromPendingQueue(item.sceneId, "image");
+		}
 	};
 
 	const handleGenerateAllAudios = async () => {
 		const scenesNeedingAudio = scenes.filter((s) => !s.audioUrl && !s.isGeneratingAudio);
 		directorActions.setIsGeneratingAllAudios(true);
+		directorActions.setBatchCancelled(false);
 		directorActions.setBatchProgress({ current: 0, total: scenesNeedingAudio.length, type: "audio" });
 
 		for (let i = 0; i < scenesNeedingAudio.length; i++) {
+			// Check if cancelled before starting next item
+			if (directorStore.state.batchCancelled) {
+				break;
+			}
 			const scene = scenesNeedingAudio[i];
 			directorActions.setBatchProgress({ current: i + 1, total: scenesNeedingAudio.length, type: "audio" });
-			await handleGenerateSceneAudio(scene.id);
+			await executeGenerateSceneAudio(scene.id);
 		}
 
 		directorActions.setIsGeneratingAllAudios(false);
 		directorActions.setBatchProgress(null);
+		directorActions.setBatchCancelled(false);
+
+		// Process pending queue for audios
+		const pendingAudios = directorStore.state.pendingRegenerateQueue.filter((item) => item.type === "audio");
+		if (pendingAudios.length > 0) {
+			for (const item of pendingAudios) {
+				directorActions.removeFromPendingQueue(item.sceneId, "audio");
+				await executeGenerateSceneAudio(item.sceneId);
+			}
+		}
+	};
+
+	const handleCancelBatchAudios = () => {
+		directorActions.cancelBatchGeneration();
+		// Clear pending audio queue when cancelled
+		const pendingAudios = directorStore.state.pendingRegenerateQueue.filter((item) => item.type === "audio");
+		for (const item of pendingAudios) {
+			directorActions.removeFromPendingQueue(item.sceneId, "audio");
+		}
 	};
 
 	const handleGenerateAllVideos = async () => {
 		directorActions.setIsGeneratingAllVideos(true);
+		directorActions.setBatchCancelled(false);
 		directorActions.setBatchProgress({ current: 0, total: scenesNeedingVideos.length, type: "video" });
 
 		for (let i = 0; i < scenesNeedingVideos.length; i++) {
+			// Check if cancelled before starting next item
+			if (directorStore.state.batchCancelled) {
+				break;
+			}
 			const scene = scenesNeedingVideos[i];
 			directorActions.setBatchProgress({ current: i + 1, total: scenesNeedingVideos.length, type: "video" });
 
@@ -718,6 +804,25 @@ function DirectorScenesPage() {
 
 		directorActions.setIsGeneratingAllVideos(false);
 		directorActions.setBatchProgress(null);
+		directorActions.setBatchCancelled(false);
+
+		// Process pending queue for videos
+		const pendingVideos = directorStore.state.pendingRegenerateQueue.filter((item) => item.type === "video");
+		if (pendingVideos.length > 0) {
+			for (const item of pendingVideos) {
+				directorActions.removeFromPendingQueue(item.sceneId, "video");
+				await executeGenerateSceneVideo(item.sceneId);
+			}
+		}
+	};
+
+	const handleCancelBatchVideos = () => {
+		directorActions.cancelBatchGeneration();
+		// Clear pending video queue when cancelled
+		const pendingVideos = directorStore.state.pendingRegenerateQueue.filter((item) => item.type === "video");
+		for (const item of pendingVideos) {
+			directorActions.removeFromPendingQueue(item.sceneId, "video");
+		}
 	};
 
 	// Show loading state while loading story from URL
@@ -1080,33 +1185,39 @@ function DirectorScenesPage() {
 							</h3>
 							<div className="grid grid-cols-3 gap-4">
 								<div>
-									<Button onClick={handleGenerateAllImages} disabled={isGeneratingAllImages || scenesNeedingImages.length === 0} className="w-full py-3 h-auto bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-400 hover:to-pink-400 disabled:from-muted disabled:to-muted">
-										{isGeneratingAllImages ? (
-											<><Loader2 className="w-5 h-5 animate-spin mr-2" />Generating ({batchProgress?.current || 0}/{batchProgress?.total || 0})</>
-										) : (
-											<><ImageIcon className="w-5 h-5 mr-2" />GENERATE ALL IMAGES</>
-										)}
-									</Button>
+									{isGeneratingAllImages ? (
+										<Button onClick={handleCancelBatchImages} className="w-full py-3 h-auto bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-400 hover:to-orange-400">
+											<X className="w-5 h-5 mr-2" />Cancel ({batchProgress?.current || 0}/{batchProgress?.total || 0})
+										</Button>
+									) : (
+										<Button onClick={handleGenerateAllImages} disabled={scenesNeedingImages.length === 0} className="w-full py-3 h-auto bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-400 hover:to-pink-400 disabled:from-muted disabled:to-muted">
+											<ImageIcon className="w-5 h-5 mr-2" />GENERATE ALL IMAGES
+										</Button>
+									)}
 									<p className="mt-2 text-xs text-muted-foreground text-center">{scenesNeedingImages.length} scene(s) need images</p>
 								</div>
 								<div>
-									<Button onClick={handleGenerateAllAudios} disabled={isGeneratingAllAudios} className="w-full py-3 h-auto bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 disabled:from-muted disabled:to-muted">
-										{isGeneratingAllAudios ? (
-											<><Loader2 className="w-5 h-5 animate-spin mr-2" />Generating ({batchProgress?.current || 0}/{batchProgress?.total || 0})</>
-										) : (
-											<><Volume2 className="w-5 h-5 mr-2" />GENERATE ALL AUDIO</>
-										)}
-									</Button>
+									{isGeneratingAllAudios ? (
+										<Button onClick={handleCancelBatchAudios} className="w-full py-3 h-auto bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-400 hover:to-orange-400">
+											<X className="w-5 h-5 mr-2" />Cancel ({batchProgress?.current || 0}/{batchProgress?.total || 0})
+										</Button>
+									) : (
+										<Button onClick={handleGenerateAllAudios} disabled={scenes.filter((s) => !s.audioUrl && !s.isGeneratingAudio).length === 0} className="w-full py-3 h-auto bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 disabled:from-muted disabled:to-muted">
+											<Volume2 className="w-5 h-5 mr-2" />GENERATE ALL AUDIO
+										</Button>
+									)}
 									<p className="mt-2 text-xs text-muted-foreground text-center">{scenes.filter((s) => !s.audioId).length} scene(s) need audio</p>
 								</div>
 								<div>
-									<Button onClick={handleGenerateAllVideos} disabled={isGeneratingAllVideos || !allImagesCompleted || scenesNeedingVideos.length === 0} className="w-full py-3 h-auto bg-gradient-to-r from-indigo-500 to-violet-500 hover:from-indigo-400 hover:to-violet-400 disabled:from-muted disabled:to-muted">
-										{isGeneratingAllVideos ? (
-											<><Loader2 className="w-5 h-5 animate-spin mr-2" />Generating ({batchProgress?.current || 0}/{batchProgress?.total || 0})</>
-										) : (
-											<><Film className="w-5 h-5 mr-2" />GENERATE ALL VIDEO</>
-										)}
-									</Button>
+									{isGeneratingAllVideos ? (
+										<Button onClick={handleCancelBatchVideos} className="w-full py-3 h-auto bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-400 hover:to-orange-400">
+											<X className="w-5 h-5 mr-2" />Cancel ({batchProgress?.current || 0}/{batchProgress?.total || 0})
+										</Button>
+									) : (
+										<Button onClick={handleGenerateAllVideos} disabled={!allImagesCompleted || scenesNeedingVideos.length === 0} className="w-full py-3 h-auto bg-gradient-to-r from-indigo-500 to-violet-500 hover:from-indigo-400 hover:to-violet-400 disabled:from-muted disabled:to-muted">
+											<Film className="w-5 h-5 mr-2" />GENERATE ALL VIDEO
+										</Button>
+									)}
 									<p className="mt-2 text-xs text-muted-foreground text-center">{!allImagesCompleted ? "Waiting for images" : `${scenesNeedingVideos.length} scene(s) need videos`}</p>
 								</div>
 							</div>
@@ -1131,6 +1242,9 @@ function DirectorScenesPage() {
 								isSettingsExpanded={expandedSceneSettings.has(scene.id)}
 								playingSceneId={playingSceneId}
 								hasCharacterImage={!!character?.imageUrl}
+								isImageQueued={pendingRegenerateQueue.some((item) => item.sceneId === scene.id && item.type === "image")}
+								isAudioQueued={pendingRegenerateQueue.some((item) => item.sceneId === scene.id && item.type === "audio")}
+								isVideoQueued={pendingRegenerateQueue.some((item) => item.sceneId === scene.id && item.type === "video")}
 								onToggleSettings={() => toggleSceneSettings(scene.id)}
 								onCaptionChange={handleCaptionChange}
 								onImagePromptChange={handleImagePromptChange}
@@ -1244,6 +1358,9 @@ interface SceneCardProps {
 	isSettingsExpanded: boolean;
 	playingSceneId: string | null;
 	hasCharacterImage: boolean;
+	isImageQueued: boolean;
+	isAudioQueued: boolean;
+	isVideoQueued: boolean;
 	onToggleSettings: () => void;
 	onCaptionChange: (sceneId: string, caption: string) => void;
 	onImagePromptChange: (sceneId: string, imagePrompt: string) => void;
@@ -1270,6 +1387,9 @@ function SceneCard({
 	isSettingsExpanded,
 	playingSceneId,
 	hasCharacterImage,
+	isImageQueued,
+	isAudioQueued,
+	isVideoQueued,
 	onToggleSettings,
 	onCaptionChange,
 	onImagePromptChange,
@@ -1437,12 +1557,14 @@ function SceneCard({
 							<div className="flex items-center gap-3 mt-3">
 								<Button
 									onClick={() => onGenerateImage(scene.id)}
-									disabled={scene.isGeneratingImage || !scene.imagePrompt.trim()}
+									disabled={scene.isGeneratingImage || isImageQueued || !scene.imagePrompt.trim()}
 									size="sm"
-									className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-400 hover:to-pink-400 disabled:from-muted disabled:to-muted"
+									className={isImageQueued ? "bg-gradient-to-r from-amber-500 to-orange-500" : "bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-400 hover:to-pink-400 disabled:from-muted disabled:to-muted"}
 								>
 									{scene.isGeneratingImage ? (
 										<><Loader2 className="w-4 h-4 animate-spin mr-2" />Generating...</>
+									) : isImageQueued ? (
+										<><Loader2 className="w-4 h-4 animate-spin mr-2" />Queued</>
 									) : (
 										<><ImageIcon className="w-4 h-4 mr-2" />{scene.imageUrl ? "Regenerate" : "Generate"} Image</>
 									)}
@@ -1492,12 +1614,15 @@ function SceneCard({
 							<div className="flex items-center gap-3 mt-3">
 								<Button
 									onClick={() => onGenerateAudio(scene.id)}
-									disabled={scene.isGeneratingAudio || !scene.caption.trim()}
+									disabled={scene.isGeneratingAudio || isAudioQueued || !scene.caption.trim()}
 									size="sm"
 									variant="outline"
+									className={isAudioQueued ? "border-amber-500/50 text-amber-400" : ""}
 								>
 									{scene.isGeneratingAudio ? (
 										<><Loader2 className="w-4 h-4 animate-spin mr-2" />Generating...</>
+									) : isAudioQueued ? (
+										<><Loader2 className="w-4 h-4 animate-spin mr-2" />Queued</>
 									) : (
 										<><Volume2 className="w-4 h-4 mr-2" />{scene.audioUrl ? "Regenerate" : "Generate"} Audio</>
 									)}
@@ -1563,12 +1688,14 @@ function SceneCard({
 							<div className="flex items-center gap-3 mt-3">
 								<Button
 									onClick={() => onGenerateVideo(scene.id)}
-									disabled={scene.isGeneratingVideo || !scene.imageUrl || !scene.audioUrl}
+									disabled={scene.isGeneratingVideo || isVideoQueued || !scene.imageUrl || !scene.audioUrl}
 									size="sm"
-									className="bg-gradient-to-r from-indigo-500 to-violet-500 hover:from-indigo-400 hover:to-violet-400 disabled:from-muted disabled:to-muted"
+									className={isVideoQueued ? "bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400" : "bg-gradient-to-r from-indigo-500 to-violet-500 hover:from-indigo-400 hover:to-violet-400 disabled:from-muted disabled:to-muted"}
 								>
 									{scene.isGeneratingVideo ? (
 										<><Loader2 className="w-4 h-4 animate-spin mr-2" />Generating...</>
+									) : isVideoQueued ? (
+										<><Loader2 className="w-4 h-4 animate-spin mr-2" />Queued</>
 									) : (
 										<><Film className="w-4 h-4 mr-2" />{scene.videoUrl ? "Regenerate" : "Generate"} Video</>
 									)}

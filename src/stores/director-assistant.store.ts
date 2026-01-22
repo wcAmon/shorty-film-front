@@ -288,14 +288,16 @@ AVAILABLE TOOLS:
 4. add_scenes - Add multiple scenes at once (more efficient for batch operations)
 5. update_scene - Modify a single scene's caption, image prompt, video instruction, or useAvatar (pass null to keep unchanged)
 6. update_scenes - Modify multiple scenes at once (more efficient for batch operations)
-7. delete_scene - Remove a scene from the project (cannot delete if only 1 scene)
-8. update_character - Modify the character's image prompt
+7. delete_scene - Remove a single scene from the project (cannot delete if only 1 scene)
+8. delete_scenes - Remove multiple scenes at once (more efficient for batch deletions)
+9. update_character - Modify the character's image prompt
 
 TOOL USAGE GUIDELINES:
 - set_story_title: Only use when user explicitly asks for a title, or to suggest ONE title at the START of a new conversation. Do NOT repeatedly change the title during conversation.
-- PREFER BATCH TOOLS: When adding or updating multiple scenes, use add_scenes/update_scenes instead of calling add_scene/update_scene multiple times. This is more efficient and provides better user experience.
+- PREFER BATCH TOOLS: When adding, updating, or deleting multiple scenes, use add_scenes/update_scenes/delete_scenes instead of calling single-scene tools multiple times. This is more efficient and provides better user experience.
 - update_scene/update_scenes: You can update individual fields by passing null for fields you want to keep unchanged. For example, to only update the caption, pass { sceneIndex: 0, caption: "new text", imagePrompt: null, videoPrompt: null, useAvatar: null }
 - update_scene/update_scenes: Can set useAvatar=true to enable avatar speak mode for a scene. Avatar mode uses the character image + audio to create a talking head video (no video prompt needed). Requires a character image to be set first.
+- delete_scenes: Pass an array of scene indices to delete. Example: { sceneIndices: [2, 4, 5] } to delete scenes 3, 5, and 6 (0-based indexing).
 - When using tools, explain what you're doing and why. After tool execution, summarize the changes made.
 `;
 

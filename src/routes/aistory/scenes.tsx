@@ -1032,12 +1032,17 @@ function ScenesPage() {
 		if (!storyId || !characterImageUrl) return;
 
 		aistoryActions.setIsGeneratingAllImages(true);
+		aistoryActions.setBatchCancelled(false);
 		aistoryActions.setBatchImageProgress({
 			current: 0,
 			total: scenesNeedingImages.length,
 		});
 
 		for (let i = 0; i < scenesNeedingImages.length; i++) {
+			// Check if cancelled before starting next item
+			if (aistoryStore.state.batchCancelled) {
+				break;
+			}
 			const scene = scenesNeedingImages[i];
 			aistoryActions.setBatchImageProgress({
 				current: i + 1,
@@ -1078,6 +1083,11 @@ function ScenesPage() {
 
 		aistoryActions.setIsGeneratingAllImages(false);
 		aistoryActions.setBatchImageProgress(null);
+		aistoryActions.setBatchCancelled(false);
+	};
+
+	const handleCancelBatchImages = () => {
+		aistoryActions.cancelBatchGeneration();
 	};
 
 	// Handle batch generation of all videos
@@ -1085,12 +1095,17 @@ function ScenesPage() {
 		if (!storyId || !allImagesCompleted) return;
 
 		aistoryActions.setIsGeneratingAllVideos(true);
+		aistoryActions.setBatchCancelled(false);
 		aistoryActions.setBatchVideoProgress({
 			current: 0,
 			total: scenesNeedingVideos.length,
 		});
 
 		for (let i = 0; i < scenesNeedingVideos.length; i++) {
+			// Check if cancelled before starting next item
+			if (aistoryStore.state.batchCancelled) {
+				break;
+			}
 			const scene = scenesNeedingVideos[i];
 			aistoryActions.setBatchVideoProgress({
 				current: i + 1,
@@ -1153,6 +1168,11 @@ function ScenesPage() {
 
 		aistoryActions.setIsGeneratingAllVideos(false);
 		aistoryActions.setBatchVideoProgress(null);
+		aistoryActions.setBatchCancelled(false);
+	};
+
+	const handleCancelBatchVideos = () => {
+		aistoryActions.cancelBatchGeneration();
 	};
 
 	return (
@@ -1436,28 +1456,25 @@ function ScenesPage() {
 						<div className="grid grid-cols-2 gap-4">
 							{/* Generate All Images Button */}
 							<div>
-								<Button
-									onClick={handleGenerateAllImages}
-									disabled={
-										isGeneratingAllImages ||
-										pendingImageCount === 0 ||
-										!characterImageUrl
-									}
-									className="w-full py-3 h-auto bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-400 hover:to-pink-400 disabled:from-muted disabled:to-muted disabled:cursor-not-allowed text-foreground font-semibold rounded-lg transition-all duration-300 flex items-center justify-center gap-2"
-								>
-									{isGeneratingAllImages ? (
-										<>
-											<Loader2 className="w-5 h-5 animate-spin" />
-											Generating Images ({batchImageProgress?.current || 0}/
-											{batchImageProgress?.total || 0})
-										</>
-									) : (
-										<>
-											<ImageIcon className="w-5 h-5" />
-											GENERATE ALL IMAGES
-										</>
-									)}
-								</Button>
+								{isGeneratingAllImages ? (
+									<Button
+										onClick={handleCancelBatchImages}
+										className="w-full py-3 h-auto bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-400 hover:to-orange-400 text-foreground font-semibold rounded-lg transition-all duration-300 flex items-center justify-center gap-2"
+									>
+										<X className="w-5 h-5" />
+										Cancel ({batchImageProgress?.current || 0}/
+										{batchImageProgress?.total || 0})
+									</Button>
+								) : (
+									<Button
+										onClick={handleGenerateAllImages}
+										disabled={pendingImageCount === 0 || !characterImageUrl}
+										className="w-full py-3 h-auto bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-400 hover:to-pink-400 disabled:from-muted disabled:to-muted disabled:cursor-not-allowed text-foreground font-semibold rounded-lg transition-all duration-300 flex items-center justify-center gap-2"
+									>
+										<ImageIcon className="w-5 h-5" />
+										GENERATE ALL IMAGES
+									</Button>
+								)}
 								<p className="mt-2 text-xs text-muted-foreground text-center">
 									{pendingImageCount} scene(s) need images
 								</p>
@@ -1465,33 +1482,30 @@ function ScenesPage() {
 
 							{/* Generate All Videos Button */}
 							<div>
-								<Button
-									onClick={handleGenerateAllVideos}
-									disabled={
-										isGeneratingAllVideos ||
-										!allImagesCompleted ||
-										pendingVideoCount === 0
-									}
-									title={
-										!allImagesCompleted
-											? "All scene images must be completed first"
-											: undefined
-									}
-									className="w-full py-3 h-auto bg-gradient-to-r from-indigo-500 to-violet-500 hover:from-indigo-400 hover:to-violet-400 disabled:from-muted disabled:to-muted disabled:cursor-not-allowed text-foreground font-semibold rounded-lg transition-all duration-300 flex items-center justify-center gap-2"
-								>
-									{isGeneratingAllVideos ? (
-										<>
-											<Loader2 className="w-5 h-5 animate-spin" />
-											Generating Videos ({batchVideoProgress?.current || 0}/
-											{batchVideoProgress?.total || 0})
-										</>
-									) : (
-										<>
-											<Film className="w-5 h-5" />
-											GENERATE ALL VIDEOS
-										</>
-									)}
-								</Button>
+								{isGeneratingAllVideos ? (
+									<Button
+										onClick={handleCancelBatchVideos}
+										className="w-full py-3 h-auto bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-400 hover:to-orange-400 text-foreground font-semibold rounded-lg transition-all duration-300 flex items-center justify-center gap-2"
+									>
+										<X className="w-5 h-5" />
+										Cancel ({batchVideoProgress?.current || 0}/
+										{batchVideoProgress?.total || 0})
+									</Button>
+								) : (
+									<Button
+										onClick={handleGenerateAllVideos}
+										disabled={!allImagesCompleted || pendingVideoCount === 0}
+										title={
+											!allImagesCompleted
+												? "All scene images must be completed first"
+												: undefined
+										}
+										className="w-full py-3 h-auto bg-gradient-to-r from-indigo-500 to-violet-500 hover:from-indigo-400 hover:to-violet-400 disabled:from-muted disabled:to-muted disabled:cursor-not-allowed text-foreground font-semibold rounded-lg transition-all duration-300 flex items-center justify-center gap-2"
+									>
+										<Film className="w-5 h-5" />
+										GENERATE ALL VIDEOS
+									</Button>
+								)}
 								<p className="mt-2 text-xs text-muted-foreground text-center">
 									{!allImagesCompleted
 										? "Waiting for all images"

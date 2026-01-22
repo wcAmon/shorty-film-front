@@ -8,6 +8,7 @@ import {
 	Search,
 	Check,
 	X,
+	Type,
 } from "lucide-react";
 
 interface Props {
@@ -16,18 +17,26 @@ interface Props {
 
 const TOOL_ICONS: Record<string, typeof Wrench> = {
 	add_scene: Plus,
+	add_scenes: Plus,
 	update_scene: Edit3,
+	update_scenes: Edit3,
 	delete_scene: Trash2,
+	delete_scenes: Trash2,
 	update_character: User,
 	web_search: Search,
+	set_story_title: Type,
 };
 
 const TOOL_LABELS: Record<string, string> = {
 	add_scene: "Added Scene",
+	add_scenes: "Added Scenes",
 	update_scene: "Updated Scene",
+	update_scenes: "Updated Scenes",
 	delete_scene: "Deleted Scene",
+	delete_scenes: "Deleted Scenes",
 	update_character: "Updated Character",
 	web_search: "Searched Web",
+	set_story_title: "Set Title",
 };
 
 export function AssistantToolCall({ toolResult }: Props) {

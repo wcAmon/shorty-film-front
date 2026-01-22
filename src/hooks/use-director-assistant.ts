@@ -262,6 +262,25 @@ export function useDirectorAssistant() {
 			if (tool.name === "set_story_title" && result.success && result.title) {
 				directorActions.setTitle(result.title as string);
 			}
+
+			// Handle delete_scene - update local store
+			if (tool.name === "delete_scene" && result.success) {
+				// Use deletedSceneId from result (most reliable)
+				if (result.deletedSceneId) {
+					console.log("[DirectorAssistant] Deleting scene by ID:", result.deletedSceneId);
+					directorActions.deleteScene(result.deletedSceneId as string);
+				}
+			}
+
+			// Handle delete_scenes (batch) - update local store
+			if (tool.name === "delete_scenes" && result.success) {
+				const deletedSceneIds = result.deletedSceneIds as string[];
+				console.log("[DirectorAssistant] Batch deleting scenes:", deletedSceneIds);
+				// Delete in the order provided (already sorted descending by backend)
+				for (const sceneId of deletedSceneIds) {
+					directorActions.deleteScene(sceneId);
+				}
+			}
 		}
 	}, []);
 
