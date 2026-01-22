@@ -16,7 +16,6 @@ export function DirectorAssistantPanel({ onCollapse }: DirectorAssistantPanelPro
 	const {
 		messages,
 		isLoading,
-		isLoadingHistory,
 		error,
 		inputValue,
 		messagesEndRef,
@@ -61,16 +60,7 @@ export function DirectorAssistantPanel({ onCollapse }: DirectorAssistantPanelPro
 
 			{/* Messages */}
 			<div className="flex-1 space-y-4 overflow-y-auto p-4">
-				{isLoadingHistory && (
-					<div className="flex items-center justify-center py-8">
-						<Loader2 className="h-6 w-6 animate-spin text-purple-400" />
-						<span className="ml-2 text-sm text-muted-foreground">
-							Loading conversation...
-						</span>
-					</div>
-				)}
-
-				{!isLoadingHistory && messages.length === 0 && (
+				{messages.length === 0 && (
 					<div className="py-8 text-center text-muted-foreground">
 						<MessageSquare className="mx-auto mb-4 h-12 w-12 opacity-30" />
 						<p className="text-sm">

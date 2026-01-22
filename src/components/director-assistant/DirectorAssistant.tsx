@@ -7,13 +7,11 @@ import {
 	directorAssistantStore,
 	directorAssistantActions,
 	buildSystemPrompt,
-	type AssistantMessage,
 } from "@/stores/director-assistant.store";
 import { directorStore, directorActions } from "@/stores/director.store";
 import {
 	useSendAssistantMessage,
 	useUserPreferences,
-	useConversationHistory,
 	useSaveConversationHistory,
 	useClearConversationHistory,
 	type ToolCallResult,
@@ -42,46 +40,15 @@ export function DirectorAssistant() {
 	// Get storyId from director store
 	const storyId = useStore(directorStore, (s) => s.storyId);
 
-	// Fetch conversation history
-	const { data: conversationData, isLoading: isLoadingHistory } =
-		useConversationHistory(storyId);
+	// Conversation history is now loaded from story data in handleResume (user.tsx)
+	// No separate API call needed - messages are set directly to directorAssistantStore
 
-	// Load conversation history when storyId changes or data arrives
+	// Track storyId changes to mark when history is "loaded" for save logic
 	useEffect(() => {
-		// If storyId changed, clear messages and reset loaded state
 		if (storyId !== loadedForStoryId) {
-			directorAssistantActions.clearMessages();
-			setLoadedForStoryId(null);
-		}
-
-		// Load history if we have data and haven't loaded for this storyId yet
-		if (
-			storyId &&
-			conversationData?.success &&
-			conversationData.messages.length > 0 &&
-			loadedForStoryId !== storyId
-		) {
-			// Convert ConversationMessage[] to AssistantMessage[]
-			const loadedMessages: Omit<AssistantMessage, "id" | "timestamp">[] =
-				conversationData.messages.map((m) => ({
-					role: m.role,
-					content: m.content,
-					toolResults: m.toolResults,
-				}));
-
-			// Load messages from database
-			directorAssistantActions.clearMessages();
-			for (const msg of loadedMessages) {
-				directorAssistantActions.addMessage(msg);
-			}
 			setLoadedForStoryId(storyId);
 		}
-
-		// If storyId changed but no history data, just mark as loaded
-		if (storyId && conversationData?.success && conversationData.messages.length === 0 && loadedForStoryId !== storyId) {
-			setLoadedForStoryId(storyId);
-		}
-	}, [storyId, conversationData, loadedForStoryId]);
+	}, [storyId, loadedForStoryId]);
 
 	// Auto-save conversation after messages change
 	const saveConversationToDb = useCallback(() => {
@@ -430,16 +397,7 @@ export function DirectorAssistant() {
 
 			{/* Messages */}
 			<CardContent className="flex-1 space-y-4 overflow-y-auto p-4">
-				{isLoadingHistory && (
-					<div className="flex items-center justify-center py-8">
-						<Loader2 className="h-6 w-6 animate-spin text-purple-400" />
-						<span className="ml-2 text-sm text-muted-foreground">
-							Loading conversation...
-						</span>
-					</div>
-				)}
-
-				{!isLoadingHistory && messages.length === 0 && (
+				{messages.length === 0 && (
 					<div className="py-8 text-center text-muted-foreground">
 						<MessageSquare className="mx-auto mb-4 h-12 w-12 opacity-30" />
 						<p className="text-sm">

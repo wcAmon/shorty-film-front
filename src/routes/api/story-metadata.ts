@@ -49,6 +49,19 @@ interface ListStoriesResponse {
 	error?: string;
 }
 
+// Conversation message type for Director Assistant
+interface ConversationMessage {
+	id: string;
+	role: "user" | "assistant";
+	content: string;
+	toolResults?: Array<{
+		name: string;
+		arguments: Record<string, unknown>;
+		result: unknown;
+	}>;
+	timestamp: number;
+}
+
 interface GetStoryResponse {
 	success: boolean;
 	story?: {
@@ -67,6 +80,7 @@ interface GetStoryResponse {
 		exportVideoUrl?: string | null;
 		createdAt: Date;
 		updatedAt: Date;
+		conversationHistory?: ConversationMessage[] | null;
 	};
 	scenes?: Array<{
 		id: string;

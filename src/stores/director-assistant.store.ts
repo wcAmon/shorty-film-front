@@ -154,6 +154,10 @@ export const directorAssistantActions = {
 	clearMessages: () =>
 		directorAssistantStore.setState((s) => ({ ...s, messages: [] })),
 
+	// Set messages directly (for loading from database)
+	setMessages: (messages: AssistantMessage[]) =>
+		directorAssistantStore.setState((s) => ({ ...s, messages })),
+
 	// Loading states
 	setIsLoading: (isLoading: boolean) =>
 		directorAssistantStore.setState((s) => ({ ...s, isLoading })),

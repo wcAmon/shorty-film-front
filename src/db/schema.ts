@@ -2,6 +2,7 @@ import { relations } from "drizzle-orm";
 import {
 	boolean,
 	integer,
+	jsonb,
 	pgSchema,
 	real,
 	text,
@@ -82,6 +83,21 @@ export const stories = shortySchema.table("stories", {
 	hasExportedVideo: boolean("has_exported_video").default(false),
 	exportVideoUrl: text("export_video_url"), // Supabase Storage URL for exported video
 	exportedVideoId: text("exported_video_id"), // Reference to videos table for exported video
+
+	// Director Assistant conversation history (for director-mode stories)
+	conversationHistory: jsonb("conversation_history").$type<
+		Array<{
+			id: string;
+			role: "user" | "assistant";
+			content: string;
+			toolResults?: Array<{
+				name: string;
+				arguments: Record<string, unknown>;
+				result: unknown;
+			}>;
+			timestamp: number;
+		}>
+	>(),
 });
 
 // ============================================================================

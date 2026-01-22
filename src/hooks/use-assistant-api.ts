@@ -119,8 +119,14 @@ import type {
 
 /**
  * Fetch conversation history for a story
+ * @param storyId - The story ID to fetch conversation for
+ * @param options - Optional settings
+ * @param options.enabled - Whether to enable the query (default: true when storyId exists)
  */
-export function useConversationHistory(storyId: string | null) {
+export function useConversationHistory(
+	storyId: string | null,
+	options?: { enabled?: boolean },
+) {
 	return useQuery({
 		queryKey: ["conversationHistory", storyId],
 		queryFn: async (): Promise<GetConversationResponse> => {
@@ -139,7 +145,7 @@ export function useConversationHistory(storyId: string | null) {
 
 			return response.json();
 		},
-		enabled: !!storyId,
+		enabled: options?.enabled !== undefined ? options.enabled : !!storyId,
 		staleTime: 0, // Always fetch fresh data
 	});
 }

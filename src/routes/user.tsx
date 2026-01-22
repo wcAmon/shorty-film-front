@@ -41,6 +41,10 @@ import {
 	type DirectorImageStyle,
 	type DirectorVoiceId,
 } from "@/stores/director.store";
+import {
+	directorAssistantActions,
+	type AssistantMessage,
+} from "@/stores/director-assistant.store";
 import { podcast42Actions } from "@/stores/podcast42.store";
 
 // Asset types
@@ -410,6 +414,19 @@ function HistoryTab() {
 				// Restore exported video URL if available
 				if (storyData.exportVideoUrl) {
 					directorActions.setExportedVideoUrl(storyData.exportVideoUrl);
+				}
+
+				// Restore conversation history for Director Assistant
+				// This avoids a separate API call in use-director-assistant.ts
+				directorAssistantActions.reset();
+				if (
+					storyData.conversationHistory &&
+					Array.isArray(storyData.conversationHistory) &&
+					storyData.conversationHistory.length > 0
+				) {
+					directorAssistantActions.setMessages(
+						storyData.conversationHistory as AssistantMessage[],
+					);
 				}
 
 				// Navigate to director mode scenes page with storyId

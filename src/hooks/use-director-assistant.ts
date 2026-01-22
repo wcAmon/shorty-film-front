@@ -4,13 +4,11 @@ import {
 	directorAssistantStore,
 	directorAssistantActions,
 	buildSystemPrompt,
-	type AssistantMessage,
 } from "@/stores/director-assistant.store";
 import { directorStore, directorActions } from "@/stores/director.store";
 import {
 	useSendAssistantMessage,
 	useUserPreferences,
-	useConversationHistory,
 	useSaveConversationHistory,
 	useClearConversationHistory,
 	type ToolCallResult,
@@ -42,46 +40,20 @@ export function useDirectorAssistant() {
 	// Get storyId from director store
 	const storyId = useStore(directorStore, (s) => s.storyId);
 
-	// Fetch conversation history
-	const { data: conversationData, isLoading: isLoadingHistory } =
-		useConversationHistory(storyId);
+	// Conversation history is now loaded from story data in handleResume (user.tsx)
+	// No separate API call needed - messages are set directly to directorAssistantStore
+	// via directorAssistantActions.setMessages() when resuming from history
 
-	// Load conversation history when storyId changes or data arrives
+	// Track storyId changes to mark when history is "loaded" for save logic
+	const prevStoryIdRef = useRef<string | null>(null);
+
 	useEffect(() => {
-		// If storyId changed, clear messages and reset loaded state
-		if (storyId !== loadedForStoryId) {
-			directorAssistantActions.clearMessages();
-			setLoadedForStoryId(null);
-		}
-
-		// Load history if we have data and haven't loaded for this storyId yet
-		if (
-			storyId &&
-			conversationData?.success &&
-			conversationData.messages.length > 0 &&
-			loadedForStoryId !== storyId
-		) {
-			// Convert ConversationMessage[] to AssistantMessage[]
-			const loadedMessages: Omit<AssistantMessage, "id" | "timestamp">[] =
-				conversationData.messages.map((m) => ({
-					role: m.role,
-					content: m.content,
-					toolResults: m.toolResults,
-				}));
-
-			// Load messages from database
-			directorAssistantActions.clearMessages();
-			for (const msg of loadedMessages) {
-				directorAssistantActions.addMessage(msg);
-			}
+		if (storyId !== prevStoryIdRef.current) {
+			prevStoryIdRef.current = storyId;
+			// Mark as loaded for this storyId (history comes from story data or is empty for new stories)
 			setLoadedForStoryId(storyId);
 		}
-
-		// If storyId changed but no history data, just mark as loaded
-		if (storyId && conversationData?.success && conversationData.messages.length === 0 && loadedForStoryId !== storyId) {
-			setLoadedForStoryId(storyId);
-		}
-	}, [storyId, conversationData, loadedForStoryId]);
+	}, [storyId]);
 
 	// Auto-save conversation after messages change
 	const saveConversationToDb = useCallback(() => {
@@ -374,7 +346,6 @@ export function useDirectorAssistant() {
 		isMinimized,
 		messages,
 		isLoading,
-		isLoadingHistory,
 		error,
 		inputValue,
 		storyId,
