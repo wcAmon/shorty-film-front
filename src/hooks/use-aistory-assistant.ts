@@ -113,6 +113,7 @@ export function useAIStoryAssistant() {
 				orderIndex: idx,
 				caption: s.caption || "",
 				imagePrompt: s.prompt || "",
+				videoPrompt: s.video_prompt || "",
 				hasImage: !!s.imageUrl,
 				hasAudio: !!s.audioUrl,
 				hasVideo: !!s.videoUrl,
@@ -146,6 +147,8 @@ export function useAIStoryAssistant() {
 						updates.caption = args.caption;
 					if (args.imagePrompt !== null && args.imagePrompt !== undefined)
 						updates.prompt = args.imagePrompt; // AIStory uses 'prompt' instead of 'imagePrompt'
+					if (args.videoPrompt !== null && args.videoPrompt !== undefined)
+						updates.video_prompt = args.videoPrompt; // AIStory uses 'video_prompt' with underscore
 					if (Object.keys(updates).length > 0) {
 						aistoryActions.updateScene(sceneId, updates);
 					}
@@ -159,11 +162,12 @@ export function useAIStoryAssistant() {
 					sceneIndex: number;
 					caption: string | null;
 					imagePrompt: string | null;
+					videoPrompt: string | null;
 				}>;
 				const currentScenes = aistoryStore.state.scenes;
 
 				for (const update of updates) {
-					const { sceneIndex, caption, imagePrompt } = update;
+					const { sceneIndex, caption, imagePrompt, videoPrompt } = update;
 					if (sceneIndex >= 0 && sceneIndex < currentScenes.length) {
 						const sceneId = currentScenes[sceneIndex].id;
 						const sceneUpdates: Record<string, unknown> = {};
@@ -172,6 +176,8 @@ export function useAIStoryAssistant() {
 							sceneUpdates.caption = caption;
 						if (imagePrompt !== null && imagePrompt !== undefined)
 							sceneUpdates.prompt = imagePrompt; // AIStory uses 'prompt' instead of 'imagePrompt'
+						if (videoPrompt !== null && videoPrompt !== undefined)
+							sceneUpdates.video_prompt = videoPrompt; // AIStory uses 'video_prompt' with underscore
 						if (Object.keys(sceneUpdates).length > 0) {
 							aistoryActions.updateScene(sceneId, sceneUpdates);
 						}

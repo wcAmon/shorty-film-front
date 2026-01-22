@@ -655,6 +655,10 @@ function DirectorScenesPage() {
 	const scenesNeedingVideos = scenes.filter((s) => !s.videoUrl && !s.isGeneratingVideo && s.imageUrl);
 	const allImagesCompleted = scenes.every((s) => s.imageUrl);
 	const allVideosCompleted = scenes.every((s) => s.videoUrl);
+	// Check if any scene is currently generating (for disabling batch buttons)
+	const anySceneGeneratingImage = scenes.some((s) => s.isGeneratingImage);
+	const anySceneGeneratingAudio = scenes.some((s) => s.isGeneratingAudio);
+	const anySceneGeneratingVideo = scenes.some((s) => s.isGeneratingVideo);
 
 	const handleGenerateAllImages = async () => {
 		directorActions.setIsGeneratingAllImages(true);
@@ -1190,11 +1194,13 @@ function DirectorScenesPage() {
 											<X className="w-5 h-5 mr-2" />Cancel ({batchProgress?.current || 0}/{batchProgress?.total || 0})
 										</Button>
 									) : (
-										<Button onClick={handleGenerateAllImages} disabled={scenesNeedingImages.length === 0} className="w-full py-3 h-auto bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-400 hover:to-pink-400 disabled:from-muted disabled:to-muted">
+										<Button onClick={handleGenerateAllImages} disabled={scenesNeedingImages.length === 0 || anySceneGeneratingImage} className="w-full py-3 h-auto bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-400 hover:to-pink-400 disabled:from-muted disabled:to-muted">
 											<ImageIcon className="w-5 h-5 mr-2" />GENERATE ALL IMAGES
 										</Button>
 									)}
-									<p className="mt-2 text-xs text-muted-foreground text-center">{scenesNeedingImages.length} scene(s) need images</p>
+									<p className="mt-2 text-xs text-muted-foreground text-center">
+										{anySceneGeneratingImage ? "Scene generating..." : `${scenesNeedingImages.length} scene(s) need images`}
+									</p>
 								</div>
 								<div>
 									{isGeneratingAllAudios ? (
@@ -1202,11 +1208,13 @@ function DirectorScenesPage() {
 											<X className="w-5 h-5 mr-2" />Cancel ({batchProgress?.current || 0}/{batchProgress?.total || 0})
 										</Button>
 									) : (
-										<Button onClick={handleGenerateAllAudios} disabled={scenes.filter((s) => !s.audioUrl && !s.isGeneratingAudio).length === 0} className="w-full py-3 h-auto bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 disabled:from-muted disabled:to-muted">
+										<Button onClick={handleGenerateAllAudios} disabled={scenes.filter((s) => !s.audioUrl && !s.isGeneratingAudio).length === 0 || anySceneGeneratingAudio} className="w-full py-3 h-auto bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 disabled:from-muted disabled:to-muted">
 											<Volume2 className="w-5 h-5 mr-2" />GENERATE ALL AUDIO
 										</Button>
 									)}
-									<p className="mt-2 text-xs text-muted-foreground text-center">{scenes.filter((s) => !s.audioId).length} scene(s) need audio</p>
+									<p className="mt-2 text-xs text-muted-foreground text-center">
+										{anySceneGeneratingAudio ? "Scene generating..." : `${scenes.filter((s) => !s.audioId).length} scene(s) need audio`}
+									</p>
 								</div>
 								<div>
 									{isGeneratingAllVideos ? (
@@ -1214,11 +1222,13 @@ function DirectorScenesPage() {
 											<X className="w-5 h-5 mr-2" />Cancel ({batchProgress?.current || 0}/{batchProgress?.total || 0})
 										</Button>
 									) : (
-										<Button onClick={handleGenerateAllVideos} disabled={!allImagesCompleted || scenesNeedingVideos.length === 0} className="w-full py-3 h-auto bg-gradient-to-r from-indigo-500 to-violet-500 hover:from-indigo-400 hover:to-violet-400 disabled:from-muted disabled:to-muted">
+										<Button onClick={handleGenerateAllVideos} disabled={!allImagesCompleted || scenesNeedingVideos.length === 0 || anySceneGeneratingVideo} className="w-full py-3 h-auto bg-gradient-to-r from-indigo-500 to-violet-500 hover:from-indigo-400 hover:to-violet-400 disabled:from-muted disabled:to-muted">
 											<Film className="w-5 h-5 mr-2" />GENERATE ALL VIDEO
 										</Button>
 									)}
-									<p className="mt-2 text-xs text-muted-foreground text-center">{!allImagesCompleted ? "Waiting for images" : `${scenesNeedingVideos.length} scene(s) need videos`}</p>
+									<p className="mt-2 text-xs text-muted-foreground text-center">
+										{anySceneGeneratingVideo ? "Scene generating..." : (!allImagesCompleted ? "Waiting for images" : `${scenesNeedingVideos.length} scene(s) need videos`)}
+									</p>
 								</div>
 							</div>
 						</CardContent>
