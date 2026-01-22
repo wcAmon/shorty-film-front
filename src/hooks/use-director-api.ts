@@ -799,7 +799,7 @@ async function generateDirectorAvatarVideoApi(params: {
 			storyId: submitParams.storyId,
 			sceneId: submitParams.sceneId,
 			imageUrl: submitParams.characterImageUrl,
-			avatarEngine: submitParams.avatarEngine || "omnihuman",
+			avatarEngine: submitParams.avatarEngine || "kling-avatar-v2-standard",
 		}),
 	});
 

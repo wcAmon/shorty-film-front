@@ -11,7 +11,11 @@ import type {
 export type Podcast42Speaker = "person1" | "person2";
 
 // Avatar engine type for podcast42 (for talking-head animation, not image-to-video)
-export type Podcast42AvatarEngine = "omnihuman" | "aurora";
+export type Podcast42AvatarEngine =
+	| "kling-avatar-v2-standard"
+	| "kling-avatar-v2-pro"
+	| "omnihuman"
+	| "aurora";
 
 // Scene interface for podcast42
 export interface Podcast42Scene {
@@ -113,7 +117,7 @@ const initialState: Podcast42State = {
 	exportError: null,
 	imageEngine: "flux-pro",
 	imageStyle: "cinematic",
-	avatarEngine: "omnihuman",
+	avatarEngine: "kling-avatar-v2-standard",
 	llmEngine: "gpt-4.1",
 	person1VoiceId: "PIGsltMj3gFMR34aFDI3", // Default: Jonathan
 	person2VoiceId: "Z3R5wn05IrDiVCyEkUrK", // Default: Arabella

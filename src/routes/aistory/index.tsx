@@ -65,6 +65,11 @@ const IMAGE_ENGINES: { id: ImageEngine; label: string; description: string }[] =
 			description:
 				"Fast character-consistent generation with reference support",
 		},
+		{
+			id: "nano-banana",
+			label: "Nano Banana",
+			description: "Lightweight, fast generation with character reference",
+		},
 	];
 
 // Voice options for narration

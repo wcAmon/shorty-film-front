@@ -900,32 +900,16 @@ function Podcast42ScenesPage() {
 							<label className="block text-sm font-medium text-muted-foreground mb-2">
 								Avatar Engine
 							</label>
-							<div className="flex gap-2">
-								<Button
-									type="button"
-									variant={avatarEngine === "omnihuman" ? "default" : "secondary"}
-									onClick={() => handleAvatarEngineChange("omnihuman")}
-									className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-										avatarEngine === "omnihuman"
-											? "bg-amber-500 text-white hover:bg-amber-400"
-											: ""
-									}`}
-								>
-									OmniHuman
-								</Button>
-								<Button
-									type="button"
-									variant={avatarEngine === "aurora" ? "default" : "secondary"}
-									onClick={() => handleAvatarEngineChange("aurora")}
-									className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-										avatarEngine === "aurora"
-											? "bg-amber-500 text-white hover:bg-amber-400"
-											: ""
-									}`}
-								>
-									Aurora
-								</Button>
-							</div>
+							<select
+								value={avatarEngine}
+								onChange={(e) => handleAvatarEngineChange(e.target.value as Podcast42AvatarEngine)}
+								className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-foreground text-sm focus:outline-none focus:border-amber-500"
+							>
+								<option value="kling-avatar-v2-standard">Kling Avatar v2 Standard</option>
+								<option value="kling-avatar-v2-pro">Kling Avatar v2 Pro</option>
+								<option value="omnihuman">OmniHuman v1.5</option>
+								<option value="aurora">Aurora</option>
+							</select>
 						</div>
 
 						{/* Person 1 Voice */}

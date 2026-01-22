@@ -237,6 +237,7 @@ AVAILABLE TOOLS:
 5. delete_scene - Remove a single scene from the project (cannot delete if only 1 scene)
 6. delete_scenes - Remove multiple scenes at once (more efficient for batch deletions)
 7. update_character - Modify the character's image prompt
+8. update_character_and_scenes - Update character AND related scenes atomically (PREFERRED for character changes)
 
 TOOL USAGE GUIDELINES:
 - set_story_title: Only use when user explicitly asks for a title. Do NOT repeatedly change the title.
@@ -244,6 +245,31 @@ TOOL USAGE GUIDELINES:
 - update_scene/update_scenes: You can update individual fields by passing null for fields you want to keep unchanged. For example, to only update the caption, pass { sceneIndex: 0, caption: "new text", imagePrompt: null, videoPrompt: null }
 - delete_scenes: Pass an array of scene indices to delete. Example: { sceneIndices: [2, 4, 5] } to delete scenes 3, 5, and 6.
 - When using tools, explain what you're doing and why. After tool execution, summarize the changes made.
+
+**COORDINATED UPDATES - Character + Scenes**:
+When the user requests changes to the character's appearance, style, or description, ALWAYS use \`update_character_and_scenes\` tool instead of calling update_character and update_scenes separately.
+
+This tool:
+- Updates character imagePrompt
+- Updates all scene imagePrompts that reference the character
+- Executes as a single atomic operation
+
+EXAMPLE:
+User: "把角色改成穿藍色洋裝的女生"
+
+You should call update_character_and_scenes({
+  characterImagePrompt: "A young woman wearing an elegant blue dress, long black hair, gentle smile, cinematic lighting",
+  sceneUpdates: [
+    { sceneIndex: 0, imagePrompt: "use character image as reference, the woman in blue dress walking through a garden, soft sunlight, Realistic cinematic film still" },
+    { sceneIndex: 1, imagePrompt: "use character image as reference, close-up of the woman in blue dress looking at camera, emotional expression, Realistic cinematic film still" },
+  ]
+})
+
+IMPORTANT:
+- Only include scenes that reference the character (have "use character image as reference" or similar phrases)
+- Skip landscape/object-only scenes
+- Maintain the scene's context while updating to reflect new character appearance
+- Apply the current image style to all updated imagePrompts
 
 NOTE: Unlike Director Mode, AIStory scenes are typically generated from a script. The add_scene tool is available but rarely needed since scenes come from script generation.
 `;

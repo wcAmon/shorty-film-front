@@ -3,7 +3,7 @@ import { requireAuth } from "@/lib/auth-middleware";
 import { isBackendConfigured, proxyToBackend } from "@/lib/backend-proxy";
 
 // Avatar engine type (for talking-head animation, not image-to-video)
-type Podcast42AvatarEngine = "omnihuman" | "aurora";
+type Podcast42AvatarEngine = "kling-avatar-v2-standard" | "kling-avatar-v2-pro" | "omnihuman" | "aurora";
 
 export const Route = createFileRoute("/api/podcast42-generate-video")({
 	server: {

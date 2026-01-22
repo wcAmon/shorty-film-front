@@ -204,6 +204,31 @@ export function useAIStoryAssistant() {
 				}
 			}
 
+			// Handle update_character_and_scenes - update both character and scenes in local store
+			if (tool.name === "update_character_and_scenes" && result.success) {
+				const args = tool.arguments;
+				const characterImagePrompt = args.characterImagePrompt as string;
+				const sceneUpdates = args.sceneUpdates as Array<{
+					sceneIndex: number;
+					imagePrompt: string;
+				}>;
+
+				// Update character
+				aistoryActions.setCharacterPrompt(characterImagePrompt);
+
+				// Update scenes
+				if (sceneUpdates && sceneUpdates.length > 0) {
+					const currentScenes = aistoryStore.state.scenes;
+					for (const update of sceneUpdates) {
+						const { sceneIndex, imagePrompt } = update;
+						if (sceneIndex >= 0 && sceneIndex < currentScenes.length) {
+							const sceneId = currentScenes[sceneIndex].id;
+							aistoryActions.updateScene(sceneId, { prompt: imagePrompt });
+						}
+					}
+				}
+			}
+
 			// Handle set_story_title - AIStory doesn't have a title field in store
 			// But we could potentially store it differently if needed in the future
 		}

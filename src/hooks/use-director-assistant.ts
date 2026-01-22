@@ -281,6 +281,52 @@ export function useDirectorAssistant() {
 					directorActions.deleteScene(sceneId);
 				}
 			}
+
+			// Handle update_character_and_scenes - update both character and scenes in local store
+			if (tool.name === "update_character_and_scenes" && result.success) {
+				const args = tool.arguments;
+				const characterImagePrompt = args.characterImagePrompt as string;
+				const sceneUpdates = args.sceneUpdates as Array<{
+					sceneIndex: number;
+					imagePrompt: string;
+				}>;
+
+				// Update character
+				const currentCharacter = directorStore.state.character;
+				if (currentCharacter) {
+					directorActions.updateCharacter({
+						imagePrompt: characterImagePrompt,
+					});
+				} else {
+					// Create a new character with the prompt (no image yet)
+					directorActions.setCharacter({
+						id: `char-${Date.now()}`,
+						name: "Main Character",
+						imagePrompt: characterImagePrompt,
+						imageUrl: null,
+						imageId: null,
+						imageSource: "generate",
+						imageEngine: directorStore.state.defaultImageEngine,
+						voiceId: directorStore.state.defaultVoiceId,
+						voiceSpeed: directorStore.state.defaultVoiceSpeed,
+						videoEngine: directorStore.state.defaultVideoEngine,
+						isGenerating: false,
+						imageStatus: null,
+					});
+				}
+
+				// Update scenes
+				if (sceneUpdates && sceneUpdates.length > 0) {
+					const currentScenes = directorStore.state.scenes;
+					for (const update of sceneUpdates) {
+						const { sceneIndex, imagePrompt } = update;
+						if (sceneIndex >= 0 && sceneIndex < currentScenes.length) {
+							const sceneId = currentScenes[sceneIndex].id;
+							directorActions.updateScene(sceneId, { imagePrompt });
+						}
+					}
+				}
+			}
 		}
 	}, []);
 

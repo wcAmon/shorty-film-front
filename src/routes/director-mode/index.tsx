@@ -43,8 +43,10 @@ const VIDEO_ENGINES: { id: DirectorVideoEngine; label: string; description?: str
 ];
 
 const AVATAR_ENGINES: { id: DirectorAvatarEngine; label: string; description?: string }[] = [
-	{ id: "omnihuman", label: "Omnihuman", description: "High quality talking head generation (recommended)" },
-	{ id: "aurora", label: "Aurora", description: "Fast avatar video generation" },
+	{ id: "kling-avatar-v2-standard", label: "Kling Avatar v2 Standard", description: "Fast, high-quality talking head generation (recommended)" },
+	{ id: "kling-avatar-v2-pro", label: "Kling Avatar v2 Pro", description: "Higher quality with more detailed expressions" },
+	{ id: "omnihuman", label: "OmniHuman v1.5", description: "ByteDance's talking head model, supports longer audio" },
+	{ id: "aurora", label: "Aurora", description: "Alternative avatar generation" },
 ];
 
 const VOICE_OPTIONS: { id: string; label: string; description?: string }[] = [

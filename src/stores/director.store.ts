@@ -18,7 +18,11 @@ export type DirectorVideoEngine =
 	| "veo3.1"
 	| "veo3.1-fast";
 
-export type DirectorAvatarEngine = "omnihuman" | "aurora";
+export type DirectorAvatarEngine =
+	| "kling-avatar-v2-standard"
+	| "kling-avatar-v2-pro"
+	| "omnihuman"
+	| "aurora";
 
 export type DirectorImageStyle =
 	| "cinematic"
@@ -195,7 +199,7 @@ const initialState: DirectorState = {
 	defaultImageEngine: "flux-pro",
 	defaultImageStyle: "cinematic",
 	defaultVideoEngine: "kling-video",
-	defaultAvatarEngine: "omnihuman",
+	defaultAvatarEngine: "kling-avatar-v2-standard",
 	defaultVoiceId: "PIGsltMj3gFMR34aFDI3", // Jonathan
 	defaultVoiceSpeed: 1.0,
 	captionLanguage: "en",
