@@ -181,24 +181,20 @@ export function useAIStoryAssistant() {
 
 			// Handle delete_scene - update local store
 			if (tool.name === "delete_scene" && result.success) {
-				const args = tool.arguments;
-				const sceneIndex = args.sceneIndex as number;
-				const currentScenes = aistoryStore.state.scenes;
-				console.log("[AIStoryAssistant] delete_scene:", {
-					sceneIndex,
-					currentScenesLength: currentScenes.length,
-					deletedSceneId: result.deletedSceneId,
-				});
-				if (sceneIndex >= 0 && sceneIndex < currentScenes.length) {
-					const sceneId = currentScenes[sceneIndex].id;
-					console.log("[AIStoryAssistant] Deleting scene:", sceneId);
+				// Use deletedSceneId from result (most reliable)
+				if (result.deletedSceneId) {
+					console.log("[AIStoryAssistant] Deleting scene by ID:", result.deletedSceneId);
+					aistoryActions.deleteScene(result.deletedSceneId as string);
+				}
+			}
+
+			// Handle delete_scenes (batch) - update local store
+			if (tool.name === "delete_scenes" && result.success) {
+				const deletedSceneIds = result.deletedSceneIds as string[];
+				console.log("[AIStoryAssistant] Batch deleting scenes:", deletedSceneIds);
+				// Delete in the order provided (already sorted descending by backend)
+				for (const sceneId of deletedSceneIds) {
 					aistoryActions.deleteScene(sceneId);
-				} else {
-					console.log("[AIStoryAssistant] Scene index out of range, trying deletedSceneId");
-					// Fallback: use deletedSceneId from result if available
-					if (result.deletedSceneId) {
-						aistoryActions.deleteScene(result.deletedSceneId as string);
-					}
 				}
 			}
 

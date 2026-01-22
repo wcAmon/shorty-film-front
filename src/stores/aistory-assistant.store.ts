@@ -233,13 +233,15 @@ AVAILABLE TOOLS:
 2. set_story_title - Set the story title (use sparingly, only when explicitly requested)
 3. update_scene - Modify a single scene's caption or image prompt (pass null to keep unchanged)
 4. update_scenes - Modify multiple scenes at once (more efficient for batch operations)
-5. delete_scene - Remove a scene from the project (cannot delete if only 1 scene)
-6. update_character - Modify the character's image prompt
+5. delete_scene - Remove a single scene from the project (cannot delete if only 1 scene)
+6. delete_scenes - Remove multiple scenes at once (more efficient for batch deletions)
+7. update_character - Modify the character's image prompt
 
 TOOL USAGE GUIDELINES:
 - set_story_title: Only use when user explicitly asks for a title. Do NOT repeatedly change the title.
-- PREFER BATCH TOOLS: When updating multiple scenes, use update_scenes instead of calling update_scene multiple times.
+- PREFER BATCH TOOLS: When updating or deleting multiple scenes, use update_scenes/delete_scenes instead of calling update_scene/delete_scene multiple times.
 - update_scene/update_scenes: You can update individual fields by passing null for fields you want to keep unchanged. For example, to only update the caption, pass { sceneIndex: 0, caption: "new text", imagePrompt: null }
+- delete_scenes: Pass an array of scene indices to delete. Example: { sceneIndices: [2, 4, 5] } to delete scenes 3, 5, and 6.
 - When using tools, explain what you're doing and why. After tool execution, summarize the changes made.
 
 NOTE: Unlike Director Mode, AIStory scenes are typically generated from a script. The add_scene tool is available but rarely needed since scenes come from script generation.

@@ -16,7 +16,6 @@ import {
 import { useState } from "react";
 import { StoryCard } from "@/components/story-card";
 import { StoryCardSkeleton } from "@/components/story-card-skeleton";
-import { ThemeToggle } from "@/components/theme-toggle";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -175,17 +174,14 @@ function UserPage() {
 		<div className="min-h-screen bg-background p-6">
 			<div className="mx-auto max-w-5xl">
 				{/* Header */}
-				<div className="mb-8 flex items-center justify-between">
-					<div className="flex items-center gap-4">
-						<Link
-							to="/"
-							className="rounded-lg p-2 text-foreground transition-colors hover:bg-accent"
-						>
-							<ArrowLeft className="h-6 w-6" />
-						</Link>
-						<h1 className="text-3xl font-bold text-foreground">My Account</h1>
-					</div>
-					<ThemeToggle />
+				<div className="mb-8 flex items-center gap-4">
+					<Link
+						to="/"
+						className="rounded-lg p-2 text-foreground transition-colors hover:bg-accent"
+					>
+						<ArrowLeft className="h-6 w-6" />
+					</Link>
+					<h1 className="text-3xl font-bold text-foreground">My Account</h1>
 				</div>
 
 				{/* Tabs */}
