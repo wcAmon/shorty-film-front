@@ -66,10 +66,12 @@ const IMAGE_ENGINES: { id: DirectorImageEngine; label: string; description?: str
 	{ id: "flux-pro", label: "Flux Pro", description: "Fast, high quality images (recommended)" },
 	{ id: "gpt-image-1.5", label: "GPT Image 1.5", description: "OpenAI GPT-Image via FAL AI, with character consistency" },
 	{ id: "nano-banana-pro", label: "Nano Banana Pro", description: "Fast character-consistent generation with reference support" },
+	{ id: "nano-banana", label: "Nano Banana", description: "Lightweight, fast generation with character reference" },
 ];
 
 const VIDEO_ENGINES: { id: DirectorVideoEngine; label: string; description?: string }[] = [
 	{ id: "kling-video", label: "Kling v2.6 Pro", description: "Direct image animation, better quality (recommended)" },
+	{ id: "kling-video-v2.5-turbo", label: "Kling v2.5 Turbo", description: "Faster Kling generation with good quality" },
 	{ id: "sora-2", label: "Sora 2", description: "OpenAI Sora 2 via FAL AI, high quality video generation" },
 	{ id: "ltx-2-19b", label: "LTX-2 19B", description: "Fast generation with good motion quality" },
 	{ id: "veo3.1", label: "Veo 3.1", description: "Google Veo 3.1 via FAL AI, high quality with audio generation" },

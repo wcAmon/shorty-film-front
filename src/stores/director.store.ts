@@ -7,10 +7,12 @@ import { Store } from "@tanstack/store";
 export type DirectorImageEngine =
 	| "flux-pro"
 	| "gpt-image-1.5"
-	| "nano-banana-pro";
+	| "nano-banana-pro"
+	| "nano-banana";
 
 export type DirectorVideoEngine =
 	| "kling-video"
+	| "kling-video-v2.5-turbo"
 	| "sora-2"
 	| "ltx-2-19b"
 	| "veo3.1"

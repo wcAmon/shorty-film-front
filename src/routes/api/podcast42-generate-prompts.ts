@@ -23,7 +23,7 @@ type VoiceId =
 	| "YKrm0N1EAM9Bw27j8kuD"; // Leonidas
 
 // Image engine type (all via FAL AI)
-type ImageEngine = "flux-pro" | "gpt-image-1.5";
+type ImageEngine = "flux-pro" | "gpt-image-1.5" | "nano-banana-pro" | "nano-banana";
 
 export const Route = createFileRoute("/api/podcast42-generate-prompts")({
 	server: {

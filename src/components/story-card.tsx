@@ -1,4 +1,5 @@
 import {
+	Clapperboard,
 	Download,
 	Film,
 	ImageIcon,
@@ -34,6 +35,30 @@ interface StoryCardProps {
 	isLoading?: boolean;
 }
 
+// Helper function to get type badge config
+function getTypeBadgeConfig(type: string) {
+	switch (type) {
+		case "podcast42":
+			return {
+				label: "Podcast",
+				Icon: Mic,
+				className: "bg-blue-500/20 text-blue-400 border-blue-500/30",
+			};
+		case "director-mode":
+			return {
+				label: "Director",
+				Icon: Clapperboard,
+				className: "bg-purple-500/20 text-purple-400 border-purple-500/30",
+			};
+		default: // aistory
+			return {
+				label: "Story",
+				Icon: Sparkles,
+				className: "bg-amber-500/20 text-amber-400 border-amber-500/30",
+			};
+	}
+}
+
 export function StoryCard({
 	story,
 	onResume,
@@ -41,6 +66,8 @@ export function StoryCard({
 	isLoading,
 }: StoryCardProps) {
 	const isPodcast = story.type === "podcast42";
+	const isDirector = story.type === "director-mode";
+	const typeBadge = getTypeBadgeConfig(story.type);
 	const progress = getProgress(story);
 
 	// Get thumbnail from first scene image or character image
@@ -71,6 +98,8 @@ export function StoryCard({
 					<div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-muted to-muted/50">
 						{isPodcast ? (
 							<Mic className="h-12 w-12 text-muted-foreground/30" />
+						) : isDirector ? (
+							<Clapperboard className="h-12 w-12 text-muted-foreground/30" />
 						) : (
 							<Film className="h-12 w-12 text-muted-foreground/30" />
 						)}
@@ -87,20 +116,11 @@ export function StoryCard({
 
 				{/* Type Badge */}
 				<Badge
-					variant={isPodcast ? "secondary" : "default"}
-					className="absolute left-2 top-2"
+					variant="outline"
+					className={cn("absolute left-2 top-2", typeBadge.className)}
 				>
-					{isPodcast ? (
-						<>
-							<Mic className="mr-1 h-3 w-3" />
-							Podcast
-						</>
-					) : (
-						<>
-							<Sparkles className="mr-1 h-3 w-3" />
-							Story
-						</>
-					)}
+					<typeBadge.Icon className="mr-1 h-3 w-3" />
+					{typeBadge.label}
 				</Badge>
 			</div>
 

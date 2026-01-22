@@ -4,7 +4,7 @@ import { isBackendConfigured, proxyToBackend } from "@/lib/backend-proxy";
 import type { ImageStyle } from "@/lib/style-prompts";
 
 // Image engine type (all via FAL AI)
-type ImageEngine = "flux-pro" | "gpt-image-1.5" | "nano-banana-pro";
+type ImageEngine = "flux-pro" | "gpt-image-1.5" | "nano-banana-pro" | "nano-banana";
 
 export const Route = createFileRoute("/api/generate-character")({
 	server: {

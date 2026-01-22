@@ -57,7 +57,7 @@ export function incrementRetryCount(
 }
 
 // Image engine options for generation (all via FAL AI)
-export type ImageEngine = "flux-pro" | "gpt-image-1.5" | "nano-banana-pro";
+export type ImageEngine = "flux-pro" | "gpt-image-1.5" | "nano-banana-pro" | "nano-banana";
 
 // Image style options for prompt + image generation
 export type ImageStyle =
@@ -80,6 +80,7 @@ export type VoiceId =
 // Video engine options for FAL-AI
 export type VideoEngine =
 	| "kling-video"
+	| "kling-video-v2.5-turbo"
 	| "sora-2"
 	| "ltx-2-19b"
 	| "veo3.1"

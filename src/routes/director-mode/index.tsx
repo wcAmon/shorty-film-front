@@ -35,6 +35,7 @@ const IMAGE_ENGINES: { id: DirectorImageEngine; label: string; description?: str
 
 const VIDEO_ENGINES: { id: DirectorVideoEngine; label: string; description?: string }[] = [
 	{ id: "kling-video", label: "Kling v2.6 Pro", description: "Direct image animation, better quality (recommended)" },
+	{ id: "kling-video-v2.5-turbo", label: "Kling v2.5 Turbo", description: "Faster Kling generation with good quality" },
 	{ id: "sora-2", label: "Sora 2", description: "OpenAI Sora 2 via FAL AI, high quality video generation" },
 	{ id: "ltx-2-19b", label: "LTX-2 19B", description: "Fast generation with good motion quality" },
 	{ id: "veo3.1", label: "Veo 3.1", description: "Google Veo 3.1 via FAL AI, high quality with audio generation" },

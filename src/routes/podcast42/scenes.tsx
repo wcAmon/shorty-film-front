@@ -360,7 +360,9 @@ function Podcast42ScenesPage() {
 
 		// Note: imageEngine type needs casting since podcast42 only supports flux-pro and gpt-image-1.5
 		const supportedEngine =
-			imageEngine === "nano-banana-pro" ? "flux-pro" : imageEngine;
+			imageEngine === "nano-banana-pro" || imageEngine === "nano-banana"
+				? "flux-pro"
+				: imageEngine;
 
 		generateCharacterMutation.mutate(
 			{ prompt, storyId, imageEngine: supportedEngine, imageStyle, person },

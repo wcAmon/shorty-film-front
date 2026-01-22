@@ -116,6 +116,11 @@ const VIDEO_ENGINES: { id: VideoEngine; label: string; description: string }[] =
 				"Direct image animation, better quality, generates audio (recommended)",
 		},
 		{
+			id: "kling-video-v2.5-turbo",
+			label: "Kling v2.5 Turbo",
+			description: "Faster Kling generation with good quality",
+		},
+		{
 			id: "sora-2",
 			label: "Sora 2",
 			description: "OpenAI Sora 2 via FAL AI, high quality video generation",

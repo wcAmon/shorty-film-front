@@ -57,11 +57,13 @@ const IMAGE_ENGINES: { id: ImageEngine; label: string }[] = [
 	{ id: "flux-pro", label: "Flux Pro" },
 	{ id: "gpt-image-1.5", label: "GPT Image 1.5" },
 	{ id: "nano-banana-pro", label: "Nano Banana Pro" },
+	{ id: "nano-banana", label: "Nano Banana" },
 ];
 
 // Video engine options
 const VIDEO_ENGINES: { id: VideoEngine; label: string }[] = [
 	{ id: "kling-video", label: "Kling v2.6 Pro" },
+	{ id: "kling-video-v2.5-turbo", label: "Kling v2.5 Turbo" },
 	{ id: "sora-2", label: "Sora 2" },
 	{ id: "ltx-2-19b", label: "LTX-2 19B" },
 	{ id: "veo3.1", label: "Veo 3.1" },
