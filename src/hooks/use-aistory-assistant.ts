@@ -90,6 +90,7 @@ export function useAIStoryAssistant() {
 
 	// Sync project context from aistory store
 	const script = useStore(aistoryStore, (s) => s.script);
+	const storyTitle = useStore(aistoryStore, (s) => s.storyTitle);
 	const imageStyle = useStore(aistoryStore, (s) => s.imageStyle);
 	const characterPrompt = useStore(aistoryStore, (s) => s.characterPrompt);
 	const characterImageUrl = useStore(aistoryStore, (s) => s.characterImageUrl);
@@ -98,7 +99,7 @@ export function useAIStoryAssistant() {
 	useEffect(() => {
 		aistoryAssistantActions.setProjectContext({
 			storyId,
-			title: "", // AIStory doesn't have explicit title in store, could be derived
+			title: storyTitle || "",
 			script,
 			imageStyle,
 			character: characterPrompt
@@ -118,7 +119,7 @@ export function useAIStoryAssistant() {
 				hasVideo: !!s.videoUrl,
 			})),
 		});
-	}, [storyId, script, imageStyle, characterPrompt, characterImageUrl, scenes]);
+	}, [storyId, storyTitle, script, imageStyle, characterPrompt, characterImageUrl, scenes]);
 
 	// Process tool results to update local store when needed
 	const processToolResults = useCallback((toolCalls: ToolCallResult[] | undefined) => {
@@ -150,6 +151,8 @@ export function useAIStoryAssistant() {
 						updates.video_prompt = args.videoPrompt; // AIStory uses 'video_prompt' with underscore
 					if (args.useAvatar !== null && args.useAvatar !== undefined)
 						updates.useAvatar = args.useAvatar;
+					if (args.title !== null && args.title !== undefined)
+						updates.title = args.title;
 					if (Object.keys(updates).length > 0) {
 						aistoryActions.updateScene(sceneId, updates);
 					}
@@ -165,11 +168,12 @@ export function useAIStoryAssistant() {
 					imagePrompt: string | null;
 					videoPrompt: string | null;
 					useAvatar?: boolean | null;
+					title?: string | null;
 				}>;
 				const currentScenes = aistoryStore.state.scenes;
 
 				for (const update of updates) {
-					const { sceneIndex, caption, imagePrompt, videoPrompt, useAvatar } = update;
+					const { sceneIndex, caption, imagePrompt, videoPrompt, useAvatar, title } = update;
 					if (sceneIndex >= 0 && sceneIndex < currentScenes.length) {
 						const sceneId = currentScenes[sceneIndex].id;
 						const sceneUpdates: Record<string, unknown> = {};
@@ -182,6 +186,8 @@ export function useAIStoryAssistant() {
 							sceneUpdates.video_prompt = videoPrompt; // AIStory uses 'video_prompt' with underscore
 						if (useAvatar !== null && useAvatar !== undefined)
 							sceneUpdates.useAvatar = useAvatar;
+						if (title !== null && title !== undefined)
+							sceneUpdates.title = title;
 						if (Object.keys(sceneUpdates).length > 0) {
 							aistoryActions.updateScene(sceneId, sceneUpdates);
 						}
@@ -229,8 +235,10 @@ export function useAIStoryAssistant() {
 				}
 			}
 
-			// Handle set_story_title - AIStory doesn't have a title field in store
-			// But we could potentially store it differently if needed in the future
+			// Handle set_story_title - update local store
+			if (tool.name === "set_story_title" && result.success && result.title) {
+				aistoryActions.setStoryTitle(result.title as string);
+			}
 		}
 	}, []);
 

@@ -208,6 +208,41 @@ function ScenesPage() {
 		1500, // 1.5 seconds
 	);
 
+	// Debounced callback for saving story title (1.5 second delay)
+	const debouncedSaveStoryTitle = useDebouncedCallback(
+		(title: string) => {
+			const currentStoryId = aistoryStore.state.storyId;
+			if (!currentStoryId) return;
+
+			updateStorySettingsMutation.mutate(
+				{ storyId: currentStoryId, title },
+				{
+					onError: (err) => {
+						console.error("Failed to save story title:", err);
+						// Don't show error to user - silent save
+					},
+				},
+			);
+		},
+		1500, // 1.5 seconds
+	);
+
+	// Debounced callback for saving scene title (1.5 second delay)
+	const debouncedSaveSceneTitle = useDebouncedCallback(
+		(sceneId: string, title: string) => {
+			updateScenePromptMutation.mutate(
+				{ sceneId, title },
+				{
+					onError: (err) => {
+						console.error("Failed to save scene title:", err);
+						// Don't show error to user - silent save
+					},
+				},
+			);
+		},
+		1500, // 1.5 seconds
+	);
+
 	// Subscribe to store state
 	const characterPrompt = useStore(
 		aistoryStore,
@@ -232,6 +267,7 @@ function ScenesPage() {
 	const imageStyle = useStore(aistoryStore, (state) => state.imageStyle);
 	const llmEngine = useStore(aistoryStore, (state) => state.llmEngine);
 	const storyId = useStore(aistoryStore, (state) => state.storyId);
+	const storyTitle = useStore(aistoryStore, (state) => state.storyTitle);
 
 	// Default voice ID (Jonathan) - used when scene doesn't have voiceId set
 	const DEFAULT_VOICE_ID: VoiceId = "PIGsltMj3gFMR34aFDI3";
@@ -679,6 +715,22 @@ function ScenesPage() {
 		aistoryActions.updateScene(sceneId, { video_prompt: newVideoPrompt });
 		// 2. Debounce save to database
 		debouncedSavePrompt(sceneId, undefined, newVideoPrompt);
+	};
+
+	// Update story title (editable) - updates local state immediately and debounce saves to database
+	const handleUpdateStoryTitle = (newTitle: string) => {
+		// 1. Immediately update local state for responsive UI
+		aistoryActions.setStoryTitle(newTitle);
+		// 2. Debounce save to database
+		debouncedSaveStoryTitle(newTitle);
+	};
+
+	// Update scene title (editable) - updates local state immediately and debounce saves to database
+	const handleUpdateSceneTitle = (sceneId: string, newTitle: string) => {
+		// 1. Immediately update local state for responsive UI
+		aistoryActions.updateScene(sceneId, { title: newTitle });
+		// 2. Debounce save to database
+		debouncedSaveSceneTitle(sceneId, newTitle);
 	};
 
 	// Handle scene reorder - updates local state immediately and debounce saves to database
@@ -1339,6 +1391,24 @@ function ScenesPage() {
 				</CardContent>
 			</Card>
 
+			{/* Story Title Card */}
+			<Card>
+				<CardContent className="p-4">
+					<div className="flex items-center gap-3">
+						<span className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+							Story Title
+						</span>
+						<input
+							type="text"
+							value={storyTitle || ""}
+							onChange={(e) => handleUpdateStoryTitle(e.target.value)}
+							placeholder="Enter story title..."
+							className="flex-1 px-3 py-2 bg-background border border-border rounded-lg text-foreground text-base font-medium placeholder-muted-foreground focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-colors"
+						/>
+					</div>
+				</CardContent>
+			</Card>
+
 			{/* Character Card */}
 			<Card>
 				<CardContent className="p-6">
@@ -1545,11 +1615,23 @@ function ScenesPage() {
 							<CardContent className="p-6">
 								{/* Scene header with controls */}
 								<div className="flex items-center justify-between mb-4">
-									<h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
-										<Clapperboard className="w-5 h-5 text-purple-400" />
-										Scene {index + 1}: {scene.title}
-									</h3>
-									<div className="flex items-center gap-3">
+									<div className="flex items-center gap-2 flex-1 min-w-0">
+										<Clapperboard className="w-5 h-5 text-purple-400 flex-shrink-0" />
+										<span className="text-lg font-semibold text-foreground whitespace-nowrap">
+											Scene {index + 1}:
+										</span>
+										<input
+											type="text"
+											value={scene.title}
+											onChange={(e) =>
+												handleUpdateSceneTitle(scene.id, e.target.value)
+											}
+											placeholder="Scene title..."
+											disabled={scenesDisabled}
+											className="flex-1 min-w-0 px-2 py-1 bg-transparent border-b border-transparent hover:border-border focus:border-purple-500 text-lg font-semibold text-foreground placeholder-muted-foreground focus:outline-none transition-colors"
+										/>
+									</div>
+									<div className="flex items-center gap-3 flex-shrink-0">
 										{/* isCharacter toggle */}
 										<label className="flex items-center gap-2 cursor-pointer">
 											<input

@@ -1,5 +1,6 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useStore } from "@tanstack/react-store";
+import { useState } from "react";
 import { Download, FileVideo, Film, Loader2 } from "lucide-react";
 import { useExportPodcast42Video } from "@/hooks/use-podcast42-api";
 import { podcast42Actions, podcast42Store } from "@/stores/podcast42.store";
@@ -37,6 +38,9 @@ function Podcast42ExportPage() {
 	);
 	const exportError = useStore(podcast42Store, (state) => state.exportError);
 
+	// State for cache-busting timestamp (forces video reload on re-export)
+	const [videoTimestamp, setVideoTimestamp] = useState<number | null>(null);
+
 	// Handle export video
 	const handleExportVideo = () => {
 		if (!storyId) return;
@@ -58,6 +62,8 @@ function Podcast42ExportPage() {
 				onSuccess: (result) => {
 					if (result.success && result.videoUrl) {
 						podcast42Actions.setExportedVideoUrl(result.videoUrl);
+						// Update timestamp to force video reload (cache-busting)
+						setVideoTimestamp(Date.now());
 					} else {
 						podcast42Actions.setExportError(
 							result.error || "Failed to export video",
@@ -155,7 +161,8 @@ function Podcast42ExportPage() {
 						</h3>
 						<div className="flex justify-center">
 							<video
-								src={exportedVideoUrl}
+								key={videoTimestamp}
+								src={`${exportedVideoUrl}${videoTimestamp ? `?t=${videoTimestamp}` : ""}`}
 								controls
 								className="max-w-2xl w-full rounded-lg shadow-lg"
 								style={{ aspectRatio: "16/9" }}

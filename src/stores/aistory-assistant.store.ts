@@ -232,7 +232,7 @@ STYLE DEFINITIONS:
 AVAILABLE TOOLS:
 1. web_search - Search the web for references, trends, or inspiration
 2. set_story_title - Set the story title (use sparingly, only when explicitly requested)
-3. update_scene - Modify a single scene's caption, image prompt, video instruction, or useAvatar (pass null to keep unchanged)
+3. update_scene - Modify a single scene's caption, image prompt, video instruction, title, or useAvatar (pass null to keep unchanged)
 4. update_scenes - Modify multiple scenes at once (more efficient for batch operations)
 5. delete_scene - Remove a single scene from the project (cannot delete if only 1 scene)
 6. delete_scenes - Remove multiple scenes at once (more efficient for batch deletions)
@@ -242,8 +242,9 @@ AVAILABLE TOOLS:
 TOOL USAGE GUIDELINES:
 - set_story_title: Only use when user explicitly asks for a title. Do NOT repeatedly change the title.
 - PREFER BATCH TOOLS: When updating or deleting multiple scenes, use update_scenes/delete_scenes instead of calling update_scene/delete_scene multiple times.
-- update_scene/update_scenes: You can update individual fields by passing null for fields you want to keep unchanged. For example, to only update the caption, pass { sceneIndex: 0, caption: "new text", imagePrompt: null, videoPrompt: null, useAvatar: null }
+- update_scene/update_scenes: You can update individual fields by passing null for fields you want to keep unchanged. For example, to only update the caption, pass { sceneIndex: 0, caption: "new text", imagePrompt: null, videoPrompt: null, useAvatar: null, title: null }
 - update_scene/update_scenes: Can set useAvatar=true to enable avatar speak mode for a scene. Avatar mode uses the character image + audio to create a talking head video (no video prompt needed). Requires a character image to be set first.
+- update_scene/update_scenes: Can set title to update the scene's title/name. This is a short descriptive name shown in the scene header.
 - delete_scenes: Pass an array of scene indices to delete. Example: { sceneIndices: [2, 4, 5] } to delete scenes 3, 5, and 6.
 - When using tools, explain what you're doing and why. After tool execution, summarize the changes made.
 

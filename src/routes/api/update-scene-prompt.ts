@@ -21,8 +21,9 @@ export const Route = createFileRoute("/api/update-scene-prompt")({
 						sceneId: string;
 						prompt?: string;
 						videoPrompt?: string;
+						title?: string;
 					};
-					const { sceneId, prompt, videoPrompt } = body;
+					const { sceneId, prompt, videoPrompt, title } = body;
 
 					if (!sceneId) {
 						return Response.json(
@@ -31,13 +32,13 @@ export const Route = createFileRoute("/api/update-scene-prompt")({
 						);
 					}
 
-					// Need at least one prompt to update
-					if (prompt === undefined && videoPrompt === undefined) {
+					// Need at least one field to update
+					if (prompt === undefined && videoPrompt === undefined && title === undefined) {
 						return Response.json(
 							{
 								success: false,
 								error:
-									"At least one prompt (prompt or videoPrompt) is required",
+									"At least one field (prompt, videoPrompt, or title) is required",
 							},
 							{ status: 400 },
 						);
@@ -65,6 +66,7 @@ export const Route = createFileRoute("/api/update-scene-prompt")({
 					const updates: Record<string, string> = {};
 					if (prompt !== undefined) updates.prompt = prompt;
 					if (videoPrompt !== undefined) updates.videoPrompt = videoPrompt;
+					if (title !== undefined) updates.title = title;
 
 					// Update the scene prompts
 					if (Object.keys(updates).length > 0) {

@@ -69,6 +69,9 @@ function ExportPage() {
 	// State for enabling/disabling subtitle export
 	const [includeSubtitles, setIncludeSubtitles] = useState(true);
 
+	// State for cache-busting timestamp (forces video reload on re-export)
+	const [videoTimestamp, setVideoTimestamp] = useState<number | null>(null);
+
 	// Calculate total duration from all scene videos
 	const totalDuration = scenes.reduce(
 		(acc, scene) => acc + (scene.videoDuration || 0),
@@ -98,6 +101,8 @@ function ExportPage() {
 				onSuccess: (result) => {
 					if (result.success && result.videoUrl) {
 						aistoryActions.setExportedVideoUrl(result.videoUrl);
+						// Update timestamp to force video reload (cache-busting)
+						setVideoTimestamp(Date.now());
 					} else {
 						aistoryActions.setExportError(
 							result.error || "Failed to export video",
@@ -324,7 +329,8 @@ function ExportPage() {
 						</h3>
 						<div className="flex justify-center">
 							<video
-								src={exportedVideoUrl}
+								key={videoTimestamp}
+								src={`${exportedVideoUrl}${videoTimestamp ? `?t=${videoTimestamp}` : ""}`}
 								controls
 								className="max-w-md w-full rounded-lg shadow-lg"
 								style={{ aspectRatio: "9/16" }}

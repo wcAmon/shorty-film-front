@@ -22,8 +22,9 @@ export const Route = createFileRoute("/api/update-story-settings")({
 						storyId: string;
 						imageEngine?: string;
 						videoEngine?: string;
+						title?: string;
 					};
-					const { storyId, imageEngine, videoEngine } = body;
+					const { storyId, imageEngine, videoEngine, title } = body;
 
 					if (!storyId) {
 						return Response.json(
@@ -54,6 +55,7 @@ export const Route = createFileRoute("/api/update-story-settings")({
 					const updates: Record<string, string> = {};
 					if (imageEngine !== undefined) updates.imageEngine = imageEngine;
 					if (videoEngine !== undefined) updates.videoEngine = videoEngine;
+					if (title !== undefined) updates.title = title;
 
 					// Update the story settings
 					if (Object.keys(updates).length > 0) {

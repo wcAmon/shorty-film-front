@@ -218,6 +218,8 @@ export function useDirectorAssistant() {
 						updates.videoPrompt = args.videoPrompt;
 					if (args.useAvatar !== null && args.useAvatar !== undefined)
 						updates.useAvatar = args.useAvatar;
+					if (args.title !== null && args.title !== undefined)
+						updates.title = args.title;
 					if (Object.keys(updates).length > 0) {
 						directorActions.updateScene(sceneId, updates);
 					}
@@ -233,11 +235,12 @@ export function useDirectorAssistant() {
 					imagePrompt: string | null;
 					videoPrompt: string | null;
 					useAvatar?: boolean | null;
+					title?: string | null;
 				}>;
 				const currentScenes = directorStore.state.scenes;
 
 				for (const update of updates) {
-					const { sceneIndex, caption, imagePrompt, videoPrompt, useAvatar } = update;
+					const { sceneIndex, caption, imagePrompt, videoPrompt, useAvatar, title } = update;
 					if (sceneIndex >= 0 && sceneIndex < currentScenes.length) {
 						const sceneId = currentScenes[sceneIndex].id;
 						const sceneUpdates: Record<string, unknown> = {};
@@ -250,6 +253,8 @@ export function useDirectorAssistant() {
 							sceneUpdates.videoPrompt = videoPrompt;
 						if (useAvatar !== null && useAvatar !== undefined)
 							sceneUpdates.useAvatar = useAvatar;
+						if (title !== null && title !== undefined)
+							sceneUpdates.title = title;
 						if (Object.keys(sceneUpdates).length > 0) {
 							directorActions.updateScene(sceneId, sceneUpdates);
 						}

@@ -1138,6 +1138,7 @@ async function updateStorySettingsApi(params: {
 	imageEngine?: string;
 	videoEngine?: string;
 	voiceId?: string;
+	title?: string;
 }): Promise<UpdateStorySettingsResponse> {
 	const response = await authFetch("/api/update-story-settings", {
 		method: "POST",
@@ -1264,6 +1265,7 @@ async function updateScenePromptApi(params: {
 	sceneId: string;
 	prompt?: string;
 	videoPrompt?: string;
+	title?: string;
 }): Promise<UpdateScenePromptResponse> {
 	const response = await authFetch("/api/update-scene-prompt", {
 		method: "POST",
@@ -1274,7 +1276,7 @@ async function updateScenePromptApi(params: {
 }
 
 /**
- * Hook to update scene prompts (image prompt, video prompt) in database
+ * Hook to update scene prompts (image prompt, video prompt, title) in database
  * Used with debounce when user edits prompts in the scene editor
  */
 export function useUpdateScenePrompt() {
@@ -1283,6 +1285,7 @@ export function useUpdateScenePrompt() {
 			sceneId: string;
 			prompt?: string;
 			videoPrompt?: string;
+			title?: string;
 		}) => updateScenePromptApi(params),
 	});
 }
