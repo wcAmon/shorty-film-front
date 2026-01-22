@@ -10,9 +10,11 @@ import {
 	FolderOpen,
 	ImageIcon,
 	Loader2,
+	PanelRightOpen,
 	Play,
 	Plus,
 	Settings,
+	Sparkles,
 	Trash2,
 	Upload,
 	User,
@@ -51,6 +53,7 @@ import {
 	generationQueueActions,
 	generationQueueStore,
 } from "@/stores/generation-queue.store";
+import { AIStoryAssistantPanel } from "@/components/aistory-assistant/AIStoryAssistantPanel";
 
 // Image engine options
 const IMAGE_ENGINES: { id: ImageEngine; label: string }[] = [
@@ -292,6 +295,9 @@ function ScenesPage() {
 
 	// State for settings panel expansion
 	const [isSettingsExpanded, setIsSettingsExpanded] = useState(false);
+
+	// State for assistant panel collapse
+	const [isAssistantCollapsed, setIsAssistantCollapsed] = useState(false);
 
 	// Refs
 	const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -1150,15 +1156,18 @@ function ScenesPage() {
 	};
 
 	return (
-		<div className="space-y-8">
-			{/* Hidden file upload input */}
-			<input
-				type="file"
-				ref={fileInputRef}
-				onChange={handleUploadCharacter}
-				accept="image/*"
-				className="hidden"
-			/>
+		<div className="flex h-[calc(100vh-4rem)] overflow-hidden">
+			{/* Left: Scenes Editor */}
+			<div className="flex-1 overflow-y-auto p-6">
+				<div className="mx-auto max-w-4xl space-y-8">
+					{/* Hidden file upload input */}
+					<input
+						type="file"
+						ref={fileInputRef}
+						onChange={handleUploadCharacter}
+						accept="image/*"
+						className="hidden"
+					/>
 
 			{/* Engine Settings Display */}
 			<Card>
@@ -1964,13 +1973,36 @@ function ScenesPage() {
 				</div>
 			)}
 
-			{/* Asset Picker Modal */}
-			<AssetPickerModal
-				isOpen={isAssetPickerOpen}
-				onClose={() => setIsAssetPickerOpen(false)}
-				onSelect={handleImportFromAssets}
-				title="Select Character Image"
-			/>
+					{/* Asset Picker Modal */}
+					<AssetPickerModal
+						isOpen={isAssetPickerOpen}
+						onClose={() => setIsAssetPickerOpen(false)}
+						onSelect={handleImportFromAssets}
+						title="Select Character Image"
+					/>
+				</div>
+			</div>
+
+			{/* Right: Story Assistant */}
+			{isAssistantCollapsed ? (
+				<div className="w-12 border-l border-border flex-shrink-0 flex flex-col items-center py-4 bg-background">
+					<button
+						type="button"
+						onClick={() => setIsAssistantCollapsed(false)}
+						className="p-2 rounded-lg hover:bg-blue-500/20 transition-colors"
+						title="Expand Assistant"
+					>
+						<Sparkles className="h-5 w-5 text-blue-400" />
+					</button>
+					<span className="text-xs text-muted-foreground mt-2 [writing-mode:vertical-rl]">
+						Assistant
+					</span>
+				</div>
+			) : (
+				<div className="w-[400px] border-l border-border flex-shrink-0">
+					<AIStoryAssistantPanel onCollapse={() => setIsAssistantCollapsed(true)} />
+				</div>
+			)}
 		</div>
 	);
 }

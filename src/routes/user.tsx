@@ -45,6 +45,7 @@ import {
 	directorAssistantActions,
 	type AssistantMessage,
 } from "@/stores/director-assistant.store";
+import { aistoryAssistantActions } from "@/stores/aistory-assistant.store";
 import { podcast42Actions } from "@/stores/podcast42.store";
 
 // Asset types
@@ -552,6 +553,18 @@ function HistoryTab() {
 				// Restore exported video URL if available
 				if (storyData.exportVideoUrl) {
 					aistoryActions.setExportedVideoUrl(storyData.exportVideoUrl);
+				}
+
+				// Restore conversation history for AIStory Assistant
+				aistoryAssistantActions.reset();
+				if (
+					storyData.conversationHistory &&
+					Array.isArray(storyData.conversationHistory) &&
+					storyData.conversationHistory.length > 0
+				) {
+					aistoryAssistantActions.setMessages(
+						storyData.conversationHistory as AssistantMessage[],
+					);
 				}
 
 				// Always navigate to scenes page (export is now shown in scenes page)
