@@ -1157,9 +1157,9 @@ function ScenesPage() {
 
 	return (
 		<div className="flex h-[calc(100vh-4rem)] overflow-hidden">
-			{/* Left: Scenes Editor */}
-			<div className="flex-1 overflow-y-auto p-6">
-				<div className="mx-auto max-w-4xl space-y-8">
+			{/* Left: Scenes Editor - fixed minimum width to prevent compression */}
+			<div className="min-w-0 flex-1 overflow-y-auto p-6">
+				<div className="mx-auto max-w-5xl space-y-8">
 					{/* Hidden file upload input */}
 					<input
 						type="file"
@@ -1983,9 +1983,9 @@ function ScenesPage() {
 				</div>
 			</div>
 
-			{/* Right: Story Assistant */}
+			{/* Right: Story Assistant - narrower width to give more space to editor */}
 			{isAssistantCollapsed ? (
-				<div className="w-12 border-l border-border flex-shrink-0 flex flex-col items-center py-4 bg-background">
+				<div className="w-12 shrink-0 border-l border-border flex flex-col items-center py-4 bg-background">
 					<button
 						type="button"
 						onClick={() => setIsAssistantCollapsed(false)}
@@ -1999,7 +1999,7 @@ function ScenesPage() {
 					</span>
 				</div>
 			) : (
-				<div className="w-[400px] border-l border-border flex-shrink-0">
+				<div className="w-[360px] shrink-0 border-l border-border">
 					<AIStoryAssistantPanel onCollapse={() => setIsAssistantCollapsed(true)} />
 				</div>
 			)}

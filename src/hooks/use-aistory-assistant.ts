@@ -184,9 +184,21 @@ export function useAIStoryAssistant() {
 				const args = tool.arguments;
 				const sceneIndex = args.sceneIndex as number;
 				const currentScenes = aistoryStore.state.scenes;
+				console.log("[AIStoryAssistant] delete_scene:", {
+					sceneIndex,
+					currentScenesLength: currentScenes.length,
+					deletedSceneId: result.deletedSceneId,
+				});
 				if (sceneIndex >= 0 && sceneIndex < currentScenes.length) {
 					const sceneId = currentScenes[sceneIndex].id;
+					console.log("[AIStoryAssistant] Deleting scene:", sceneId);
 					aistoryActions.deleteScene(sceneId);
+				} else {
+					console.log("[AIStoryAssistant] Scene index out of range, trying deletedSceneId");
+					// Fallback: use deletedSceneId from result if available
+					if (result.deletedSceneId) {
+						aistoryActions.deleteScene(result.deletedSceneId as string);
+					}
 				}
 			}
 
@@ -230,6 +242,7 @@ export function useAIStoryAssistant() {
 			});
 
 			// Process tool results to update local store
+			console.log("[AIStoryAssistant] toolCalls received:", result.toolCalls);
 			processToolResults(result.toolCalls);
 
 			// Add assistant response
