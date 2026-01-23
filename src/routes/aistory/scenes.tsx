@@ -1298,7 +1298,7 @@ function ScenesPage() {
 						</div>
 						<div className="px-3 py-1.5 bg-muted border border-border rounded-lg">
 							<span className="text-xs text-muted-foreground font-medium">
-								LLM: {llmEngine === "gpt-4.1" ? "GPT-4.1" : "Claude Opus 4.5"}
+								LLM: {llmEngine === "gpt-4.1" ? "GPT-4.1" : llmEngine === "gemini-3-pro" ? "Gemini 3 Pro" : "Claude Opus 4.5"}
 							</span>
 						</div>
 					</div>
@@ -1383,7 +1383,7 @@ function ScenesPage() {
 									</span>
 								</label>
 								<div className="px-3 py-2 bg-muted border border-border rounded-lg text-muted-foreground text-sm">
-									{llmEngine === "gpt-4.1" ? "GPT-4.1" : "Claude Opus 4.5"}
+									{llmEngine === "gpt-4.1" ? "GPT-4.1" : llmEngine === "gemini-3-pro" ? "Gemini 3 Pro" : "Claude Opus 4.5"}
 								</div>
 							</div>
 						</div>

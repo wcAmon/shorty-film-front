@@ -406,7 +406,7 @@ async function generateDirectorPromptsApi(params: {
 	script: string;
 	imageStyle?: DirectorImageStyle;
 	imageEngine?: DirectorImageEngine;
-	llmEngine?: "gpt-4.1" | "claude-opus-4-5";
+	llmEngine?: "gpt-4.1" | "claude-opus-4-5" | "gemini-3-pro";
 	voiceId?: DirectorVoiceId;
 	videoEngine?: DirectorVideoEngine;
 	captionLanguage?: DirectorCaptionLanguage;

@@ -87,7 +87,7 @@ export type VideoEngine =
 	| "veo3.1-fast";
 
 // LLM engine options for prompt generation
-export type LLMEngine = "gpt-4.1" | "claude-opus-4-5";
+export type LLMEngine = "gpt-4.1" | "claude-opus-4-5" | "gemini-3-pro";
 
 // Caption language options
 export type CaptionLanguage = "en" | "zh-TW";
