@@ -50,7 +50,7 @@ export const Route = createFileRoute("/api/podcast42-generate-prompts")({
 						playScript: string;
 						imageStyle?: ImageStyle;
 						imageEngine?: ImageEngine;
-						llmEngine?: "gpt-4.1" | "claude-opus-4-5" | "gemini-3-pro";
+						llmEngine?: "gpt-4.1" | "claude-opus-4-5" | "gemini-3-pro-preview";
 						person1VoiceId?: VoiceId;
 						person2VoiceId?: VoiceId;
 						avatarEngine?: Podcast42AvatarEngine;
