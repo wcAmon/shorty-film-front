@@ -81,9 +81,9 @@ export function useDirectorAssistant() {
 		}
 	}, [messages, loadedForStoryId, storyId]);
 
-	// Auto-scroll to bottom
+	// Auto-scroll to bottom (instant to avoid visible sliding animation)
 	useEffect(() => {
-		messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+		messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
 	}, [messages]);
 
 	// Load user preferences into store
