@@ -38,7 +38,7 @@ export const Route = createFileRoute("/api/generate-prompts")({
 						script: string;
 						imageStyle?: ImageStyle;
 						imageEngine?: "flux-pro" | "gpt-image-1.5";
-						llmEngine?: "gpt-4.1" | "claude-opus-4-5" | "gemini-3-pro-preview";
+						llmEngine?: "gpt-4.1" | "claude-opus-4-5" | "gemini-2.5-pro";
 						voiceId?: string;
 						videoEngine?: string;
 						captionLanguage?: "en" | "zh-TW";

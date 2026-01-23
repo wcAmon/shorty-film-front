@@ -3,6 +3,14 @@ import { Button } from "@/components/ui/button";
 import { useAIStoryAssistant } from "@/hooks/use-aistory-assistant";
 import { AssistantMessageBubble } from "./AssistantMessage";
 import { AssistantToolCall } from "./AssistantToolCall";
+import type { AssistantLLMEngine } from "@/stores/aistory-assistant.store";
+
+// LLM options for the selector
+const LLM_OPTIONS: { id: AssistantLLMEngine; label: string; shortLabel: string }[] = [
+	{ id: "gpt-4.1", label: "GPT-4.1", shortLabel: "GPT" },
+	{ id: "claude-opus-4-5", label: "Claude Opus 4.5", shortLabel: "Claude" },
+	{ id: "gemini-2.5-pro", label: "Gemini 2.5 Pro", shortLabel: "Gemini" },
+];
 
 interface AIStoryAssistantPanelProps {
 	onCollapse: () => void;
@@ -25,7 +33,11 @@ export function AIStoryAssistantPanel({ onCollapse }: AIStoryAssistantPanelProps
 		handleSend,
 		handleKeyDown,
 		handleClearConversation,
+		llmEngine,
+		setLLMEngine,
 	} = useAIStoryAssistant();
+
+	const currentLLM = LLM_OPTIONS.find((opt) => opt.id === llmEngine) || LLM_OPTIONS[0];
 
 	return (
 		<div className="flex h-full flex-col bg-background">
@@ -102,6 +114,22 @@ export function AIStoryAssistantPanel({ onCollapse }: AIStoryAssistantPanelProps
 
 			{/* Input */}
 			<div className="border-t border-border p-3">
+				{/* LLM Selector */}
+				<div className="mb-2 flex items-center gap-2">
+					<span className="text-xs text-muted-foreground">Model:</span>
+					<select
+						value={llmEngine}
+						onChange={(e) => setLLMEngine(e.target.value as AssistantLLMEngine)}
+						className="rounded border border-border bg-background px-2 py-1 text-xs focus:border-blue-500 focus:outline-none"
+						disabled={isLoading}
+					>
+						{LLM_OPTIONS.map((opt) => (
+							<option key={opt.id} value={opt.id}>
+								{opt.label}
+							</option>
+						))}
+					</select>
+				</div>
 				<div className="flex gap-2">
 					<textarea
 						ref={inputRef}

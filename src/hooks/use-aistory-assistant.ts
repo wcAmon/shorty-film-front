@@ -4,6 +4,7 @@ import {
 	aistoryAssistantStore,
 	aistoryAssistantActions,
 	buildAIStorySystemPrompt,
+	type AssistantLLMEngine,
 } from "@/stores/aistory-assistant.store";
 import { aistoryStore, aistoryActions } from "@/stores/aistory.store";
 import {
@@ -25,6 +26,7 @@ export function useAIStoryAssistant() {
 	const messages = useStore(aistoryAssistantStore, (s) => s.messages);
 	const isLoading = useStore(aistoryAssistantStore, (s) => s.isLoading);
 	const error = useStore(aistoryAssistantStore, (s) => s.error);
+	const llmEngine = useStore(aistoryAssistantStore, (s) => s.llmEngine);
 
 	const [inputValue, setInputValue] = useState("");
 	const [loadedForStoryId, setLoadedForStoryId] = useState<string | null>(null);
@@ -274,6 +276,7 @@ export function useAIStoryAssistant() {
 				storyId,
 				messages: conversationHistory,
 				systemPrompt,
+				llmEngine,
 			});
 
 			// Process tool results to update local store
@@ -292,7 +295,7 @@ export function useAIStoryAssistant() {
 		} finally {
 			aistoryAssistantActions.setIsLoading(false);
 		}
-	}, [inputValue, isLoading, storyId, sendMessage, processToolResults]);
+	}, [inputValue, isLoading, storyId, llmEngine, sendMessage, processToolResults]);
 
 	const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
 		// Send on Shift+Enter, allow regular Enter for newlines
@@ -317,6 +320,10 @@ export function useAIStoryAssistant() {
 		});
 	}, [storyId, clearConversation]);
 
+	const setLLMEngine = useCallback((engine: AssistantLLMEngine) => {
+		aistoryAssistantActions.setLLMEngine(engine);
+	}, []);
+
 	return {
 		// State
 		isOpen,
@@ -326,6 +333,7 @@ export function useAIStoryAssistant() {
 		error,
 		inputValue,
 		storyId,
+		llmEngine,
 
 		// Refs
 		messagesEndRef,
@@ -336,6 +344,7 @@ export function useAIStoryAssistant() {
 
 		// Setters
 		setInputValue,
+		setLLMEngine,
 
 		// Handlers
 		handleSend,

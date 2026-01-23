@@ -3,6 +3,13 @@ import { Button } from "@/components/ui/button";
 import { useDirectorAssistant } from "@/hooks/use-director-assistant";
 import { AssistantMessageBubble } from "./AssistantMessage";
 import { AssistantToolCall } from "./AssistantToolCall";
+import type { AssistantLLMEngine } from "@/stores/director-assistant.store";
+
+const LLM_OPTIONS: { id: AssistantLLMEngine; label: string; shortLabel: string }[] = [
+	{ id: "gpt-4.1", label: "GPT-4.1", shortLabel: "GPT" },
+	{ id: "claude-opus-4-5", label: "Claude Opus 4.5", shortLabel: "Claude" },
+	{ id: "gemini-2.5-pro", label: "Gemini 2.5 Pro", shortLabel: "Gemini" },
+];
 
 interface DirectorAssistantPanelProps {
 	onCollapse: () => void;
@@ -18,10 +25,12 @@ export function DirectorAssistantPanel({ onCollapse }: DirectorAssistantPanelPro
 		isLoading,
 		error,
 		inputValue,
+		llmEngine,
 		messagesEndRef,
 		inputRef,
 		clearConversation,
 		setInputValue,
+		setLLMEngine,
 		handleSend,
 		handleKeyDown,
 		handleClearConversation,
@@ -102,6 +111,20 @@ export function DirectorAssistantPanel({ onCollapse }: DirectorAssistantPanelPro
 
 			{/* Input */}
 			<div className="border-t border-border p-3">
+				<div className="mb-2 flex items-center justify-between">
+					<select
+						value={llmEngine}
+						onChange={(e) => setLLMEngine(e.target.value as AssistantLLMEngine)}
+						className="rounded-md border border-border bg-background px-2 py-1 text-xs text-muted-foreground focus:border-purple-500 focus:outline-none"
+						disabled={isLoading}
+					>
+						{LLM_OPTIONS.map((opt) => (
+							<option key={opt.id} value={opt.id}>
+								{opt.label}
+							</option>
+						))}
+					</select>
+				</div>
 				<div className="flex gap-2">
 					<textarea
 						ref={inputRef}

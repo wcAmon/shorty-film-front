@@ -4,6 +4,7 @@ import {
 	directorAssistantStore,
 	directorAssistantActions,
 	buildSystemPrompt,
+	type AssistantLLMEngine,
 } from "@/stores/director-assistant.store";
 import { directorStore, directorActions } from "@/stores/director.store";
 import {
@@ -26,6 +27,7 @@ export function useDirectorAssistant() {
 	const messages = useStore(directorAssistantStore, (s) => s.messages);
 	const isLoading = useStore(directorAssistantStore, (s) => s.isLoading);
 	const error = useStore(directorAssistantStore, (s) => s.error);
+	const llmEngine = useStore(directorAssistantStore, (s) => s.llmEngine);
 
 	const [inputValue, setInputValue] = useState("");
 	const [loadedForStoryId, setLoadedForStoryId] = useState<string | null>(null);
@@ -362,6 +364,7 @@ export function useDirectorAssistant() {
 				storyId,
 				messages: conversationHistory,
 				systemPrompt,
+				llmEngine,
 			});
 
 			// Process tool results to update local store
@@ -380,7 +383,7 @@ export function useDirectorAssistant() {
 		} finally {
 			directorAssistantActions.setIsLoading(false);
 		}
-	}, [inputValue, isLoading, storyId, sendMessage, processToolResults]);
+	}, [inputValue, isLoading, storyId, llmEngine, sendMessage, processToolResults]);
 
 	const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
 		// Send on Shift+Enter, allow regular Enter for newlines
@@ -405,6 +408,10 @@ export function useDirectorAssistant() {
 		});
 	}, [storyId, clearConversation]);
 
+	const setLLMEngine = useCallback((engine: AssistantLLMEngine) => {
+		directorAssistantActions.setLLMEngine(engine);
+	}, []);
+
 	return {
 		// State
 		isOpen,
@@ -414,6 +421,7 @@ export function useDirectorAssistant() {
 		error,
 		inputValue,
 		storyId,
+		llmEngine,
 
 		// Refs
 		messagesEndRef,
@@ -424,6 +432,7 @@ export function useDirectorAssistant() {
 
 		// Setters
 		setInputValue,
+		setLLMEngine,
 
 		// Handlers
 		handleSend,

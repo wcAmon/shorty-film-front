@@ -1,6 +1,15 @@
 import { Store } from "@tanstack/store";
 
 // ============================================================================
+// LLM Engine Types
+// ============================================================================
+
+export type AssistantLLMEngine =
+	| "gpt-4.1"
+	| "claude-opus-4-5"
+	| "gemini-2.5-pro";
+
+// ============================================================================
 // Message Types
 // ============================================================================
 
@@ -69,6 +78,9 @@ export interface DirectorAssistantState {
 	isLoading: boolean;
 	error: string | null;
 
+	// LLM selection
+	llmEngine: AssistantLLMEngine;
+
 	// System prompt components
 	userPreferences: string | null;
 	projectContext: ProjectContext | null;
@@ -86,6 +98,8 @@ const initialState: DirectorAssistantState = {
 	messages: [],
 	isLoading: false,
 	error: null,
+
+	llmEngine: "gpt-4.1",
 
 	userPreferences: null,
 	projectContext: null,
@@ -164,6 +178,10 @@ export const directorAssistantActions = {
 
 	setError: (error: string | null) =>
 		directorAssistantStore.setState((s) => ({ ...s, error })),
+
+	// LLM Engine
+	setLLMEngine: (llmEngine: AssistantLLMEngine) =>
+		directorAssistantStore.setState((s) => ({ ...s, llmEngine })),
 
 	// Context
 	setUserPreferences: (userPreferences: string | null) =>

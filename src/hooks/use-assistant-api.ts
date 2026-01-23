@@ -4,6 +4,7 @@ import type {
 	ChatMessage,
 	ChatResponse,
 	ToolCallResult,
+	AssistantLLMEngine,
 } from "@/routes/api/assistant-chat";
 import type {
 	VideoPreferences,
@@ -18,6 +19,7 @@ interface SendMessageParams {
 	storyId: string | null;
 	messages: ChatMessage[];
 	systemPrompt: string;
+	llmEngine?: AssistantLLMEngine;
 }
 
 /**
@@ -212,6 +214,6 @@ export function useClearConversationHistory() {
 }
 
 // Re-export types for convenience
-export type { ChatMessage, ChatResponse, ToolCallResult };
+export type { ChatMessage, ChatResponse, ToolCallResult, AssistantLLMEngine };
 export type { VideoPreferences, UserPreferencesResponse };
 export type { ConversationMessage };

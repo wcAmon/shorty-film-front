@@ -7,10 +7,16 @@ export interface ChatMessage {
 	content: string;
 }
 
+export type AssistantLLMEngine =
+	| "gpt-4.1"
+	| "claude-opus-4-5"
+	| "gemini-2.5-pro";
+
 export interface ChatRequest {
 	storyId: string | null;
 	messages: ChatMessage[];
 	systemPrompt: string;
+	llmEngine?: AssistantLLMEngine;
 }
 
 export interface ToolCallResult {
@@ -62,6 +68,7 @@ export const Route = createFileRoute("/api/assistant-chat")({
 							storyId: body.storyId,
 							messages: body.messages,
 							systemPrompt: body.systemPrompt,
+							llmEngine: body.llmEngine || "gpt-4.1",
 						},
 					});
 				} catch (err) {

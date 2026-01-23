@@ -161,7 +161,7 @@ const LLM_ENGINES: { id: LLMEngine; label: string; description: string }[] = [
 		description: "Anthropic Claude Opus 4.5, excellent at creative writing",
 	},
 	{
-		id: "gemini-3-pro-preview",
+		id: "gemini-2.5-pro",
 		label: "Gemini 3 Pro",
 		description: "Google Gemini 3 Pro, cost-effective with strong reasoning",
 	},
