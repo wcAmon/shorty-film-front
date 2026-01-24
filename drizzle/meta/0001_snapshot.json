@@ -1,0 +1,871 @@
+{
+  "id": "bc14d0c3-6ac3-4833-87a4-7e7caff13f00",
+  "prevId": "747d63ef-567f-4532-bc4c-2d02fb8f3ba6",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "shorty.audios": {
+      "name": "audios",
+      "schema": "shorty",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "owner_id": {
+          "name": "owner_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'anonymous'"
+        },
+        "story_id": {
+          "name": "story_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "scene_id": {
+          "name": "scene_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "voice_id": {
+          "name": "voice_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "prompt": {
+          "name": "prompt",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "audio_url": {
+          "name": "audio_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "media_status",
+          "typeSchema": "shorty",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'ready'"
+        },
+        "duration": {
+          "name": "duration",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "word_timestamps": {
+          "name": "word_timestamps",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "audios_story_id_stories_id_fk": {
+          "name": "audios_story_id_stories_id_fk",
+          "tableFrom": "audios",
+          "tableTo": "stories",
+          "schemaTo": "shorty",
+          "columnsFrom": [
+            "story_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "shorty.images": {
+      "name": "images",
+      "schema": "shorty",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "owner_id": {
+          "name": "owner_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'anonymous'"
+        },
+        "story_id": {
+          "name": "story_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "scene_id": {
+          "name": "scene_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "prompt": {
+          "name": "prompt",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reference_image_id": {
+          "name": "reference_image_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "image_url": {
+          "name": "image_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "media_status",
+          "typeSchema": "shorty",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'ready'"
+        },
+        "image_type": {
+          "name": "image_type",
+          "type": "image_type",
+          "typeSchema": "shorty",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'scene'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "images_story_id_stories_id_fk": {
+          "name": "images_story_id_stories_id_fk",
+          "tableFrom": "images",
+          "tableTo": "stories",
+          "schemaTo": "shorty",
+          "columnsFrom": [
+            "story_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "shorty.scenes": {
+      "name": "scenes",
+      "schema": "shorty",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "owner_id": {
+          "name": "owner_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'anonymous'"
+        },
+        "story_id": {
+          "name": "story_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "order_index": {
+          "name": "order_index",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "caption": {
+          "name": "caption",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "prompt": {
+          "name": "prompt",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "video_prompt": {
+          "name": "video_prompt",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "is_character": {
+          "name": "is_character",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "speaker": {
+          "name": "speaker",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sound_effect_prompt": {
+          "name": "sound_effect_prompt",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sound_effect_id": {
+          "name": "sound_effect_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sound_effect_offset": {
+          "name": "sound_effect_offset",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "default": 0
+        },
+        "voice_id": {
+          "name": "voice_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "voice_speed": {
+          "name": "voice_speed",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "default": 1
+        },
+        "image_engine": {
+          "name": "image_engine",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "video_engine": {
+          "name": "video_engine",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "avatar_engine": {
+          "name": "avatar_engine",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "image_id": {
+          "name": "image_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "audio_id": {
+          "name": "audio_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "video_id": {
+          "name": "video_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "scenes_story_id_stories_id_fk": {
+          "name": "scenes_story_id_stories_id_fk",
+          "tableFrom": "scenes",
+          "tableTo": "stories",
+          "schemaTo": "shorty",
+          "columnsFrom": [
+            "story_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "scenes_sound_effect_id_sound_effects_id_fk": {
+          "name": "scenes_sound_effect_id_sound_effects_id_fk",
+          "tableFrom": "scenes",
+          "tableTo": "sound_effects",
+          "schemaTo": "shorty",
+          "columnsFrom": [
+            "sound_effect_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "scenes_image_id_images_id_fk": {
+          "name": "scenes_image_id_images_id_fk",
+          "tableFrom": "scenes",
+          "tableTo": "images",
+          "schemaTo": "shorty",
+          "columnsFrom": [
+            "image_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "scenes_audio_id_audios_id_fk": {
+          "name": "scenes_audio_id_audios_id_fk",
+          "tableFrom": "scenes",
+          "tableTo": "audios",
+          "schemaTo": "shorty",
+          "columnsFrom": [
+            "audio_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "scenes_video_id_videos_id_fk": {
+          "name": "scenes_video_id_videos_id_fk",
+          "tableFrom": "scenes",
+          "tableTo": "videos",
+          "schemaTo": "shorty",
+          "columnsFrom": [
+            "video_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "shorty.sound_effects": {
+      "name": "sound_effects",
+      "schema": "shorty",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "owner_id": {
+          "name": "owner_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'anonymous'"
+        },
+        "story_id": {
+          "name": "story_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "scene_id": {
+          "name": "scene_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "prompt": {
+          "name": "prompt",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "audio_url": {
+          "name": "audio_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "media_status",
+          "typeSchema": "shorty",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'ready'"
+        },
+        "duration": {
+          "name": "duration",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "sound_effects_story_id_stories_id_fk": {
+          "name": "sound_effects_story_id_stories_id_fk",
+          "tableFrom": "sound_effects",
+          "tableTo": "stories",
+          "schemaTo": "shorty",
+          "columnsFrom": [
+            "story_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "shorty.stories": {
+      "name": "stories",
+      "schema": "shorty",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "owner_id": {
+          "name": "owner_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'anonymous'"
+        },
+        "type": {
+          "name": "type",
+          "type": "story_type",
+          "typeSchema": "shorty",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "script": {
+          "name": "script",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "play_script": {
+          "name": "play_script",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "image_engine": {
+          "name": "image_engine",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "image_style": {
+          "name": "image_style",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "voice_id": {
+          "name": "voice_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "person1_voice_id": {
+          "name": "person1_voice_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "person2_voice_id": {
+          "name": "person2_voice_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "video_engine": {
+          "name": "video_engine",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "podcast42_video_engine": {
+          "name": "podcast42_video_engine",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "character_prompt": {
+          "name": "character_prompt",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "person1_prompt": {
+          "name": "person1_prompt",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "person2_prompt": {
+          "name": "person2_prompt",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "person1_image_id": {
+          "name": "person1_image_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "person2_image_id": {
+          "name": "person2_image_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "has_exported_video": {
+          "name": "has_exported_video",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": false
+        },
+        "export_video_url": {
+          "name": "export_video_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "exported_video_id": {
+          "name": "exported_video_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "conversation_history": {
+          "name": "conversation_history",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "shorty.videos": {
+      "name": "videos",
+      "schema": "shorty",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "owner_id": {
+          "name": "owner_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'anonymous'"
+        },
+        "story_id": {
+          "name": "story_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "scene_id": {
+          "name": "scene_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "image_id": {
+          "name": "image_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "audio_id": {
+          "name": "audio_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "prompt": {
+          "name": "prompt",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "video_url": {
+          "name": "video_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "media_status",
+          "typeSchema": "shorty",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'ready'"
+        },
+        "duration": {
+          "name": "duration",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "videos_story_id_stories_id_fk": {
+          "name": "videos_story_id_stories_id_fk",
+          "tableFrom": "videos",
+          "tableTo": "stories",
+          "schemaTo": "shorty",
+          "columnsFrom": [
+            "story_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "videos_image_id_images_id_fk": {
+          "name": "videos_image_id_images_id_fk",
+          "tableFrom": "videos",
+          "tableTo": "images",
+          "schemaTo": "shorty",
+          "columnsFrom": [
+            "image_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "videos_audio_id_audios_id_fk": {
+          "name": "videos_audio_id_audios_id_fk",
+          "tableFrom": "videos",
+          "tableTo": "audios",
+          "schemaTo": "shorty",
+          "columnsFrom": [
+            "audio_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {
+    "shorty.image_type": {
+      "name": "image_type",
+      "schema": "shorty",
+      "values": [
+        "scene",
+        "character",
+        "person1",
+        "person2"
+      ]
+    },
+    "shorty.media_status": {
+      "name": "media_status",
+      "schema": "shorty",
+      "values": [
+        "ready",
+        "generating",
+        "completed"
+      ]
+    },
+    "shorty.story_type": {
+      "name": "story_type",
+      "schema": "shorty",
+      "values": [
+        "aistory",
+        "podcast42",
+        "director-mode"
+      ]
+    }
+  },
+  "schemas": {
+    "shorty": "shorty"
+  },
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

@@ -75,4 +75,8 @@ export function generateSceneId(): string {
 	return generateId("scene");
 }
 
+export function generateSoundEffectId(): string {
+	return generateId("sfx");
+}
+
 console.log("[db] Connected to Supabase PostgreSQL");

@@ -4,6 +4,7 @@ import {
 	generateAudioId,
 	generateImageId,
 	generateSceneId,
+	generateSoundEffectId,
 	generateStoryId,
 	generateVideoId,
 } from "./index";
@@ -17,12 +18,15 @@ import {
 	type NewAudio,
 	type NewImage,
 	type NewScene,
+	type NewSoundEffect,
 	type NewStory,
 	type NewVideo,
 	type Scene,
-	type Story,
 	scenes,
+	type SoundEffect,
+	soundEffects,
 	stories,
+	type Story,
 	type Video,
 	videos,
 } from "./schema";
@@ -34,6 +38,7 @@ export {
 	generateImageId,
 	generateVideoId,
 	generateSceneId,
+	generateSoundEffectId,
 };
 
 // ============================================================================
@@ -512,17 +517,19 @@ export async function getSceneWithMedia(sceneId: string): Promise<{
 	image?: Image;
 	audio?: Audio;
 	video?: Video;
+	soundEffect?: SoundEffect;
 } | null> {
 	const scene = await getSceneById(sceneId);
 	if (!scene) return null;
 
-	const [image, audio, video] = await Promise.all([
+	const [image, audio, video, soundEffect] = await Promise.all([
 		scene.imageId ? getImageById(scene.imageId) : undefined,
 		scene.audioId ? getAudioById(scene.audioId) : undefined,
 		scene.videoId ? getVideoById(scene.videoId) : undefined,
+		scene.soundEffectId ? getSoundEffectById(scene.soundEffectId) : undefined,
 	]);
 
-	return { scene, image, audio, video };
+	return { scene, image, audio, video, soundEffect };
 }
 
 /**
@@ -534,18 +541,22 @@ export async function getScenesWithMedia(storyId: string): Promise<
 		image?: Image;
 		audio?: Audio;
 		video?: Video;
+		soundEffect?: SoundEffect;
 	}>
 > {
 	const storyScenes = await getScenesByStoryId(storyId);
 
 	return Promise.all(
 		storyScenes.map(async (scene) => {
-			const [image, audio, video] = await Promise.all([
+			const [image, audio, video, soundEffect] = await Promise.all([
 				scene.imageId ? getImageById(scene.imageId) : undefined,
 				scene.audioId ? getAudioById(scene.audioId) : undefined,
 				scene.videoId ? getVideoById(scene.videoId) : undefined,
+				scene.soundEffectId
+					? getSoundEffectById(scene.soundEffectId)
+					: undefined,
 			]);
-			return { scene, image, audio, video };
+			return { scene, image, audio, video, soundEffect };
 		}),
 	);
 }
@@ -639,4 +650,119 @@ export async function verifySceneOwnership(
 		.from(scenes)
 		.where(and(eq(scenes.id, sceneId), eq(scenes.ownerId, ownerId)));
 	return !!scene;
+}
+
+// ============================================================================
+// Sound Effect CRUD Operations
+// ============================================================================
+
+/**
+ * Create a sound effect record
+ */
+export async function createSoundEffect(
+	data: NewSoundEffect,
+): Promise<SoundEffect> {
+	const [result] = await db.insert(soundEffects).values(data).returning();
+	return result;
+}
+
+/**
+ * Get a sound effect by ID
+ */
+export async function getSoundEffectById(
+	id: string,
+): Promise<SoundEffect | undefined> {
+	const [result] = await db
+		.select()
+		.from(soundEffects)
+		.where(eq(soundEffects.id, id));
+	return result;
+}
+
+/**
+ * Update a sound effect
+ */
+export async function updateSoundEffect(
+	id: string,
+	data: Partial<NewSoundEffect>,
+): Promise<SoundEffect | undefined> {
+	const [result] = await db
+		.update(soundEffects)
+		.set({ ...data, updatedAt: new Date() })
+		.where(eq(soundEffects.id, id))
+		.returning();
+	return result;
+}
+
+/**
+ * Update sound effect status
+ */
+export async function updateSoundEffectStatus(
+	id: string,
+	status: MediaStatus,
+): Promise<SoundEffect | undefined> {
+	return updateSoundEffect(id, { status });
+}
+
+/**
+ * Orphan a sound effect (set storyId and sceneId to null)
+ */
+export async function orphanSoundEffect(
+	id: string,
+): Promise<SoundEffect | undefined> {
+	const [result] = await db
+		.update(soundEffects)
+		.set({ storyId: null, sceneId: null, updatedAt: new Date() })
+		.where(eq(soundEffects.id, id))
+		.returning();
+	return result;
+}
+
+/**
+ * Get sound effects for a story
+ */
+export async function getSoundEffectsByStoryId(
+	storyId: string,
+): Promise<SoundEffect[]> {
+	return db
+		.select()
+		.from(soundEffects)
+		.where(eq(soundEffects.storyId, storyId));
+}
+
+/**
+ * Delete a sound effect by ID
+ */
+export async function deleteSoundEffectById(id: string): Promise<void> {
+	await db.delete(soundEffects).where(eq(soundEffects.id, id));
+}
+
+/**
+ * Update scene's sound effect reference (and optionally orphan old sound effect)
+ */
+export async function updateSceneSoundEffect(
+	sceneId: string,
+	newSoundEffectId: string,
+	orphanOld = true,
+): Promise<void> {
+	const scene = await getSceneById(sceneId);
+	if (!scene) return;
+
+	// Orphan old sound effect if exists
+	if (orphanOld && scene.soundEffectId) {
+		await orphanSoundEffect(scene.soundEffectId);
+	}
+
+	// Update scene with new sound effect
+	await updateScene(sceneId, { soundEffectId: newSoundEffectId });
+}
+
+/**
+ * Update scene's sound effect offset
+ */
+export async function updateSceneSoundEffectOffset(
+	sceneId: string,
+	offset: number,
+): Promise<Scene | undefined> {
+	return updateScene(sceneId, { soundEffectOffset: offset });
 }

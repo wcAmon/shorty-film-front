@@ -8,15 +8,14 @@ export type DirectorImageEngine =
 	| "flux-pro"
 	| "gpt-image-1.5"
 	| "nano-banana-pro"
-	| "nano-banana";
+	| "nano-banana"
+	| "flux-schnell"
+	| "flux-schnell-i2i";
 
 export type DirectorVideoEngine =
-	| "kling-video"
-	| "kling-video-v2.5-turbo"
 	| "sora-2"
 	| "ltx-2-19b"
-	| "veo3.1"
-	| "veo3.1-fast";
+	| "wan-pro";
 
 export type DirectorAvatarEngine =
 	| "kling-avatar-v2-standard"
@@ -121,6 +120,16 @@ export interface DirectorSceneState {
 	isGeneratingAudio: boolean;
 	isGeneratingVideo: boolean;
 	videoError: string | null;
+
+	// Sound effect fields
+	soundEffectPrompt: string | null;
+	soundEffectId: string | null;
+	soundEffectUrl: string | null;
+	soundEffectDuration: number | null;
+	soundEffectOffset: number; // seconds - where sound effect starts in video
+	soundEffectStatus: DirectorMediaStatus | null;
+	isGeneratingSoundEffect: boolean;
+	isMergingSoundEffect: boolean;
 }
 
 // ============================================================================
@@ -198,7 +207,7 @@ const initialState: DirectorState = {
 
 	defaultImageEngine: "flux-pro",
 	defaultImageStyle: "cinematic",
-	defaultVideoEngine: "kling-video",
+	defaultVideoEngine: "sora-2",
 	defaultAvatarEngine: "kling-avatar-v2-standard",
 	defaultVoiceId: "PIGsltMj3gFMR34aFDI3", // Jonathan
 	defaultVoiceSpeed: 1.0,
@@ -280,6 +289,15 @@ function createNewScene(state: DirectorState): DirectorSceneState {
 		isGeneratingAudio: false,
 		isGeneratingVideo: false,
 		videoError: null,
+		// Sound effect fields
+		soundEffectPrompt: null,
+		soundEffectId: null,
+		soundEffectUrl: null,
+		soundEffectDuration: null,
+		soundEffectOffset: 0,
+		soundEffectStatus: null,
+		isGeneratingSoundEffect: false,
+		isMergingSoundEffect: false,
 	};
 }
 
@@ -373,7 +391,7 @@ export const directorActions = {
 	addSceneWithData: (
 		sceneId: string,
 		orderIndex: number,
-		data: { caption?: string; imagePrompt?: string; videoPrompt?: string },
+		data: { caption?: string; imagePrompt?: string; videoPrompt?: string; soundEffectPrompt?: string },
 	) => {
 		directorStore.setState((s) => {
 			const newScene: DirectorSceneState = {
@@ -405,6 +423,15 @@ export const directorActions = {
 				isGeneratingAudio: false,
 				isGeneratingVideo: false,
 				videoError: null,
+				// Sound effect fields
+				soundEffectPrompt: data.soundEffectPrompt || null,
+				soundEffectId: null,
+				soundEffectUrl: null,
+				soundEffectDuration: null,
+				soundEffectOffset: 0,
+				soundEffectStatus: null,
+				isGeneratingSoundEffect: false,
+				isMergingSoundEffect: false,
 			};
 
 			// Insert at the correct position based on orderIndex
@@ -646,6 +673,64 @@ export const directorActions = {
 
 	getPendingQueueByType: (type: "image" | "audio" | "video") =>
 		directorStore.state.pendingRegenerateQueue.filter((item) => item.type === type),
+
+	// ========================================================================
+	// Sound Effect Actions
+	// ========================================================================
+
+	setSoundEffectPrompt: (sceneId: string, prompt: string | null) =>
+		directorStore.setState((s) => ({
+			...s,
+			scenes: s.scenes.map((sc) =>
+				sc.id === sceneId ? { ...sc, soundEffectPrompt: prompt } : sc,
+			),
+		})),
+
+	setSoundEffectOffset: (sceneId: string, offset: number) =>
+		directorStore.setState((s) => ({
+			...s,
+			scenes: s.scenes.map((sc) =>
+				sc.id === sceneId ? { ...sc, soundEffectOffset: offset } : sc,
+			),
+		})),
+
+	updateSoundEffectStatus: (
+		sceneId: string,
+		status: DirectorMediaStatus | null,
+		url?: string | null,
+		duration?: number | null,
+		soundEffectId?: string | null,
+	) =>
+		directorStore.setState((s) => ({
+			...s,
+			scenes: s.scenes.map((sc) =>
+				sc.id === sceneId
+					? {
+							...sc,
+							soundEffectStatus: status,
+							...(url !== undefined && { soundEffectUrl: url }),
+							...(duration !== undefined && { soundEffectDuration: duration }),
+							...(soundEffectId !== undefined && { soundEffectId }),
+						}
+					: sc,
+			),
+		})),
+
+	setIsGeneratingSoundEffect: (sceneId: string, isGenerating: boolean) =>
+		directorStore.setState((s) => ({
+			...s,
+			scenes: s.scenes.map((sc) =>
+				sc.id === sceneId ? { ...sc, isGeneratingSoundEffect: isGenerating } : sc,
+			),
+		})),
+
+	setIsMergingSoundEffect: (sceneId: string, isMerging: boolean) =>
+		directorStore.setState((s) => ({
+			...s,
+			scenes: s.scenes.map((sc) =>
+				sc.id === sceneId ? { ...sc, isMergingSoundEffect: isMerging } : sc,
+			),
+		})),
 
 	// ========================================================================
 	// Reset

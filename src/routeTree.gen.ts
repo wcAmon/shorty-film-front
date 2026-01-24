@@ -27,6 +27,7 @@ import { Route as ApiUserPreferencesRouteImport } from './routes/api/user-prefer
 import { Route as ApiUploadPodcast42CharacterRouteImport } from './routes/api/upload-podcast42-character'
 import { Route as ApiUploadCharacterRouteImport } from './routes/api/upload-character'
 import { Route as ApiUpdateStorySettingsRouteImport } from './routes/api/update-story-settings'
+import { Route as ApiUpdateSoundEffectOffsetRouteImport } from './routes/api/update-sound-effect-offset'
 import { Route as ApiUpdateSceneVoiceRouteImport } from './routes/api/update-scene-voice'
 import { Route as ApiUpdateScenePromptRouteImport } from './routes/api/update-scene-prompt'
 import { Route as ApiUpdateSceneEnginesRouteImport } from './routes/api/update-scene-engines'
@@ -38,9 +39,12 @@ import { Route as ApiPodcast42GenerateVideoRouteImport } from './routes/api/podc
 import { Route as ApiPodcast42GeneratePromptsRouteImport } from './routes/api/podcast42-generate-prompts'
 import { Route as ApiPodcast42ExportVideoRouteImport } from './routes/api/podcast42-export-video'
 import { Route as ApiPodcast42DeleteSceneFilesRouteImport } from './routes/api/podcast42-delete-scene-files'
+import { Route as ApiMergeSoundEffectRouteImport } from './routes/api/merge-sound-effect'
+import { Route as ApiLinkSceneMediaRouteImport } from './routes/api/link-scene-media'
 import { Route as ApiLinkCharacterRouteImport } from './routes/api/link-character'
 import { Route as ApiGetMediaStatusRouteImport } from './routes/api/get-media-status'
 import { Route as ApiGetJobStatusRouteImport } from './routes/api/get-job-status'
+import { Route as ApiGenerateSoundEffectRouteImport } from './routes/api/generate-sound-effect'
 import { Route as ApiGenerateSceneVideoRouteImport } from './routes/api/generate-scene-video'
 import { Route as ApiGenerateSceneImageRouteImport } from './routes/api/generate-scene-image'
 import { Route as ApiGenerateSceneAudioRouteImport } from './routes/api/generate-scene-audio'
@@ -148,6 +152,12 @@ const ApiUpdateStorySettingsRoute = ApiUpdateStorySettingsRouteImport.update({
   path: '/api/update-story-settings',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiUpdateSoundEffectOffsetRoute =
+  ApiUpdateSoundEffectOffsetRouteImport.update({
+    id: '/api/update-sound-effect-offset',
+    path: '/api/update-sound-effect-offset',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiUpdateSceneVoiceRoute = ApiUpdateSceneVoiceRouteImport.update({
   id: '/api/update-scene-voice',
   path: '/api/update-scene-voice',
@@ -206,6 +216,16 @@ const ApiPodcast42DeleteSceneFilesRoute =
     path: '/api/podcast42-delete-scene-files',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiMergeSoundEffectRoute = ApiMergeSoundEffectRouteImport.update({
+  id: '/api/merge-sound-effect',
+  path: '/api/merge-sound-effect',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiLinkSceneMediaRoute = ApiLinkSceneMediaRouteImport.update({
+  id: '/api/link-scene-media',
+  path: '/api/link-scene-media',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiLinkCharacterRoute = ApiLinkCharacterRouteImport.update({
   id: '/api/link-character',
   path: '/api/link-character',
@@ -219,6 +239,11 @@ const ApiGetMediaStatusRoute = ApiGetMediaStatusRouteImport.update({
 const ApiGetJobStatusRoute = ApiGetJobStatusRouteImport.update({
   id: '/api/get-job-status',
   path: '/api/get-job-status',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiGenerateSoundEffectRoute = ApiGenerateSoundEffectRouteImport.update({
+  id: '/api/generate-sound-effect',
+  path: '/api/generate-sound-effect',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiGenerateSceneVideoRoute = ApiGenerateSceneVideoRouteImport.update({
@@ -318,9 +343,12 @@ export interface FileRoutesByFullPath {
   '/api/generate-scene-audio': typeof ApiGenerateSceneAudioRoute
   '/api/generate-scene-image': typeof ApiGenerateSceneImageRoute
   '/api/generate-scene-video': typeof ApiGenerateSceneVideoRoute
+  '/api/generate-sound-effect': typeof ApiGenerateSoundEffectRoute
   '/api/get-job-status': typeof ApiGetJobStatusRoute
   '/api/get-media-status': typeof ApiGetMediaStatusRoute
   '/api/link-character': typeof ApiLinkCharacterRoute
+  '/api/link-scene-media': typeof ApiLinkSceneMediaRoute
+  '/api/merge-sound-effect': typeof ApiMergeSoundEffectRoute
   '/api/podcast42-delete-scene-files': typeof ApiPodcast42DeleteSceneFilesRoute
   '/api/podcast42-export-video': typeof ApiPodcast42ExportVideoRoute
   '/api/podcast42-generate-prompts': typeof ApiPodcast42GeneratePromptsRoute
@@ -332,6 +360,7 @@ export interface FileRoutesByFullPath {
   '/api/update-scene-engines': typeof ApiUpdateSceneEnginesRoute
   '/api/update-scene-prompt': typeof ApiUpdateScenePromptRoute
   '/api/update-scene-voice': typeof ApiUpdateSceneVoiceRoute
+  '/api/update-sound-effect-offset': typeof ApiUpdateSoundEffectOffsetRoute
   '/api/update-story-settings': typeof ApiUpdateStorySettingsRoute
   '/api/upload-character': typeof ApiUploadCharacterRoute
   '/api/upload-podcast42-character': typeof ApiUploadPodcast42CharacterRoute
@@ -365,9 +394,12 @@ export interface FileRoutesByTo {
   '/api/generate-scene-audio': typeof ApiGenerateSceneAudioRoute
   '/api/generate-scene-image': typeof ApiGenerateSceneImageRoute
   '/api/generate-scene-video': typeof ApiGenerateSceneVideoRoute
+  '/api/generate-sound-effect': typeof ApiGenerateSoundEffectRoute
   '/api/get-job-status': typeof ApiGetJobStatusRoute
   '/api/get-media-status': typeof ApiGetMediaStatusRoute
   '/api/link-character': typeof ApiLinkCharacterRoute
+  '/api/link-scene-media': typeof ApiLinkSceneMediaRoute
+  '/api/merge-sound-effect': typeof ApiMergeSoundEffectRoute
   '/api/podcast42-delete-scene-files': typeof ApiPodcast42DeleteSceneFilesRoute
   '/api/podcast42-export-video': typeof ApiPodcast42ExportVideoRoute
   '/api/podcast42-generate-prompts': typeof ApiPodcast42GeneratePromptsRoute
@@ -379,6 +411,7 @@ export interface FileRoutesByTo {
   '/api/update-scene-engines': typeof ApiUpdateSceneEnginesRoute
   '/api/update-scene-prompt': typeof ApiUpdateScenePromptRoute
   '/api/update-scene-voice': typeof ApiUpdateSceneVoiceRoute
+  '/api/update-sound-effect-offset': typeof ApiUpdateSoundEffectOffsetRoute
   '/api/update-story-settings': typeof ApiUpdateStorySettingsRoute
   '/api/upload-character': typeof ApiUploadCharacterRoute
   '/api/upload-podcast42-character': typeof ApiUploadPodcast42CharacterRoute
@@ -415,9 +448,12 @@ export interface FileRoutesById {
   '/api/generate-scene-audio': typeof ApiGenerateSceneAudioRoute
   '/api/generate-scene-image': typeof ApiGenerateSceneImageRoute
   '/api/generate-scene-video': typeof ApiGenerateSceneVideoRoute
+  '/api/generate-sound-effect': typeof ApiGenerateSoundEffectRoute
   '/api/get-job-status': typeof ApiGetJobStatusRoute
   '/api/get-media-status': typeof ApiGetMediaStatusRoute
   '/api/link-character': typeof ApiLinkCharacterRoute
+  '/api/link-scene-media': typeof ApiLinkSceneMediaRoute
+  '/api/merge-sound-effect': typeof ApiMergeSoundEffectRoute
   '/api/podcast42-delete-scene-files': typeof ApiPodcast42DeleteSceneFilesRoute
   '/api/podcast42-export-video': typeof ApiPodcast42ExportVideoRoute
   '/api/podcast42-generate-prompts': typeof ApiPodcast42GeneratePromptsRoute
@@ -429,6 +465,7 @@ export interface FileRoutesById {
   '/api/update-scene-engines': typeof ApiUpdateSceneEnginesRoute
   '/api/update-scene-prompt': typeof ApiUpdateScenePromptRoute
   '/api/update-scene-voice': typeof ApiUpdateSceneVoiceRoute
+  '/api/update-sound-effect-offset': typeof ApiUpdateSoundEffectOffsetRoute
   '/api/update-story-settings': typeof ApiUpdateStorySettingsRoute
   '/api/upload-character': typeof ApiUploadCharacterRoute
   '/api/upload-podcast42-character': typeof ApiUploadPodcast42CharacterRoute
@@ -466,9 +503,12 @@ export interface FileRouteTypes {
     | '/api/generate-scene-audio'
     | '/api/generate-scene-image'
     | '/api/generate-scene-video'
+    | '/api/generate-sound-effect'
     | '/api/get-job-status'
     | '/api/get-media-status'
     | '/api/link-character'
+    | '/api/link-scene-media'
+    | '/api/merge-sound-effect'
     | '/api/podcast42-delete-scene-files'
     | '/api/podcast42-export-video'
     | '/api/podcast42-generate-prompts'
@@ -480,6 +520,7 @@ export interface FileRouteTypes {
     | '/api/update-scene-engines'
     | '/api/update-scene-prompt'
     | '/api/update-scene-voice'
+    | '/api/update-sound-effect-offset'
     | '/api/update-story-settings'
     | '/api/upload-character'
     | '/api/upload-podcast42-character'
@@ -513,9 +554,12 @@ export interface FileRouteTypes {
     | '/api/generate-scene-audio'
     | '/api/generate-scene-image'
     | '/api/generate-scene-video'
+    | '/api/generate-sound-effect'
     | '/api/get-job-status'
     | '/api/get-media-status'
     | '/api/link-character'
+    | '/api/link-scene-media'
+    | '/api/merge-sound-effect'
     | '/api/podcast42-delete-scene-files'
     | '/api/podcast42-export-video'
     | '/api/podcast42-generate-prompts'
@@ -527,6 +571,7 @@ export interface FileRouteTypes {
     | '/api/update-scene-engines'
     | '/api/update-scene-prompt'
     | '/api/update-scene-voice'
+    | '/api/update-sound-effect-offset'
     | '/api/update-story-settings'
     | '/api/upload-character'
     | '/api/upload-podcast42-character'
@@ -562,9 +607,12 @@ export interface FileRouteTypes {
     | '/api/generate-scene-audio'
     | '/api/generate-scene-image'
     | '/api/generate-scene-video'
+    | '/api/generate-sound-effect'
     | '/api/get-job-status'
     | '/api/get-media-status'
     | '/api/link-character'
+    | '/api/link-scene-media'
+    | '/api/merge-sound-effect'
     | '/api/podcast42-delete-scene-files'
     | '/api/podcast42-export-video'
     | '/api/podcast42-generate-prompts'
@@ -576,6 +624,7 @@ export interface FileRouteTypes {
     | '/api/update-scene-engines'
     | '/api/update-scene-prompt'
     | '/api/update-scene-voice'
+    | '/api/update-sound-effect-offset'
     | '/api/update-story-settings'
     | '/api/upload-character'
     | '/api/upload-podcast42-character'
@@ -609,9 +658,12 @@ export interface RootRouteChildren {
   ApiGenerateSceneAudioRoute: typeof ApiGenerateSceneAudioRoute
   ApiGenerateSceneImageRoute: typeof ApiGenerateSceneImageRoute
   ApiGenerateSceneVideoRoute: typeof ApiGenerateSceneVideoRoute
+  ApiGenerateSoundEffectRoute: typeof ApiGenerateSoundEffectRoute
   ApiGetJobStatusRoute: typeof ApiGetJobStatusRoute
   ApiGetMediaStatusRoute: typeof ApiGetMediaStatusRoute
   ApiLinkCharacterRoute: typeof ApiLinkCharacterRoute
+  ApiLinkSceneMediaRoute: typeof ApiLinkSceneMediaRoute
+  ApiMergeSoundEffectRoute: typeof ApiMergeSoundEffectRoute
   ApiPodcast42DeleteSceneFilesRoute: typeof ApiPodcast42DeleteSceneFilesRoute
   ApiPodcast42ExportVideoRoute: typeof ApiPodcast42ExportVideoRoute
   ApiPodcast42GeneratePromptsRoute: typeof ApiPodcast42GeneratePromptsRoute
@@ -623,6 +675,7 @@ export interface RootRouteChildren {
   ApiUpdateSceneEnginesRoute: typeof ApiUpdateSceneEnginesRoute
   ApiUpdateScenePromptRoute: typeof ApiUpdateScenePromptRoute
   ApiUpdateSceneVoiceRoute: typeof ApiUpdateSceneVoiceRoute
+  ApiUpdateSoundEffectOffsetRoute: typeof ApiUpdateSoundEffectOffsetRoute
   ApiUpdateStorySettingsRoute: typeof ApiUpdateStorySettingsRoute
   ApiUploadCharacterRoute: typeof ApiUploadCharacterRoute
   ApiUploadPodcast42CharacterRoute: typeof ApiUploadPodcast42CharacterRoute
@@ -763,6 +816,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiUpdateStorySettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/update-sound-effect-offset': {
+      id: '/api/update-sound-effect-offset'
+      path: '/api/update-sound-effect-offset'
+      fullPath: '/api/update-sound-effect-offset'
+      preLoaderRoute: typeof ApiUpdateSoundEffectOffsetRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/update-scene-voice': {
       id: '/api/update-scene-voice'
       path: '/api/update-scene-voice'
@@ -840,6 +900,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPodcast42DeleteSceneFilesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/merge-sound-effect': {
+      id: '/api/merge-sound-effect'
+      path: '/api/merge-sound-effect'
+      fullPath: '/api/merge-sound-effect'
+      preLoaderRoute: typeof ApiMergeSoundEffectRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/link-scene-media': {
+      id: '/api/link-scene-media'
+      path: '/api/link-scene-media'
+      fullPath: '/api/link-scene-media'
+      preLoaderRoute: typeof ApiLinkSceneMediaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/link-character': {
       id: '/api/link-character'
       path: '/api/link-character'
@@ -859,6 +933,13 @@ declare module '@tanstack/react-router' {
       path: '/api/get-job-status'
       fullPath: '/api/get-job-status'
       preLoaderRoute: typeof ApiGetJobStatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/generate-sound-effect': {
+      id: '/api/generate-sound-effect'
+      path: '/api/generate-sound-effect'
+      fullPath: '/api/generate-sound-effect'
+      preLoaderRoute: typeof ApiGenerateSoundEffectRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/generate-scene-video': {
@@ -1019,9 +1100,12 @@ const rootRouteChildren: RootRouteChildren = {
   ApiGenerateSceneAudioRoute: ApiGenerateSceneAudioRoute,
   ApiGenerateSceneImageRoute: ApiGenerateSceneImageRoute,
   ApiGenerateSceneVideoRoute: ApiGenerateSceneVideoRoute,
+  ApiGenerateSoundEffectRoute: ApiGenerateSoundEffectRoute,
   ApiGetJobStatusRoute: ApiGetJobStatusRoute,
   ApiGetMediaStatusRoute: ApiGetMediaStatusRoute,
   ApiLinkCharacterRoute: ApiLinkCharacterRoute,
+  ApiLinkSceneMediaRoute: ApiLinkSceneMediaRoute,
+  ApiMergeSoundEffectRoute: ApiMergeSoundEffectRoute,
   ApiPodcast42DeleteSceneFilesRoute: ApiPodcast42DeleteSceneFilesRoute,
   ApiPodcast42ExportVideoRoute: ApiPodcast42ExportVideoRoute,
   ApiPodcast42GeneratePromptsRoute: ApiPodcast42GeneratePromptsRoute,
@@ -1033,6 +1117,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiUpdateSceneEnginesRoute: ApiUpdateSceneEnginesRoute,
   ApiUpdateScenePromptRoute: ApiUpdateScenePromptRoute,
   ApiUpdateSceneVoiceRoute: ApiUpdateSceneVoiceRoute,
+  ApiUpdateSoundEffectOffsetRoute: ApiUpdateSoundEffectOffsetRoute,
   ApiUpdateStorySettingsRoute: ApiUpdateStorySettingsRoute,
   ApiUploadCharacterRoute: ApiUploadCharacterRoute,
   ApiUploadPodcast42CharacterRoute: ApiUploadPodcast42CharacterRoute,

@@ -483,6 +483,7 @@ function HistoryTab() {
 				// Restore aistory state
 				aistoryActions.reset();
 				aistoryActions.setStoryId(storyData.id);
+				aistoryActions.setStoryTitle(storyData.title || null);
 				aistoryActions.setScript(storyData.script || "");
 				aistoryActions.setCharacterPrompt(storyData.characterPrompt || "");
 				aistoryActions.setImageEngine(storyData.imageEngine);

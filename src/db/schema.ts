@@ -193,6 +193,33 @@ export const videos = shortySchema.table("videos", {
 });
 
 // ============================================================================
+// Sound Effects Table
+// ============================================================================
+
+export const soundEffects = shortySchema.table("sound_effects", {
+	id: text("id").primaryKey(),
+	ownerId: text("owner_id").notNull().default("anonymous"),
+	storyId: text("story_id").references(() => stories.id, {
+		onDelete: "cascade",
+	}),
+	sceneId: text("scene_id"),
+
+	prompt: text("prompt").notNull(),
+	audioUrl: text("audio_url"),
+
+	status: mediaStatusEnum("status").notNull().default("ready"),
+
+	duration: real("duration"),
+
+	createdAt: timestamp("created_at", { withTimezone: true })
+		.notNull()
+		.defaultNow(),
+	updatedAt: timestamp("updated_at", { withTimezone: true })
+		.notNull()
+		.defaultNow(),
+});
+
+// ============================================================================
 // Scenes Table
 // ============================================================================
 
@@ -211,6 +238,13 @@ export const scenes = shortySchema.table("scenes", {
 	videoPrompt: text("video_prompt"),
 	isCharacter: boolean("is_character"),
 	speaker: text("speaker"), // "person1" | "person2" for podcast42
+
+	// Sound effect
+	soundEffectPrompt: text("sound_effect_prompt"),
+	soundEffectId: text("sound_effect_id").references(() => soundEffects.id, {
+		onDelete: "set null",
+	}),
+	soundEffectOffset: real("sound_effect_offset").default(0),
 
 	// Per-scene voice settings
 	voiceId: text("voice_id"),
@@ -249,6 +283,7 @@ export const storiesRelations = relations(stories, ({ many }) => ({
 	images: many(images),
 	audios: many(audios),
 	videos: many(videos),
+	soundEffects: many(soundEffects),
 }));
 
 export const scenesRelations = relations(scenes, ({ one }) => ({
@@ -256,6 +291,10 @@ export const scenesRelations = relations(scenes, ({ one }) => ({
 	image: one(images, { fields: [scenes.imageId], references: [images.id] }),
 	audio: one(audios, { fields: [scenes.audioId], references: [audios.id] }),
 	video: one(videos, { fields: [scenes.videoId], references: [videos.id] }),
+	soundEffect: one(soundEffects, {
+		fields: [scenes.soundEffectId],
+		references: [soundEffects.id],
+	}),
 }));
 
 export const imagesRelations = relations(images, ({ one }) => ({
@@ -276,6 +315,13 @@ export const videosRelations = relations(videos, ({ one }) => ({
 	audio: one(audios, { fields: [videos.audioId], references: [audios.id] }),
 }));
 
+export const soundEffectsRelations = relations(soundEffects, ({ one }) => ({
+	story: one(stories, {
+		fields: [soundEffects.storyId],
+		references: [stories.id],
+	}),
+}));
+
 // ============================================================================
 // Type exports
 // ============================================================================
@@ -290,6 +336,8 @@ export type Video = typeof videos.$inferSelect;
 export type NewVideo = typeof videos.$inferInsert;
 export type Scene = typeof scenes.$inferSelect;
 export type NewScene = typeof scenes.$inferInsert;
+export type SoundEffect = typeof soundEffects.$inferSelect;
+export type NewSoundEffect = typeof soundEffects.$inferInsert;
 
 // Media status type
 export type MediaStatus = "ready" | "generating" | "completed";

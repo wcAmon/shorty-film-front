@@ -344,7 +344,7 @@ export interface WordTimestamp {
 }
 
 // Image engine type - now only FAL-based engines
-export type ImageEngine = "flux-pro" | "gpt-image-1.5" | "nano-banana-pro" | "nano-banana";
+export type ImageEngine = "flux-pro" | "gpt-image-1.5" | "nano-banana-pro" | "nano-banana" | "flux-schnell" | "flux-schnell-i2i";
 
 // LLM engine type for prompt generation
 export type LLMEngine = "gpt-4.1" | "claude-opus-4-5";

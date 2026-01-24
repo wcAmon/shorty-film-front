@@ -57,7 +57,7 @@ export function incrementRetryCount(
 }
 
 // Image engine options for generation (all via FAL AI)
-export type ImageEngine = "flux-pro" | "gpt-image-1.5" | "nano-banana-pro" | "nano-banana";
+export type ImageEngine = "flux-pro" | "gpt-image-1.5" | "nano-banana-pro" | "nano-banana" | "flux-schnell" | "flux-schnell-i2i";
 
 // Image style options for prompt + image generation
 export type ImageStyle =
@@ -77,14 +77,11 @@ export type VoiceId =
 	| "cgLpYGyXZhkyalKZ0xeZ" // Knox
 	| "YKrm0N1EAM9Bw27j8kuD"; // Leonidas
 
-// Video engine options for FAL-AI
+// Video engine options for FAL-AI (no audio output)
 export type VideoEngine =
-	| "kling-video"
-	| "kling-video-v2.5-turbo"
 	| "sora-2"
 	| "ltx-2-19b"
-	| "veo3.1"
-	| "veo3.1-fast";
+	| "wan-pro";
 
 // LLM engine options for prompt generation
 export type LLMEngine = "gpt-4.1" | "claude-opus-4-5" | "gemini-2.5-pro";
@@ -122,6 +119,15 @@ export interface SceneState extends Scene {
 	videoDuration?: number;
 	isGeneratingVideo?: boolean;
 	videoError?: string | null;
+	// Sound effect fields
+	soundEffectPrompt?: string;
+	soundEffectId?: string;
+	soundEffectUrl?: string;
+	soundEffectDuration?: number;
+	soundEffectOffset?: number; // seconds - where sound effect starts in video
+	soundEffectStatus?: MediaStatus;
+	isGeneratingSoundEffect?: boolean;
+	isMergingSoundEffect?: boolean;
 }
 
 // AI Story store state interface
@@ -196,7 +202,7 @@ const initialState: AIStoryState = {
 	exportedVideoUrl: null,
 	exportError: null,
 	imageEngine: "flux-pro",
-	videoEngine: "kling-video",
+	videoEngine: "sora-2",
 	imageStyle: "cinematic",
 	llmEngine: "gpt-4.1",
 	captionLanguage: "en",
@@ -426,6 +432,70 @@ export const aistoryActions = {
 
 	cancelBatchGeneration: () => {
 		aistoryStore.setState((state) => ({ ...state, batchCancelled: true }));
+	},
+
+	// Sound effect actions
+	setSoundEffectPrompt: (sceneId: string, prompt: string) => {
+		aistoryStore.setState((state) => ({
+			...state,
+			scenes: state.scenes.map((scene) =>
+				scene.id === sceneId ? { ...scene, soundEffectPrompt: prompt } : scene,
+			),
+		}));
+	},
+
+	setSoundEffectOffset: (sceneId: string, offset: number) => {
+		aistoryStore.setState((state) => ({
+			...state,
+			scenes: state.scenes.map((scene) =>
+				scene.id === sceneId ? { ...scene, soundEffectOffset: offset } : scene,
+			),
+		}));
+	},
+
+	updateSoundEffectStatus: (
+		sceneId: string,
+		status: MediaStatus,
+		url?: string,
+		duration?: number,
+		soundEffectId?: string,
+	) => {
+		aistoryStore.setState((state) => ({
+			...state,
+			scenes: state.scenes.map((scene) =>
+				scene.id === sceneId
+					? {
+							...scene,
+							soundEffectStatus: status,
+							...(url !== undefined && { soundEffectUrl: url }),
+							...(duration !== undefined && { soundEffectDuration: duration }),
+							...(soundEffectId !== undefined && { soundEffectId }),
+						}
+					: scene,
+			),
+		}));
+	},
+
+	setIsGeneratingSoundEffect: (sceneId: string, isGenerating: boolean) => {
+		aistoryStore.setState((state) => ({
+			...state,
+			scenes: state.scenes.map((scene) =>
+				scene.id === sceneId
+					? { ...scene, isGeneratingSoundEffect: isGenerating }
+					: scene,
+			),
+		}));
+	},
+
+	setIsMergingSoundEffect: (sceneId: string, isMerging: boolean) => {
+		aistoryStore.setState((state) => ({
+			...state,
+			scenes: state.scenes.map((scene) =>
+				scene.id === sceneId
+					? { ...scene, isMergingSoundEffect: isMerging }
+					: scene,
+			),
+		}));
 	},
 
 	// Reset all state except script

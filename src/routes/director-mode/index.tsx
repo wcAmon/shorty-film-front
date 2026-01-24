@@ -29,17 +29,16 @@ const IMAGE_STYLES: { id: DirectorImageStyle; label: string; description: string
 
 const IMAGE_ENGINES: { id: DirectorImageEngine; label: string; description?: string }[] = [
 	{ id: "flux-pro", label: "Flux Pro", description: "Fast, high quality images (recommended)" },
+	{ id: "flux-schnell", label: "Flux Schnell", description: "Ultra-fast text-to-image, sub-second generation" },
+	{ id: "flux-schnell-i2i", label: "Flux Schnell (I2I)", description: "Ultra-fast image-to-image with character reference" },
 	{ id: "gpt-image-1.5", label: "GPT Image 1.5", description: "OpenAI GPT-Image via FAL AI, with character consistency" },
 	{ id: "nano-banana-pro", label: "Nano Banana Pro", description: "Fast character-consistent generation with reference support" },
 ];
 
 const VIDEO_ENGINES: { id: DirectorVideoEngine; label: string; description?: string }[] = [
-	{ id: "kling-video", label: "Kling v2.6 Pro", description: "Direct image animation, better quality (recommended)" },
-	{ id: "kling-video-v2.5-turbo", label: "Kling v2.5 Turbo", description: "Faster Kling generation with good quality" },
-	{ id: "sora-2", label: "Sora 2", description: "OpenAI Sora 2 via FAL AI, high quality video generation" },
+	{ id: "sora-2", label: "Sora 2", description: "OpenAI Sora 2 via FAL AI, high quality video generation (recommended)" },
 	{ id: "ltx-2-19b", label: "LTX-2 19B", description: "Fast generation with good motion quality" },
-	{ id: "veo3.1", label: "Veo 3.1", description: "Google Veo 3.1 via FAL AI, high quality with audio generation" },
-	{ id: "veo3.1-fast", label: "Veo 3.1 Fast", description: "Faster Veo 3.1 generation, good for testing" },
+	{ id: "wan-pro", label: "Wan Pro (6s)", description: "Fixed 6 second duration, 1080p at 30fps" },
 ];
 
 const AVATAR_ENGINES: { id: DirectorAvatarEngine; label: string; description?: string }[] = [

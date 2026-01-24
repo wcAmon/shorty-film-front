@@ -24,7 +24,9 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { useDebouncedCallback } from "use-debounce";
 import { AssetPickerModal } from "@/components/asset-picker-modal";
+import { VideoAssetPickerModal } from "@/components/video-asset-picker-modal";
 import { CountdownProgress } from "@/components/countdown-progress";
+import { SoundEffectWaveform } from "@/components/sound-effect-waveform";
 import { ErrorWithRetry, InlineError } from "@/components/error-with-retry";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -58,19 +60,18 @@ import { AIStoryAssistantPanel } from "@/components/aistory-assistant/AIStoryAss
 // Image engine options
 const IMAGE_ENGINES: { id: ImageEngine; label: string }[] = [
 	{ id: "flux-pro", label: "Flux Pro" },
+	{ id: "flux-schnell", label: "Flux Schnell" },
+	{ id: "flux-schnell-i2i", label: "Flux Schnell (I2I)" },
 	{ id: "gpt-image-1.5", label: "GPT Image 1.5" },
 	{ id: "nano-banana-pro", label: "Nano Banana Pro" },
 	{ id: "nano-banana", label: "Nano Banana" },
 ];
 
-// Video engine options
+// Video engine options (no audio output)
 const VIDEO_ENGINES: { id: VideoEngine; label: string }[] = [
-	{ id: "kling-video", label: "Kling v2.6 Pro" },
-	{ id: "kling-video-v2.5-turbo", label: "Kling v2.5 Turbo" },
 	{ id: "sora-2", label: "Sora 2" },
 	{ id: "ltx-2-19b", label: "LTX-2 19B" },
-	{ id: "veo3.1", label: "Veo 3.1" },
-	{ id: "veo3.1-fast", label: "Veo 3.1 Fast" },
+	{ id: "wan-pro", label: "Wan Pro (6s)" },
 ];
 
 // Voice options
@@ -325,9 +326,17 @@ function ScenesPage() {
 	// State for word-by-word caption display during audio playback
 	const [currentWordIndex, setCurrentWordIndex] = useState<number | null>(null);
 
-	// State for asset picker modal and upload dropdown
+	// State for asset picker modal and upload dropdown (character)
 	const [isAssetPickerOpen, setIsAssetPickerOpen] = useState(false);
 	const [isUploadMenuOpen, setIsUploadMenuOpen] = useState(false);
+
+	// State for scene image asset picker and upload menu
+	const [sceneImageAssetPickerOpen, setSceneImageAssetPickerOpen] = useState<string | null>(null);
+	const [sceneImageUploadMenuOpen, setSceneImageUploadMenuOpen] = useState<string | null>(null);
+
+	// State for scene video asset picker and upload menu
+	const [sceneVideoAssetPickerOpen, setSceneVideoAssetPickerOpen] = useState<string | null>(null);
+	const [sceneVideoUploadMenuOpen, setSceneVideoUploadMenuOpen] = useState<string | null>(null);
 
 	// State for settings panel expansion
 	const [isSettingsExpanded, setIsSettingsExpanded] = useState(false);
@@ -362,6 +371,25 @@ function ScenesPage() {
 			document.removeEventListener("mousedown", handleClickOutside);
 		};
 	}, [isUploadMenuOpen]);
+
+	// Effect: Close scene image/video upload menus when clicking outside
+	useEffect(() => {
+		const handleClickOutside = () => {
+			setSceneImageUploadMenuOpen(null);
+			setSceneVideoUploadMenuOpen(null);
+		};
+
+		if (sceneImageUploadMenuOpen || sceneVideoUploadMenuOpen) {
+			// Use setTimeout to avoid immediate close when opening
+			const timeoutId = setTimeout(() => {
+				document.addEventListener("mousedown", handleClickOutside);
+			}, 0);
+			return () => {
+				clearTimeout(timeoutId);
+				document.removeEventListener("mousedown", handleClickOutside);
+			};
+		}
+	}, [sceneImageUploadMenuOpen, sceneVideoUploadMenuOpen]);
 
 	// Effect: Resume monitoring for any media that's still generating when page loads
 	useEffect(() => {
@@ -626,6 +654,86 @@ function ScenesPage() {
 				err instanceof Error ? err.message : "Failed to import from assets",
 			);
 			aistoryActions.setIsGeneratingCharacter(false);
+		}
+	};
+
+	// Handle import scene image from asset library
+	const handleImportSceneImageFromAssets = async (
+		sceneId: string,
+		imageUrl: string,
+		imageId: string,
+	) => {
+		aistoryActions.updateScene(sceneId, { isLoading: true });
+		setSceneImageAssetPickerOpen(null);
+
+		try {
+			const response = await authFetch("/api/link-scene-media", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ sceneId, imageId }),
+			});
+
+			if (!response.ok) {
+				const errorData = await response.json();
+				throw new Error(errorData.error || "Failed to link image to scene");
+			}
+
+			const result = await response.json();
+			if (!result.success) {
+				throw new Error(result.error || "Failed to link image to scene");
+			}
+
+			aistoryActions.updateScene(sceneId, {
+				imageId,
+				imageUrl: result.imageUrl || imageUrl,
+				imageStatus: "completed",
+				isLoading: false,
+			});
+		} catch (err) {
+			aistoryActions.updateScene(sceneId, { isLoading: false });
+			aistoryActions.setSceneError(
+				err instanceof Error ? err.message : "Failed to import image from assets",
+			);
+		}
+	};
+
+	// Handle import scene video from asset library
+	const handleImportSceneVideoFromAssets = async (
+		sceneId: string,
+		videoUrl: string,
+		videoId: string,
+	) => {
+		aistoryActions.updateScene(sceneId, { isGeneratingVideo: true });
+		setSceneVideoAssetPickerOpen(null);
+
+		try {
+			const response = await authFetch("/api/link-scene-media", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ sceneId, videoId }),
+			});
+
+			if (!response.ok) {
+				const errorData = await response.json();
+				throw new Error(errorData.error || "Failed to link video to scene");
+			}
+
+			const result = await response.json();
+			if (!result.success) {
+				throw new Error(result.error || "Failed to link video to scene");
+			}
+
+			aistoryActions.updateScene(sceneId, {
+				videoId,
+				videoUrl: result.videoUrl || videoUrl,
+				videoStatus: "completed",
+				isGeneratingVideo: false,
+			});
+		} catch (err) {
+			aistoryActions.updateScene(sceneId, { isGeneratingVideo: false });
+			aistoryActions.setSceneError(
+				err instanceof Error ? err.message : "Failed to import video from assets",
+			);
 		}
 	};
 
@@ -1700,33 +1808,65 @@ function ScenesPage() {
 											isActive={scene.isLoading ?? false}
 											durationSeconds={60}
 										/>
-										{/* Image generation button */}
-										<Button
-											onClick={() => handleGenerateSceneImage(scene.id)}
-											disabled={
-												!scene.prompt.trim() ||
-												scene.isLoading ||
-												scene.imageStatus === "generating" ||
-												scenesDisabled
-											}
-											className={`${scene.isLoading || scene.imageStatus === "generating" ? "" : "mt-3"} w-full py-3 h-auto bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-400 hover:to-pink-400 disabled:from-muted disabled:to-muted disabled:cursor-not-allowed text-foreground font-semibold rounded-lg transition-all duration-300 shadow-md shadow-purple-500/20 hover:shadow-purple-500/40 disabled:shadow-none flex items-center justify-center gap-2`}
-										>
-											{scene.isLoading || scene.imageStatus === "generating" ? (
-												<>
-													<Loader2 className="w-5 h-5 animate-spin" />
-													{scene.imageStatus === "generating"
-														? "Resuming..."
-														: "Generating Image..."}
-												</>
-											) : (
-												<>
-													<ImageIcon className="w-5 h-5" />
-													{scene.imageUrl
-														? "REGENERATE IMAGE"
-														: "GENERATE SCENE IMAGE"}
-												</>
-											)}
-										</Button>
+										{/* Image generation buttons row */}
+										<div className={`${scene.isLoading || scene.imageStatus === "generating" ? "" : "mt-3"} flex gap-2`}>
+											{/* Generate Image button */}
+											<Button
+												onClick={() => handleGenerateSceneImage(scene.id)}
+												disabled={
+													!scene.prompt.trim() ||
+													scene.isLoading ||
+													scene.imageStatus === "generating" ||
+													scenesDisabled
+												}
+												className="flex-1 py-3 h-auto bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-400 hover:to-pink-400 disabled:from-muted disabled:to-muted disabled:cursor-not-allowed text-foreground font-semibold rounded-lg transition-all duration-300 shadow-md shadow-purple-500/20 hover:shadow-purple-500/40 disabled:shadow-none flex items-center justify-center gap-2"
+											>
+												{scene.isLoading || scene.imageStatus === "generating" ? (
+													<>
+														<Loader2 className="w-5 h-5 animate-spin" />
+														{scene.imageStatus === "generating"
+															? "Resuming..."
+															: "Generating..."}
+													</>
+												) : (
+													<>
+														<ImageIcon className="w-5 h-5" />
+														{scene.imageUrl ? "REGENERATE" : "GENERATE"}
+													</>
+												)}
+											</Button>
+											{/* Use Assets dropdown button */}
+											<div className="relative">
+												<Button
+													variant="secondary"
+													onClick={() =>
+														setSceneImageUploadMenuOpen(
+															sceneImageUploadMenuOpen === scene.id ? null : scene.id
+														)
+													}
+													disabled={scene.isLoading || scenesDisabled}
+													className="py-3 h-auto px-4 font-semibold rounded-lg transition-all duration-300 flex items-center gap-2"
+												>
+													<FolderOpen className="w-5 h-5" />
+													<ChevronDown className="w-4 h-4" />
+												</Button>
+												{sceneImageUploadMenuOpen === scene.id && (
+													<div className="absolute top-full right-0 mt-1 w-48 bg-card border border-border rounded-lg shadow-xl z-10 overflow-hidden">
+														<button
+															type="button"
+															onClick={() => {
+																setSceneImageAssetPickerOpen(scene.id);
+																setSceneImageUploadMenuOpen(null);
+															}}
+															className="w-full px-4 py-3 text-left text-sm text-foreground hover:bg-accent transition-colors flex items-center gap-3"
+														>
+															<FolderOpen className="w-4 h-4 text-purple-400" />
+															From Asset Library
+														</button>
+													</div>
+												)}
+											</div>
+										</div>
 										{/* Image generation queue indicator */}
 										<QueueIndicator sceneId={scene.id} mediaType="image" />
 										{/* Caption editor */}
@@ -1872,42 +2012,77 @@ function ScenesPage() {
 												isActive={scene.isGeneratingVideo ?? false}
 												durationSeconds={180}
 											/>
-											<Button
-												onClick={() => handleGenerateSceneVideo(scene.id)}
-												disabled={
-													!scene.video_prompt?.trim() ||
-													!scene.imageUrl ||
-													!scene.audioDuration ||
-													scene.isGeneratingVideo ||
-													scene.videoStatus === "generating" ||
-													scenesDisabled
-												}
-												title={
-													!scene.audioDuration
-														? "Generate audio first to enable video generation"
-														: undefined
-												}
-												className={`${scene.isGeneratingVideo || scene.videoStatus === "generating" ? "" : "mt-3"} w-full py-3 h-auto bg-gradient-to-r from-indigo-500 to-violet-500 hover:from-indigo-400 hover:to-violet-400 disabled:from-muted disabled:to-muted disabled:cursor-not-allowed text-foreground font-semibold rounded-lg transition-all duration-300 shadow-md shadow-indigo-500/20 hover:shadow-indigo-500/40 disabled:shadow-none flex items-center justify-center gap-2`}
-											>
-												{scene.isGeneratingVideo ||
-												scene.videoStatus === "generating" ? (
-													<>
-														<Loader2 className="w-5 h-5 animate-spin" />
-														{scene.videoStatus === "generating"
-															? "Resuming..."
-															: "Generating Video..."}
-													</>
-												) : (
-													<>
-														<Film className="w-5 h-5" />
-														{scene.videoError
-															? "RETRY VIDEO"
-															: scene.videoUrl
-																? "REGENERATE VIDEO"
-																: "GENERATE VIDEO"}
-													</>
-												)}
-											</Button>
+											{/* Video generation buttons row */}
+											<div className={`${scene.isGeneratingVideo || scene.videoStatus === "generating" ? "" : "mt-3"} flex gap-2`}>
+												{/* Generate Video button */}
+												<Button
+													onClick={() => handleGenerateSceneVideo(scene.id)}
+													disabled={
+														!scene.video_prompt?.trim() ||
+														!scene.imageUrl ||
+														!scene.audioDuration ||
+														scene.isGeneratingVideo ||
+														scene.videoStatus === "generating" ||
+														scenesDisabled
+													}
+													title={
+														!scene.audioDuration
+															? "Generate audio first to enable video generation"
+															: undefined
+													}
+													className="flex-1 py-3 h-auto bg-gradient-to-r from-indigo-500 to-violet-500 hover:from-indigo-400 hover:to-violet-400 disabled:from-muted disabled:to-muted disabled:cursor-not-allowed text-foreground font-semibold rounded-lg transition-all duration-300 shadow-md shadow-indigo-500/20 hover:shadow-indigo-500/40 disabled:shadow-none flex items-center justify-center gap-2"
+												>
+													{scene.isGeneratingVideo ||
+													scene.videoStatus === "generating" ? (
+														<>
+															<Loader2 className="w-5 h-5 animate-spin" />
+															{scene.videoStatus === "generating"
+																? "Resuming..."
+																: "Generating..."}
+														</>
+													) : (
+														<>
+															<Film className="w-5 h-5" />
+															{scene.videoError
+																? "RETRY"
+																: scene.videoUrl
+																	? "REGENERATE"
+																	: "GENERATE"}
+														</>
+													)}
+												</Button>
+												{/* Use Assets dropdown button for video */}
+												<div className="relative">
+													<Button
+														variant="secondary"
+														onClick={() =>
+															setSceneVideoUploadMenuOpen(
+																sceneVideoUploadMenuOpen === scene.id ? null : scene.id
+															)
+														}
+														disabled={scene.isGeneratingVideo || scenesDisabled}
+														className="py-3 h-auto px-4 font-semibold rounded-lg transition-all duration-300 flex items-center gap-2"
+													>
+														<FolderOpen className="w-5 h-5" />
+														<ChevronDown className="w-4 h-4" />
+													</Button>
+													{sceneVideoUploadMenuOpen === scene.id && (
+														<div className="absolute top-full right-0 mt-1 w-48 bg-card border border-border rounded-lg shadow-xl z-10 overflow-hidden">
+															<button
+																type="button"
+																onClick={() => {
+																	setSceneVideoAssetPickerOpen(scene.id);
+																	setSceneVideoUploadMenuOpen(null);
+																}}
+																className="w-full px-4 py-3 text-left text-sm text-foreground hover:bg-accent transition-colors flex items-center gap-3"
+															>
+																<FolderOpen className="w-4 h-4 text-indigo-400" />
+																From Asset Library
+															</button>
+														</div>
+													)}
+												</div>
+											</div>
 											{/* Video generation queue indicator */}
 											<QueueIndicator sceneId={scene.id} mediaType="video" />
 										</div>
@@ -2000,6 +2175,7 @@ function ScenesPage() {
 													<video
 														src={scene.videoUrl}
 														controls
+														data-scene-id={scene.id}
 														className="w-full rounded-lg shadow-lg"
 														style={{ aspectRatio: "9/16" }}
 													>
@@ -2024,6 +2200,221 @@ function ScenesPage() {
 										</div>
 									</div>
 								</div>
+
+								{/* Sound Effect Section - shown after video + audio completed */}
+								{scene.videoUrl && scene.audioUrl && (
+									<div className="mt-6 pt-6 border-t border-border">
+										<h4 className="text-sm font-semibold text-muted-foreground mb-3 flex items-center gap-2">
+											<Volume2 className="w-4 h-4 text-indigo-400" />
+											Sound Effect
+										</h4>
+
+										{/* Sound Effect Prompt Input */}
+										<div className="flex gap-3">
+											<input
+												type="text"
+												value={scene.soundEffectPrompt || ""}
+												onChange={(e) =>
+													aistoryActions.updateScene(scene.id, {
+														soundEffectPrompt: e.target.value,
+													})
+												}
+												placeholder="Describe sound effect (e.g., footsteps, wind, rain)..."
+												disabled={
+													scene.isGeneratingSoundEffect ||
+													scene.isMergingSoundEffect ||
+													scenesDisabled
+												}
+												className="flex-1 px-3 py-2 bg-background border border-border rounded-lg text-foreground text-sm placeholder-muted-foreground focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors disabled:opacity-50"
+											/>
+											<Button
+												onClick={async () => {
+													if (!scene.soundEffectPrompt?.trim() || !storyId) return;
+													aistoryActions.setIsGeneratingSoundEffect(scene.id, true);
+													try {
+														const response = await authFetch("/api/generate-sound-effect", {
+															method: "POST",
+															headers: { "Content-Type": "application/json" },
+															body: JSON.stringify({
+																prompt: scene.soundEffectPrompt,
+																storyId,
+																sceneId: scene.id,
+																durationSeconds: scene.videoDuration || 5,
+															}),
+														});
+														const result = await response.json();
+														if (result.success && result.jobId) {
+															// Poll for job completion
+															const pollJob = async () => {
+																const statusRes = await authFetch(`/api/job-status?jobId=${result.jobId}`);
+																const status = await statusRes.json();
+																if (status.status === "completed" && status.metadata) {
+																	aistoryActions.updateSoundEffectStatus(
+																		scene.id,
+																		"completed",
+																		status.metadata.audioUrl,
+																		status.metadata.duration,
+																		status.metadata.soundEffectId,
+																	);
+																	aistoryActions.setIsGeneratingSoundEffect(scene.id, false);
+																} else if (status.status === "failed") {
+																	aistoryActions.setSceneError(status.error || "Sound effect generation failed");
+																	aistoryActions.setIsGeneratingSoundEffect(scene.id, false);
+																} else {
+																	setTimeout(pollJob, 3000);
+																}
+															};
+															pollJob();
+														} else {
+															throw new Error(result.error || "Failed to start sound effect generation");
+														}
+													} catch (err) {
+														aistoryActions.setSceneError(
+															err instanceof Error ? err.message : "Sound effect generation failed",
+														);
+														aistoryActions.setIsGeneratingSoundEffect(scene.id, false);
+													}
+												}}
+												disabled={
+													!scene.soundEffectPrompt?.trim() ||
+													scene.isGeneratingSoundEffect ||
+													scenesDisabled
+												}
+												className="px-4 py-2 bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-400 hover:to-purple-400 disabled:from-muted disabled:to-muted disabled:cursor-not-allowed text-foreground font-semibold rounded-lg transition-all duration-300 flex items-center gap-2"
+											>
+												{scene.isGeneratingSoundEffect ? (
+													<>
+														<Loader2 className="w-4 h-4 animate-spin" />
+														Generating...
+													</>
+												) : (
+													<>
+														<Sparkles className="w-4 h-4" />
+														{scene.soundEffectUrl ? "Regenerate" : "Generate"}
+													</>
+												)}
+											</Button>
+										</div>
+
+										{/* Waveform and Controls - shown after sound effect generated */}
+										{scene.soundEffectUrl && scene.videoDuration && (
+											<div className="mt-4">
+												<SoundEffectWaveform
+													audioUrl={scene.soundEffectUrl}
+													duration={scene.soundEffectDuration || 5}
+													videoDuration={scene.videoDuration}
+													offset={scene.soundEffectOffset || 0}
+													onOffsetChange={async (newOffset) => {
+														aistoryActions.setSoundEffectOffset(scene.id, newOffset);
+														// Save offset to database
+														try {
+															await authFetch("/api/update-sound-effect-offset", {
+																method: "PUT",
+																headers: { "Content-Type": "application/json" },
+																body: JSON.stringify({
+																	sceneId: scene.id,
+																	offset: newOffset,
+																}),
+															});
+														} catch (err) {
+															console.error("Failed to save offset:", err);
+														}
+													}}
+													disabled={scene.isMergingSoundEffect || scenesDisabled}
+												/>
+
+												{/* Preview and Merge buttons */}
+												<div className="mt-3 flex gap-3">
+													<Button
+														variant="outline"
+														onClick={() => {
+															// Preview: play video and sound effect with offset
+															const video = document.querySelector<HTMLVideoElement>(
+																`video[data-scene-id="${scene.id}"]`,
+															);
+															const audio = new Audio(scene.soundEffectUrl);
+															if (video) {
+																video.currentTime = 0;
+																video.play();
+																const offset = scene.soundEffectOffset || 0;
+																if (offset > 0) {
+																	setTimeout(() => audio.play(), offset * 1000);
+																} else {
+																	audio.play();
+																}
+																video.addEventListener("ended", () => audio.pause(), { once: true });
+															}
+														}}
+														disabled={scenesDisabled}
+														className="flex-1 py-2 h-auto font-semibold rounded-lg flex items-center justify-center gap-2"
+													>
+														<Play className="w-4 h-4" />
+														Preview
+													</Button>
+													<Button
+														onClick={async () => {
+															if (!storyId) return;
+															aistoryActions.setIsMergingSoundEffect(scene.id, true);
+															try {
+																const response = await authFetch("/api/merge-sound-effect", {
+																	method: "POST",
+																	headers: { "Content-Type": "application/json" },
+																	body: JSON.stringify({
+																		sceneId: scene.id,
+																		storyId,
+																		offset: scene.soundEffectOffset || 0,
+																	}),
+																});
+																const result = await response.json();
+																if (result.success && result.jobId) {
+																	// Poll for job completion
+																	const pollJob = async () => {
+																		const statusRes = await authFetch(`/api/job-status?jobId=${result.jobId}`);
+																		const status = await statusRes.json();
+																		if (status.status === "completed" && status.metadata) {
+																			aistoryActions.updateScene(scene.id, {
+																				videoUrl: status.metadata.videoUrl,
+																				videoId: status.metadata.videoId,
+																			});
+																			aistoryActions.setIsMergingSoundEffect(scene.id, false);
+																		} else if (status.status === "failed") {
+																			aistoryActions.setSceneError(status.error || "Merge failed");
+																			aistoryActions.setIsMergingSoundEffect(scene.id, false);
+																		} else {
+																			setTimeout(pollJob, 3000);
+																		}
+																	};
+																	pollJob();
+																} else {
+																	throw new Error(result.error || "Failed to start merge");
+																}
+															} catch (err) {
+																aistoryActions.setSceneError(
+																	err instanceof Error ? err.message : "Merge failed",
+																);
+																aistoryActions.setIsMergingSoundEffect(scene.id, false);
+															}
+														}}
+														disabled={scene.isMergingSoundEffect || scenesDisabled}
+														className="flex-1 py-2 h-auto bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 disabled:from-muted disabled:to-muted disabled:cursor-not-allowed text-foreground font-semibold rounded-lg flex items-center justify-center gap-2"
+													>
+														{scene.isMergingSoundEffect ? (
+															<>
+																<Loader2 className="w-4 h-4 animate-spin" />
+																Merging...
+															</>
+														) : (
+															<>
+																<Film className="w-4 h-4" />
+																Add Sound Effect
+															</>
+														)}
+													</Button>
+												</div>
+											</div>
+										)}
+									</div>
+								)}
 							</CardContent>
 						</Card>
 					))}
@@ -2069,12 +2460,36 @@ function ScenesPage() {
 				</div>
 			)}
 
-					{/* Asset Picker Modal */}
+					{/* Asset Picker Modal for Character */}
 					<AssetPickerModal
 						isOpen={isAssetPickerOpen}
 						onClose={() => setIsAssetPickerOpen(false)}
 						onSelect={handleImportFromAssets}
 						title="Select Character Image"
+					/>
+
+					{/* Asset Picker Modal for Scene Image */}
+					<AssetPickerModal
+						isOpen={sceneImageAssetPickerOpen !== null}
+						onClose={() => setSceneImageAssetPickerOpen(null)}
+						onSelect={(imageUrl, imageId) => {
+							if (sceneImageAssetPickerOpen) {
+								handleImportSceneImageFromAssets(sceneImageAssetPickerOpen, imageUrl, imageId);
+							}
+						}}
+						title="Select Scene Image"
+					/>
+
+					{/* Video Asset Picker Modal for Scene Video */}
+					<VideoAssetPickerModal
+						isOpen={sceneVideoAssetPickerOpen !== null}
+						onClose={() => setSceneVideoAssetPickerOpen(null)}
+						onSelect={(videoUrl, videoId) => {
+							if (sceneVideoAssetPickerOpen) {
+								handleImportSceneVideoFromAssets(sceneVideoAssetPickerOpen, videoUrl, videoId);
+							}
+						}}
+						title="Select Scene Video"
 					/>
 				</div>
 			</div>

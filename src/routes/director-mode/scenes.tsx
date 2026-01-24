@@ -14,6 +14,7 @@ import {
 	Play,
 	Plus,
 	Settings,
+	Sparkles,
 	Trash2,
 	Upload,
 	User,
@@ -23,8 +24,10 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { useDebouncedCallback } from "use-debounce";
 import { AssetPickerModal } from "@/components/asset-picker-modal";
+import { VideoAssetPickerModal } from "@/components/video-asset-picker-modal";
 import { CountdownProgress } from "@/components/countdown-progress";
 import { DirectorAssistantPanel } from "@/components/director-assistant/DirectorAssistantPanel";
+import { SoundEffectWaveform } from "@/components/sound-effect-waveform";
 import { ErrorWithRetry, InlineError } from "@/components/error-with-retry";
 import {
 	useGenerateDirectorCharacter,
@@ -37,6 +40,7 @@ import {
 	useUpdateStoryTitle,
 	useUploadDirectorCharacter,
 } from "@/hooks/use-director-api";
+import { authFetch } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -65,18 +69,17 @@ const IMAGE_STYLES: { id: DirectorImageStyle; label: string; description: string
 
 const IMAGE_ENGINES: { id: DirectorImageEngine; label: string; description?: string }[] = [
 	{ id: "flux-pro", label: "Flux Pro", description: "Fast, high quality images (recommended)" },
+	{ id: "flux-schnell", label: "Flux Schnell", description: "Ultra-fast text-to-image, sub-second generation" },
+	{ id: "flux-schnell-i2i", label: "Flux Schnell (I2I)", description: "Ultra-fast image-to-image with character reference" },
 	{ id: "gpt-image-1.5", label: "GPT Image 1.5", description: "OpenAI GPT-Image via FAL AI, with character consistency" },
 	{ id: "nano-banana-pro", label: "Nano Banana Pro", description: "Fast character-consistent generation with reference support" },
 	{ id: "nano-banana", label: "Nano Banana", description: "Lightweight, fast generation with character reference" },
 ];
 
 const VIDEO_ENGINES: { id: DirectorVideoEngine; label: string; description?: string }[] = [
-	{ id: "kling-video", label: "Kling v2.6 Pro", description: "Direct image animation, better quality (recommended)" },
-	{ id: "kling-video-v2.5-turbo", label: "Kling v2.5 Turbo", description: "Faster Kling generation with good quality" },
-	{ id: "sora-2", label: "Sora 2", description: "OpenAI Sora 2 via FAL AI, high quality video generation" },
+	{ id: "sora-2", label: "Sora 2", description: "OpenAI Sora 2 via FAL AI, high quality video generation (recommended)" },
 	{ id: "ltx-2-19b", label: "LTX-2 19B", description: "Fast generation with good motion quality" },
-	{ id: "veo3.1", label: "Veo 3.1", description: "Google Veo 3.1 via FAL AI, high quality with audio generation" },
-	{ id: "veo3.1-fast", label: "Veo 3.1 Fast", description: "Faster Veo 3.1 generation, good for testing" },
+	{ id: "wan-pro", label: "Wan Pro (6s)", description: "Fixed 6 second duration, 1080p at 30fps" },
 ];
 
 const AVATAR_ENGINES: { id: DirectorAvatarEngine; label: string; description?: string }[] = [
@@ -173,6 +176,12 @@ function DirectorScenesPage() {
 	const [isGeneratingCharacter, setIsGeneratingCharacter] = useState(false);
 	const [isAssetPickerOpen, setIsAssetPickerOpen] = useState(false);
 	const [isUploadMenuOpen, setIsUploadMenuOpen] = useState(false);
+	// State for scene image asset picker and upload menu
+	const [sceneImageAssetPickerOpen, setSceneImageAssetPickerOpen] = useState<string | null>(null);
+	const [sceneImageUploadMenuOpen, setSceneImageUploadMenuOpen] = useState<string | null>(null);
+	// State for scene video asset picker and upload menu
+	const [sceneVideoAssetPickerOpen, setSceneVideoAssetPickerOpen] = useState<string | null>(null);
+	const [sceneVideoUploadMenuOpen, setSceneVideoUploadMenuOpen] = useState<string | null>(null);
 	const [isSettingsExpanded, setIsSettingsExpanded] = useState(false);
 	const [isAssistantCollapsed, setIsAssistantCollapsed] = useState(false);
 	const [expandedSceneSettings, setExpandedSceneSettings] = useState<Set<string>>(new Set());
@@ -215,6 +224,24 @@ function DirectorScenesPage() {
 		}
 		return () => document.removeEventListener("mousedown", handleClickOutside);
 	}, [isUploadMenuOpen]);
+
+	// Effect: Close scene image/video upload menus when clicking outside
+	useEffect(() => {
+		const handleClickOutside = () => {
+			setSceneImageUploadMenuOpen(null);
+			setSceneVideoUploadMenuOpen(null);
+		};
+
+		if (sceneImageUploadMenuOpen || sceneVideoUploadMenuOpen) {
+			const timeoutId = setTimeout(() => {
+				document.addEventListener("mousedown", handleClickOutside);
+			}, 0);
+			return () => {
+				clearTimeout(timeoutId);
+				document.removeEventListener("mousedown", handleClickOutside);
+			};
+		}
+	}, [sceneImageUploadMenuOpen, sceneVideoUploadMenuOpen]);
 
 	// Debounced save callbacks (1.5s delay)
 	const debouncedSaveTitle = useDebouncedCallback((newTitle: string) => {
@@ -385,6 +412,86 @@ function DirectorScenesPage() {
 			imageStatus: "completed",
 		});
 		setIsAssetPickerOpen(false);
+	};
+
+	// Handle import scene image from asset library
+	const handleImportSceneImageFromAssets = async (
+		sceneId: string,
+		imageUrl: string,
+		imageId: string,
+	) => {
+		directorActions.updateScene(sceneId, { isGeneratingImage: true });
+		setSceneImageAssetPickerOpen(null);
+
+		try {
+			const response = await authFetch("/api/link-scene-media", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ sceneId, imageId }),
+			});
+
+			if (!response.ok) {
+				const errorData = await response.json();
+				throw new Error(errorData.error || "Failed to link image to scene");
+			}
+
+			const result = await response.json();
+			if (!result.success) {
+				throw new Error(result.error || "Failed to link image to scene");
+			}
+
+			directorActions.updateScene(sceneId, {
+				imageId,
+				imageUrl: result.imageUrl || imageUrl,
+				imageStatus: "completed",
+				isGeneratingImage: false,
+			});
+		} catch (err) {
+			directorActions.updateScene(sceneId, { isGeneratingImage: false });
+			directorActions.setError(
+				err instanceof Error ? err.message : "Failed to import image from assets",
+			);
+		}
+	};
+
+	// Handle import scene video from asset library
+	const handleImportSceneVideoFromAssets = async (
+		sceneId: string,
+		videoUrl: string,
+		videoId: string,
+	) => {
+		directorActions.updateScene(sceneId, { isGeneratingVideo: true });
+		setSceneVideoAssetPickerOpen(null);
+
+		try {
+			const response = await authFetch("/api/link-scene-media", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ sceneId, videoId }),
+			});
+
+			if (!response.ok) {
+				const errorData = await response.json();
+				throw new Error(errorData.error || "Failed to link video to scene");
+			}
+
+			const result = await response.json();
+			if (!result.success) {
+				throw new Error(result.error || "Failed to link video to scene");
+			}
+
+			directorActions.updateScene(sceneId, {
+				videoId,
+				videoUrl: result.videoUrl || videoUrl,
+				videoStatus: "completed",
+				isGeneratingVideo: false,
+			});
+		} catch (err) {
+			directorActions.updateScene(sceneId, { isGeneratingVideo: false });
+			directorActions.setError(
+				err instanceof Error ? err.message : "Failed to import video from assets",
+			);
+		}
 	};
 
 	// Scene-level engine changes
@@ -644,6 +751,109 @@ function DirectorScenesPage() {
 		newScenes.splice(toIndex, 0, moved);
 		const sceneOrder = newScenes.map((s, i) => ({ sceneId: s.id, orderIndex: i }));
 		reorderScenesMutation.mutate({ storyId, sceneOrder });
+	};
+
+	// Sound effect handlers
+	const handleSoundEffectOffsetChange = async (sceneId: string, offset: number) => {
+		directorActions.setSoundEffectOffset(sceneId, offset);
+		// Save offset to database
+		try {
+			await authFetch("/api/update-sound-effect-offset", {
+				method: "PUT",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ sceneId, offset }),
+			});
+		} catch (err) {
+			console.error("Failed to save sound effect offset:", err);
+		}
+	};
+
+	const handleGenerateSoundEffect = async (sceneId: string, prompt: string, duration: number) => {
+		if (!prompt.trim() || !storyId) return;
+		directorActions.setIsGeneratingSoundEffect(sceneId, true);
+		try {
+			const response = await authFetch("/api/generate-sound-effect", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					prompt,
+					storyId,
+					sceneId,
+					durationSeconds: duration,
+				}),
+			});
+			const result = await response.json();
+			if (result.success && result.jobId) {
+				// Poll for job completion
+				const pollJob = async () => {
+					const statusRes = await authFetch(`/api/job-status?jobId=${result.jobId}`);
+					const status = await statusRes.json();
+					if (status.status === "completed" && status.metadata) {
+						directorActions.updateSoundEffectStatus(
+							sceneId,
+							"completed",
+							status.metadata.audioUrl,
+							status.metadata.duration,
+							status.metadata.soundEffectId,
+						);
+						directorActions.setIsGeneratingSoundEffect(sceneId, false);
+					} else if (status.status === "failed") {
+						directorActions.setSceneError(status.error || "Sound effect generation failed");
+						directorActions.setIsGeneratingSoundEffect(sceneId, false);
+					} else {
+						setTimeout(pollJob, 3000);
+					}
+				};
+				pollJob();
+			} else {
+				throw new Error(result.error || "Failed to start sound effect generation");
+			}
+		} catch (err) {
+			directorActions.setSceneError(
+				err instanceof Error ? err.message : "Sound effect generation failed",
+			);
+			directorActions.setIsGeneratingSoundEffect(sceneId, false);
+		}
+	};
+
+	const handleMergeSoundEffect = async (sceneId: string, offset: number) => {
+		if (!storyId) return;
+		directorActions.setIsMergingSoundEffect(sceneId, true);
+		try {
+			const response = await authFetch("/api/merge-sound-effect", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ sceneId, storyId, offset }),
+			});
+			const result = await response.json();
+			if (result.success && result.jobId) {
+				// Poll for job completion
+				const pollJob = async () => {
+					const statusRes = await authFetch(`/api/job-status?jobId=${result.jobId}`);
+					const status = await statusRes.json();
+					if (status.status === "completed" && status.metadata) {
+						directorActions.updateScene(sceneId, {
+							videoUrl: status.metadata.videoUrl,
+							videoId: status.metadata.videoId,
+						});
+						directorActions.setIsMergingSoundEffect(sceneId, false);
+					} else if (status.status === "failed") {
+						directorActions.setSceneError(status.error || "Merge failed");
+						directorActions.setIsMergingSoundEffect(sceneId, false);
+					} else {
+						setTimeout(pollJob, 3000);
+					}
+				};
+				pollJob();
+			} else {
+				throw new Error(result.error || "Failed to start merge");
+			}
+		} catch (err) {
+			directorActions.setSceneError(
+				err instanceof Error ? err.message : "Merge failed",
+			);
+			directorActions.setIsMergingSoundEffect(sceneId, false);
+		}
 	};
 
 	const handleDownloadExportedVideo = () => {
@@ -1257,6 +1467,8 @@ function DirectorScenesPage() {
 								isImageQueued={pendingRegenerateQueue.some((item) => item.sceneId === scene.id && item.type === "image")}
 								isAudioQueued={pendingRegenerateQueue.some((item) => item.sceneId === scene.id && item.type === "audio")}
 								isVideoQueued={pendingRegenerateQueue.some((item) => item.sceneId === scene.id && item.type === "video")}
+								isImageUploadMenuOpen={sceneImageUploadMenuOpen === scene.id}
+								isVideoUploadMenuOpen={sceneVideoUploadMenuOpen === scene.id}
 								onToggleSettings={() => toggleSceneSettings(scene.id)}
 								onCaptionChange={handleCaptionChange}
 								onImagePromptChange={handleImagePromptChange}
@@ -1274,6 +1486,14 @@ function DirectorScenesPage() {
 								onPlayAudio={handlePlaySceneAudio}
 								onReorder={handleReorderScenes}
 								onDelete={(sceneId) => directorActions.deleteScene(sceneId)}
+								onOpenImageAssetPicker={(sceneId) => setSceneImageAssetPickerOpen(sceneId)}
+								onToggleImageUploadMenu={(sceneId) => setSceneImageUploadMenuOpen(sceneId)}
+								onOpenVideoAssetPicker={(sceneId) => setSceneVideoAssetPickerOpen(sceneId)}
+								onToggleVideoUploadMenu={(sceneId) => setSceneVideoUploadMenuOpen(sceneId)}
+								onSoundEffectPromptChange={(sceneId, prompt) => directorActions.setSoundEffectPrompt(sceneId, prompt)}
+								onSoundEffectOffsetChange={handleSoundEffectOffsetChange}
+								onGenerateSoundEffect={handleGenerateSoundEffect}
+								onMergeSoundEffect={handleMergeSoundEffect}
 							/>
 						))}
 
@@ -1326,12 +1546,36 @@ function DirectorScenesPage() {
 					</div>
 				)}
 
-				{/* Asset Picker Modal */}
+				{/* Asset Picker Modal for Character */}
 				<AssetPickerModal
 					isOpen={isAssetPickerOpen}
 					onClose={() => setIsAssetPickerOpen(false)}
 					onSelect={handleImportFromAssets}
 					title="Select Character Image (16:9)"
+				/>
+
+				{/* Asset Picker Modal for Scene Image */}
+				<AssetPickerModal
+					isOpen={sceneImageAssetPickerOpen !== null}
+					onClose={() => setSceneImageAssetPickerOpen(null)}
+					onSelect={(imageUrl, imageId) => {
+						if (sceneImageAssetPickerOpen) {
+							handleImportSceneImageFromAssets(sceneImageAssetPickerOpen, imageUrl, imageId);
+						}
+					}}
+					title="Select Scene Image"
+				/>
+
+				{/* Video Asset Picker Modal for Scene Video */}
+				<VideoAssetPickerModal
+					isOpen={sceneVideoAssetPickerOpen !== null}
+					onClose={() => setSceneVideoAssetPickerOpen(null)}
+					onSelect={(videoUrl, videoId) => {
+						if (sceneVideoAssetPickerOpen) {
+							handleImportSceneVideoFromAssets(sceneVideoAssetPickerOpen, videoUrl, videoId);
+						}
+					}}
+					title="Select Scene Video"
 				/>
 				</div>
 			</div>
@@ -1373,6 +1617,9 @@ interface SceneCardProps {
 	isImageQueued: boolean;
 	isAudioQueued: boolean;
 	isVideoQueued: boolean;
+	// Asset picker menu state
+	isImageUploadMenuOpen: boolean;
+	isVideoUploadMenuOpen: boolean;
 	onToggleSettings: () => void;
 	onCaptionChange: (sceneId: string, caption: string) => void;
 	onImagePromptChange: (sceneId: string, imagePrompt: string) => void;
@@ -1390,6 +1637,16 @@ interface SceneCardProps {
 	onPlayAudio: (sceneId: string) => void;
 	onReorder: (fromIndex: number, toIndex: number) => void;
 	onDelete: (sceneId: string) => void;
+	// Asset picker handlers
+	onOpenImageAssetPicker: (sceneId: string) => void;
+	onToggleImageUploadMenu: (sceneId: string | null) => void;
+	onOpenVideoAssetPicker: (sceneId: string) => void;
+	onToggleVideoUploadMenu: (sceneId: string | null) => void;
+	// Sound effect handlers
+	onSoundEffectPromptChange: (sceneId: string, prompt: string) => void;
+	onSoundEffectOffsetChange: (sceneId: string, offset: number) => void;
+	onGenerateSoundEffect: (sceneId: string, prompt: string, duration: number) => void;
+	onMergeSoundEffect: (sceneId: string, offset: number) => void;
 }
 
 function SceneCard({
@@ -1402,6 +1659,8 @@ function SceneCard({
 	isImageQueued,
 	isAudioQueued,
 	isVideoQueued,
+	isImageUploadMenuOpen,
+	isVideoUploadMenuOpen,
 	onToggleSettings,
 	onCaptionChange,
 	onImagePromptChange,
@@ -1419,6 +1678,14 @@ function SceneCard({
 	onPlayAudio,
 	onReorder,
 	onDelete,
+	onOpenImageAssetPicker,
+	onToggleImageUploadMenu,
+	onOpenVideoAssetPicker,
+	onToggleVideoUploadMenu,
+	onSoundEffectPromptChange,
+	onSoundEffectOffsetChange,
+	onGenerateSoundEffect,
+	onMergeSoundEffect,
 }: SceneCardProps) {
 	return (
 		<Card>
@@ -1578,9 +1845,36 @@ function SceneCard({
 									) : isImageQueued ? (
 										<><Loader2 className="w-4 h-4 animate-spin mr-2" />Queued</>
 									) : (
-										<><ImageIcon className="w-4 h-4 mr-2" />{scene.imageUrl ? "Regenerate" : "Generate"} Image</>
+										<><ImageIcon className="w-4 h-4 mr-2" />{scene.imageUrl ? "Regenerate" : "Generate"}</>
 									)}
 								</Button>
+								{/* Use Assets dropdown for image */}
+								<div className="relative">
+									<Button
+										variant="secondary"
+										size="sm"
+										onClick={() => onToggleImageUploadMenu(isImageUploadMenuOpen ? null : scene.id)}
+										disabled={scene.isGeneratingImage}
+									>
+										<FolderOpen className="w-4 h-4 mr-1" />
+										<ChevronDown className="w-3 h-3" />
+									</Button>
+									{isImageUploadMenuOpen && (
+										<div className="absolute top-full left-0 mt-1 w-44 bg-card border border-border rounded-lg shadow-xl z-10 overflow-hidden">
+											<button
+												type="button"
+												onClick={() => {
+													onOpenImageAssetPicker(scene.id);
+													onToggleImageUploadMenu(null);
+												}}
+												className="w-full px-3 py-2 text-left text-sm text-foreground hover:bg-accent transition-colors flex items-center gap-2"
+											>
+												<FolderOpen className="w-4 h-4 text-purple-400" />
+												From Asset Library
+											</button>
+										</div>
+									)}
+								</div>
 								{/* Character Reference Checkbox */}
 								<label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
 									<input
@@ -1709,9 +2003,36 @@ function SceneCard({
 									) : isVideoQueued ? (
 										<><Loader2 className="w-4 h-4 animate-spin mr-2" />Queued</>
 									) : (
-										<><Film className="w-4 h-4 mr-2" />{scene.videoUrl ? "Regenerate" : "Generate"} Video</>
+										<><Film className="w-4 h-4 mr-2" />{scene.videoUrl ? "Regenerate" : "Generate"}</>
 									)}
 								</Button>
+								{/* Use Assets dropdown for video */}
+								<div className="relative">
+									<Button
+										variant="secondary"
+										size="sm"
+										onClick={() => onToggleVideoUploadMenu(isVideoUploadMenuOpen ? null : scene.id)}
+										disabled={scene.isGeneratingVideo}
+									>
+										<FolderOpen className="w-4 h-4 mr-1" />
+										<ChevronDown className="w-3 h-3" />
+									</Button>
+									{isVideoUploadMenuOpen && (
+										<div className="absolute top-full left-0 mt-1 w-44 bg-card border border-border rounded-lg shadow-xl z-10 overflow-hidden">
+											<button
+												type="button"
+												onClick={() => {
+													onOpenVideoAssetPicker(scene.id);
+													onToggleVideoUploadMenu(null);
+												}}
+												className="w-full px-3 py-2 text-left text-sm text-foreground hover:bg-accent transition-colors flex items-center gap-2"
+											>
+												<FolderOpen className="w-4 h-4 text-indigo-400" />
+												From Asset Library
+											</button>
+										</div>
+									)}
+								</div>
 								<CountdownProgress isActive={scene.isGeneratingVideo} durationSeconds={120} />
 							</div>
 						</div>
@@ -1719,7 +2040,7 @@ function SceneCard({
 						<div className="w-56 shrink-0">
 							<label className="block text-sm font-medium text-muted-foreground mb-2">Preview</label>
 							{scene.videoUrl ? (
-								<video src={scene.videoUrl} className="w-full rounded-lg object-cover shadow-lg" style={{ aspectRatio: "16/9" }} controls muted />
+								<video src={scene.videoUrl} data-scene-id={scene.id} className="w-full rounded-lg object-cover shadow-lg" style={{ aspectRatio: "16/9" }} controls muted />
 							) : (
 								<div className="w-full bg-muted border border-border rounded-lg flex items-center justify-center" style={{ aspectRatio: "16/9" }}>
 									<Film className="w-8 h-8 text-muted-foreground opacity-50" />
@@ -1728,6 +2049,105 @@ function SceneCard({
 						</div>
 					</div>
 				</div>
+
+				{/* Sound Effect Section - shown after video + audio completed */}
+				{scene.videoUrl && scene.audioUrl && (
+					<div className="mt-6 pt-6 border-t border-border">
+						<h4 className="text-sm font-semibold text-muted-foreground mb-3 flex items-center gap-2">
+							<Volume2 className="w-4 h-4 text-indigo-400" />
+							Sound Effect
+						</h4>
+
+						{/* Sound Effect Prompt Input */}
+						<div className="flex gap-3">
+							<input
+								type="text"
+								value={scene.soundEffectPrompt || ""}
+								onChange={(e) => onSoundEffectPromptChange(scene.id, e.target.value)}
+								placeholder="Describe sound effect (e.g., footsteps, wind, rain)..."
+								disabled={scene.isGeneratingSoundEffect || scene.isMergingSoundEffect}
+								className="flex-1 px-3 py-2 bg-background border border-border rounded-lg text-foreground text-sm placeholder-muted-foreground focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors disabled:opacity-50"
+							/>
+							<Button
+								onClick={() => onGenerateSoundEffect(scene.id, scene.soundEffectPrompt || "", scene.videoDuration || 5)}
+								disabled={!scene.soundEffectPrompt?.trim() || scene.isGeneratingSoundEffect}
+								className="px-4 py-2 bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-400 hover:to-purple-400 disabled:from-muted disabled:to-muted disabled:cursor-not-allowed text-foreground font-semibold rounded-lg transition-all duration-300 flex items-center gap-2"
+							>
+								{scene.isGeneratingSoundEffect ? (
+									<>
+										<Loader2 className="w-4 h-4 animate-spin" />
+										Generating...
+									</>
+								) : (
+									<>
+										<Sparkles className="w-4 h-4" />
+										{scene.soundEffectUrl ? "Regenerate" : "Generate"}
+									</>
+								)}
+							</Button>
+						</div>
+
+						{/* Waveform and Controls - shown after sound effect generated */}
+						{scene.soundEffectUrl && scene.videoDuration && (
+							<div className="mt-4">
+								<SoundEffectWaveform
+									audioUrl={scene.soundEffectUrl}
+									duration={scene.soundEffectDuration || 5}
+									videoDuration={scene.videoDuration}
+									offset={scene.soundEffectOffset || 0}
+									onOffsetChange={(newOffset) => onSoundEffectOffsetChange(scene.id, newOffset)}
+									disabled={scene.isMergingSoundEffect}
+								/>
+
+								{/* Preview and Merge buttons */}
+								<div className="mt-3 flex gap-3">
+									<Button
+										variant="outline"
+										onClick={() => {
+											// Preview: play video and sound effect with offset
+											const video = document.querySelector<HTMLVideoElement>(
+												`video[data-scene-id="${scene.id}"]`,
+											);
+											const audio = new Audio(scene.soundEffectUrl || "");
+											if (video) {
+												video.currentTime = 0;
+												video.play();
+												const offset = scene.soundEffectOffset || 0;
+												if (offset > 0) {
+													setTimeout(() => audio.play(), offset * 1000);
+												} else {
+													audio.play();
+												}
+												video.addEventListener("ended", () => audio.pause(), { once: true });
+											}
+										}}
+										className="flex-1 py-2 h-auto font-semibold rounded-lg flex items-center justify-center gap-2"
+									>
+										<Play className="w-4 h-4" />
+										Preview
+									</Button>
+									<Button
+										onClick={() => onMergeSoundEffect(scene.id, scene.soundEffectOffset || 0)}
+										disabled={scene.isMergingSoundEffect}
+										className="flex-1 py-2 h-auto bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 disabled:from-muted disabled:to-muted disabled:cursor-not-allowed text-foreground font-semibold rounded-lg flex items-center justify-center gap-2"
+									>
+										{scene.isMergingSoundEffect ? (
+											<>
+												<Loader2 className="w-4 h-4 animate-spin" />
+												Merging...
+											</>
+										) : (
+											<>
+												<Film className="w-4 h-4" />
+												Add Sound Effect
+											</>
+										)}
+									</Button>
+								</div>
+							</div>
+						)}
+					</div>
+				)}
 			</CardContent>
 		</Card>
 	);
