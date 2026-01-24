@@ -155,6 +155,8 @@ export function useAIStoryAssistant() {
 						updates.useAvatar = args.useAvatar;
 					if (args.title !== null && args.title !== undefined)
 						updates.title = args.title;
+					if (args.soundEffectPrompt !== null && args.soundEffectPrompt !== undefined)
+						updates.soundEffectPrompt = args.soundEffectPrompt;
 					if (Object.keys(updates).length > 0) {
 						aistoryActions.updateScene(sceneId, updates);
 					}
@@ -171,11 +173,12 @@ export function useAIStoryAssistant() {
 					videoPrompt: string | null;
 					useAvatar?: boolean | null;
 					title?: string | null;
+					soundEffectPrompt?: string | null;
 				}>;
 				const currentScenes = aistoryStore.state.scenes;
 
 				for (const update of updates) {
-					const { sceneIndex, caption, imagePrompt, videoPrompt, useAvatar, title } = update;
+					const { sceneIndex, caption, imagePrompt, videoPrompt, useAvatar, title, soundEffectPrompt } = update;
 					if (sceneIndex >= 0 && sceneIndex < currentScenes.length) {
 						const sceneId = currentScenes[sceneIndex].id;
 						const sceneUpdates: Record<string, unknown> = {};
@@ -190,6 +193,8 @@ export function useAIStoryAssistant() {
 							sceneUpdates.useAvatar = useAvatar;
 						if (title !== null && title !== undefined)
 							sceneUpdates.title = title;
+						if (soundEffectPrompt !== null && soundEffectPrompt !== undefined)
+							sceneUpdates.soundEffectPrompt = soundEffectPrompt;
 						if (Object.keys(sceneUpdates).length > 0) {
 							aistoryActions.updateScene(sceneId, sceneUpdates);
 						}

@@ -32,6 +32,7 @@ import { Route as ApiUpdateSceneVoiceRouteImport } from './routes/api/update-sce
 import { Route as ApiUpdateScenePromptRouteImport } from './routes/api/update-scene-prompt'
 import { Route as ApiUpdateSceneEnginesRouteImport } from './routes/api/update-scene-engines'
 import { Route as ApiUpdateSceneCaptionRouteImport } from './routes/api/update-scene-caption'
+import { Route as ApiSubtitleSettingsRouteImport } from './routes/api/subtitle-settings'
 import { Route as ApiStoryMetadataRouteImport } from './routes/api/story-metadata'
 import { Route as ApiReorderScenesRouteImport } from './routes/api/reorder-scenes'
 import { Route as ApiProcessImageRouteImport } from './routes/api/process-image'
@@ -176,6 +177,11 @@ const ApiUpdateSceneEnginesRoute = ApiUpdateSceneEnginesRouteImport.update({
 const ApiUpdateSceneCaptionRoute = ApiUpdateSceneCaptionRouteImport.update({
   id: '/api/update-scene-caption',
   path: '/api/update-scene-caption',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiSubtitleSettingsRoute = ApiSubtitleSettingsRouteImport.update({
+  id: '/api/subtitle-settings',
+  path: '/api/subtitle-settings',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiStoryMetadataRoute = ApiStoryMetadataRouteImport.update({
@@ -356,6 +362,7 @@ export interface FileRoutesByFullPath {
   '/api/process-image': typeof ApiProcessImageRoute
   '/api/reorder-scenes': typeof ApiReorderScenesRoute
   '/api/story-metadata': typeof ApiStoryMetadataRoute
+  '/api/subtitle-settings': typeof ApiSubtitleSettingsRoute
   '/api/update-scene-caption': typeof ApiUpdateSceneCaptionRoute
   '/api/update-scene-engines': typeof ApiUpdateSceneEnginesRoute
   '/api/update-scene-prompt': typeof ApiUpdateScenePromptRoute
@@ -407,6 +414,7 @@ export interface FileRoutesByTo {
   '/api/process-image': typeof ApiProcessImageRoute
   '/api/reorder-scenes': typeof ApiReorderScenesRoute
   '/api/story-metadata': typeof ApiStoryMetadataRoute
+  '/api/subtitle-settings': typeof ApiSubtitleSettingsRoute
   '/api/update-scene-caption': typeof ApiUpdateSceneCaptionRoute
   '/api/update-scene-engines': typeof ApiUpdateSceneEnginesRoute
   '/api/update-scene-prompt': typeof ApiUpdateScenePromptRoute
@@ -461,6 +469,7 @@ export interface FileRoutesById {
   '/api/process-image': typeof ApiProcessImageRoute
   '/api/reorder-scenes': typeof ApiReorderScenesRoute
   '/api/story-metadata': typeof ApiStoryMetadataRoute
+  '/api/subtitle-settings': typeof ApiSubtitleSettingsRoute
   '/api/update-scene-caption': typeof ApiUpdateSceneCaptionRoute
   '/api/update-scene-engines': typeof ApiUpdateSceneEnginesRoute
   '/api/update-scene-prompt': typeof ApiUpdateScenePromptRoute
@@ -516,6 +525,7 @@ export interface FileRouteTypes {
     | '/api/process-image'
     | '/api/reorder-scenes'
     | '/api/story-metadata'
+    | '/api/subtitle-settings'
     | '/api/update-scene-caption'
     | '/api/update-scene-engines'
     | '/api/update-scene-prompt'
@@ -567,6 +577,7 @@ export interface FileRouteTypes {
     | '/api/process-image'
     | '/api/reorder-scenes'
     | '/api/story-metadata'
+    | '/api/subtitle-settings'
     | '/api/update-scene-caption'
     | '/api/update-scene-engines'
     | '/api/update-scene-prompt'
@@ -620,6 +631,7 @@ export interface FileRouteTypes {
     | '/api/process-image'
     | '/api/reorder-scenes'
     | '/api/story-metadata'
+    | '/api/subtitle-settings'
     | '/api/update-scene-caption'
     | '/api/update-scene-engines'
     | '/api/update-scene-prompt'
@@ -671,6 +683,7 @@ export interface RootRouteChildren {
   ApiProcessImageRoute: typeof ApiProcessImageRoute
   ApiReorderScenesRoute: typeof ApiReorderScenesRoute
   ApiStoryMetadataRoute: typeof ApiStoryMetadataRoute
+  ApiSubtitleSettingsRoute: typeof ApiSubtitleSettingsRoute
   ApiUpdateSceneCaptionRoute: typeof ApiUpdateSceneCaptionRoute
   ApiUpdateSceneEnginesRoute: typeof ApiUpdateSceneEnginesRoute
   ApiUpdateScenePromptRoute: typeof ApiUpdateScenePromptRoute
@@ -849,6 +862,13 @@ declare module '@tanstack/react-router' {
       path: '/api/update-scene-caption'
       fullPath: '/api/update-scene-caption'
       preLoaderRoute: typeof ApiUpdateSceneCaptionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/subtitle-settings': {
+      id: '/api/subtitle-settings'
+      path: '/api/subtitle-settings'
+      fullPath: '/api/subtitle-settings'
+      preLoaderRoute: typeof ApiSubtitleSettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/story-metadata': {
@@ -1113,6 +1133,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiProcessImageRoute: ApiProcessImageRoute,
   ApiReorderScenesRoute: ApiReorderScenesRoute,
   ApiStoryMetadataRoute: ApiStoryMetadataRoute,
+  ApiSubtitleSettingsRoute: ApiSubtitleSettingsRoute,
   ApiUpdateSceneCaptionRoute: ApiUpdateSceneCaptionRoute,
   ApiUpdateSceneEnginesRoute: ApiUpdateSceneEnginesRoute,
   ApiUpdateScenePromptRoute: ApiUpdateScenePromptRoute,

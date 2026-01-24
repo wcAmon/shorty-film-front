@@ -1323,3 +1323,75 @@ export function useReorderScenes() {
 		}) => reorderScenesApi(params),
 	});
 }
+
+// ============================================================================
+// Subtitle Settings API
+// ============================================================================
+
+export interface SubtitleSettings {
+	globalSize: "small" | "medium" | "large";
+	globalPosition: "top" | "center" | "bottom";
+	displayMode: "segment" | "word" | "karaoke";
+	segmentColors: Record<
+		string,
+		"white" | "red" | "blue" | "yellow" | "green" | "orange"
+	>;
+}
+
+interface GetSubtitleSettingsResponse {
+	success: boolean;
+	settings?: SubtitleSettings | null;
+	error?: string;
+}
+
+interface UpdateSubtitleSettingsResponse {
+	success: boolean;
+	error?: string;
+}
+
+/**
+ * Get subtitle settings for a story
+ */
+async function getSubtitleSettingsApi(
+	storyId: string,
+): Promise<GetSubtitleSettingsResponse> {
+	const response = await authFetch(
+		`/api/subtitle-settings?storyId=${storyId}`,
+	);
+	return response.json();
+}
+
+/**
+ * Update subtitle settings for a story
+ */
+async function updateSubtitleSettingsApi(params: {
+	storyId: string;
+	settings: SubtitleSettings;
+}): Promise<UpdateSubtitleSettingsResponse> {
+	const response = await authFetch("/api/subtitle-settings", {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify(params),
+	});
+	return response.json();
+}
+
+/**
+ * Hook to get subtitle settings for a story
+ */
+export function useGetSubtitleSettings() {
+	return useMutation({
+		mutationFn: (storyId: string) => getSubtitleSettingsApi(storyId),
+	});
+}
+
+/**
+ * Hook to update subtitle settings for a story
+ * Used to persist subtitle editor state to database
+ */
+export function useUpdateSubtitleSettings() {
+	return useMutation({
+		mutationFn: (params: { storyId: string; settings: SubtitleSettings }) =>
+			updateSubtitleSettingsApi(params),
+	});
+}

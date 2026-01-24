@@ -1,7 +1,7 @@
 import { createFileRoute, redirect, Link } from "@tanstack/react-router";
 import { useStore } from "@tanstack/react-store";
 import { ArrowLeft, Captions, Check, Film, Type } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { SubtitleTimeline } from "@/components/subtitle-timeline";
@@ -12,7 +12,12 @@ import {
 	type SubtitleSize,
 	type SubtitlePosition,
 	type SubtitleColor,
+	type SubtitleDisplayMode,
 } from "@/stores/subtitle-editor.store";
+import {
+	useGetSubtitleSettings,
+	useUpdateSubtitleSettings,
+} from "@/hooks/use-aistory-api";
 
 // ============================================================================
 // Route Configuration
@@ -57,6 +62,12 @@ const COLOR_OPTIONS: { id: SubtitleColor; label: string; bgClass: string }[] = [
 	{ id: "orange", label: "橘", bgClass: "bg-orange-500" },
 ];
 
+const DISPLAY_MODE_OPTIONS: { id: SubtitleDisplayMode; label: string; description: string }[] = [
+	{ id: "segment", label: "整段", description: "顯示完整片段" },
+	{ id: "word", label: "逐字", description: "每次顯示一個詞" },
+	{ id: "karaoke", label: "卡拉OK", description: "當前詞反白顯示" },
+];
+
 // ============================================================================
 // Helper Functions
 // ============================================================================
@@ -96,6 +107,10 @@ function DirectorSubtitlesPage() {
 		subtitleEditorStore,
 		(state) => state.globalPosition
 	);
+	const displayMode = useStore(
+		subtitleEditorStore,
+		(state) => state.displayMode
+	);
 	const isInitialized = useStore(
 		subtitleEditorStore,
 		(state) => state.isInitialized
@@ -104,6 +119,14 @@ function DirectorSubtitlesPage() {
 		subtitleEditorStore,
 		(state) => state.storyId
 	);
+
+	// API mutations for subtitle settings
+	const getSubtitleSettingsMutation = useGetSubtitleSettings();
+	const updateSubtitleSettingsMutation = useUpdateSubtitleSettings();
+
+	// Track if we've loaded saved settings for this story
+	const loadedSettingsRef = useRef<string | null>(null);
+	const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
 	// Initialize or re-initialize subtitle editor when scenes change
 	useEffect(() => {
@@ -125,6 +148,63 @@ function DirectorSubtitlesPage() {
 			}
 		}
 	}, [storyId, scenes, isInitialized, editorStoryId]);
+
+	// Load saved subtitle settings after initialization
+	useEffect(() => {
+		if (isInitialized && storyId && loadedSettingsRef.current !== storyId) {
+			loadedSettingsRef.current = storyId;
+			getSubtitleSettingsMutation.mutate(storyId, {
+				onSuccess: (result) => {
+					if (result.success && result.settings) {
+						subtitleEditorActions.restoreFromSettings(result.settings);
+						console.log("[subtitles] Restored saved settings for story", storyId);
+					}
+				},
+			});
+		}
+	}, [isInitialized, storyId, getSubtitleSettingsMutation]);
+
+	// Save settings function with debounce
+	const saveSettings = useCallback(() => {
+		if (!storyId) return;
+
+		const settings = subtitleEditorActions.getSettingsForPersistence();
+		if (!settings) return;
+
+		updateSubtitleSettingsMutation.mutate(
+			{ storyId, settings },
+			{
+				onSuccess: (result) => {
+					if (result.success) {
+						console.log("[subtitles] Saved settings for story", storyId);
+					}
+				},
+			},
+		);
+	}, [storyId, updateSubtitleSettingsMutation]);
+
+	// Auto-save settings when they change (debounced)
+	useEffect(() => {
+		if (!isInitialized || !storyId || loadedSettingsRef.current !== storyId) {
+			return;
+		}
+
+		// Clear previous timeout
+		if (saveTimeoutRef.current) {
+			clearTimeout(saveTimeoutRef.current);
+		}
+
+		// Debounce save by 1 second
+		saveTimeoutRef.current = setTimeout(() => {
+			saveSettings();
+		}, 1000);
+
+		return () => {
+			if (saveTimeoutRef.current) {
+				clearTimeout(saveTimeoutRef.current);
+			}
+		};
+	}, [globalSize, globalPosition, displayMode, segments, isInitialized, storyId, saveSettings]);
 
 	// Get selected segment details
 	const selectedSegment = segments.find((s) => s.id === selectedSegmentId);
@@ -171,7 +251,7 @@ function DirectorSubtitlesPage() {
 						全域設定
 					</h3>
 
-					<div className="grid grid-cols-2 gap-6">
+					<div className="grid grid-cols-3 gap-6">
 						{/* Size selector */}
 						<div>
 							<label className="block text-sm text-muted-foreground mb-2">
@@ -213,6 +293,32 @@ function DirectorSubtitlesPage() {
 												? "border-purple-500 bg-purple-500/20 text-purple-400"
 												: "border-border bg-muted text-muted-foreground hover:border-purple-500/50"
 										}`}
+									>
+										{option.label}
+									</button>
+								))}
+							</div>
+						</div>
+
+						{/* Display mode selector */}
+						<div>
+							<label className="block text-sm text-muted-foreground mb-2">
+								顯示模式
+							</label>
+							<div className="flex gap-2">
+								{DISPLAY_MODE_OPTIONS.map((option) => (
+									<button
+										type="button"
+										key={option.id}
+										onClick={() =>
+											subtitleEditorActions.setDisplayMode(option.id)
+										}
+										className={`flex-1 px-4 py-2 rounded-lg border-2 transition-all ${
+											displayMode === option.id
+												? "border-emerald-500 bg-emerald-500/20 text-emerald-400"
+												: "border-border bg-muted text-muted-foreground hover:border-emerald-500/50"
+										}`}
+										title={option.description}
 									>
 										{option.label}
 									</button>

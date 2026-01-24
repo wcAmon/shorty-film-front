@@ -14,6 +14,13 @@ export type SubtitleColor =
 	| "yellow"
 	| "green"
 	| "orange";
+export type SubtitleDisplayMode = "segment" | "word" | "karaoke";
+
+export interface WordTiming {
+	word: string;
+	startTime: number;
+	endTime: number;
+}
 
 export interface SubtitleSegment {
 	id: string;
@@ -25,6 +32,7 @@ export interface SubtitleSegment {
 	absoluteStartTime: number; // 相對於整個影片的時間
 	absoluteEndTime: number;
 	color: SubtitleColor;
+	wordTimings?: WordTiming[]; // For word-by-word and karaoke modes
 }
 
 export interface SceneBoundary {
@@ -43,6 +51,7 @@ export interface SubtitleEditorState {
 	selectedSegmentId: string | null;
 	globalSize: SubtitleSize;
 	globalPosition: SubtitlePosition;
+	displayMode: SubtitleDisplayMode;
 	totalDuration: number;
 	isInitialized: boolean;
 }
@@ -58,6 +67,7 @@ const initialState: SubtitleEditorState = {
 	selectedSegmentId: null,
 	globalSize: "medium",
 	globalPosition: "bottom",
+	displayMode: "segment",
 	totalDuration: 0,
 	isInitialized: false,
 };
@@ -75,15 +85,25 @@ export const subtitleEditorStore = new Store<SubtitleEditorState>(initialState);
 /**
  * Group word timestamps into subtitle segments (3-4 words each)
  * Breaks on significant pauses (>0.3s gap)
+ * Returns word timings for each segment (for word-by-word and karaoke modes)
  */
 function groupWordsIntoSegments(
 	words: WordTimestamp[],
 	maxWords = 4,
-): Array<{ text: string; startTime: number; endTime: number }> {
+): Array<{
+	text: string;
+	startTime: number;
+	endTime: number;
+	wordTimings: WordTiming[];
+}> {
 	if (!words || words.length === 0) return [];
 
-	const segments: Array<{ text: string; startTime: number; endTime: number }> =
-		[];
+	const segments: Array<{
+		text: string;
+		startTime: number;
+		endTime: number;
+		wordTimings: WordTiming[];
+	}> = [];
 	let currentWords: WordTimestamp[] = [];
 
 	for (let i = 0; i < words.length; i++) {
@@ -105,6 +125,11 @@ function groupWordsIntoSegments(
 				text: currentWords.map((w) => w.word).join(" "),
 				startTime: currentWords[0].startTime,
 				endTime: currentWords[currentWords.length - 1].endTime,
+				wordTimings: currentWords.map((w) => ({
+					word: w.word,
+					startTime: w.startTime,
+					endTime: w.endTime,
+				})),
 			});
 			currentWords = [];
 		}
@@ -118,6 +143,11 @@ function groupWordsIntoSegments(
 			text: currentWords.map((w) => w.word).join(" "),
 			startTime: currentWords[0].startTime,
 			endTime: currentWords[currentWords.length - 1].endTime,
+			wordTimings: currentWords.map((w) => ({
+				word: w.word,
+				startTime: w.startTime,
+				endTime: w.endTime,
+			})),
 		});
 	}
 
@@ -180,6 +210,12 @@ export const subtitleEditorActions = {
 						absoluteStartTime: group.startTime + sceneStartOffset,
 						absoluteEndTime: group.endTime + sceneStartOffset,
 						color: "white", // Default color
+						// Convert relative word timings to absolute timings
+						wordTimings: group.wordTimings.map((wt) => ({
+							word: wt.word,
+							startTime: wt.startTime + sceneStartOffset,
+							endTime: wt.endTime + sceneStartOffset,
+						})),
 					});
 				});
 			}
@@ -241,6 +277,16 @@ export const subtitleEditorActions = {
 	},
 
 	/**
+	 * Set subtitle display mode
+	 */
+	setDisplayMode: (displayMode: SubtitleDisplayMode) => {
+		subtitleEditorStore.setState((state) => ({
+			...state,
+			displayMode,
+		}));
+	},
+
+	/**
 	 * Reset the store to initial state
 	 */
 	reset: () => {
@@ -260,9 +306,58 @@ export const subtitleEditorActions = {
 				absoluteStartTime: seg.absoluteStartTime,
 				absoluteEndTime: seg.absoluteEndTime,
 				color: seg.color,
+				wordTimings: seg.wordTimings,
 			})),
 			globalSize: state.globalSize,
 			globalPosition: state.globalPosition,
+			displayMode: state.displayMode,
 		};
+	},
+
+	/**
+	 * Get settings for persistence (to save to database)
+	 * Returns global settings and per-segment color customizations
+	 */
+	getSettingsForPersistence: () => {
+		const state = subtitleEditorStore.state;
+		if (!state.isInitialized) return null;
+
+		// Build segmentColors map - only include non-default (non-white) colors
+		const segmentColors: Record<string, SubtitleColor> = {};
+		for (const seg of state.segments) {
+			if (seg.color !== "white") {
+				segmentColors[seg.id] = seg.color;
+			}
+		}
+
+		return {
+			globalSize: state.globalSize,
+			globalPosition: state.globalPosition,
+			displayMode: state.displayMode,
+			segmentColors,
+		};
+	},
+
+	/**
+	 * Restore settings from persisted data
+	 * Called after initializeFromScenes to apply saved customizations
+	 */
+	restoreFromSettings: (settings: {
+		globalSize: SubtitleSize;
+		globalPosition: SubtitlePosition;
+		displayMode: SubtitleDisplayMode;
+		segmentColors: Record<string, SubtitleColor>;
+	}) => {
+		subtitleEditorStore.setState((state) => ({
+			...state,
+			globalSize: settings.globalSize,
+			globalPosition: settings.globalPosition,
+			displayMode: settings.displayMode,
+			// Apply segment colors from saved settings
+			segments: state.segments.map((seg) => ({
+				...seg,
+				color: settings.segmentColors[seg.id] || seg.color,
+			})),
+		}));
 	},
 };

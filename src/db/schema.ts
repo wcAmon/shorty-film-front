@@ -13,6 +13,21 @@ import {
 export const shortySchema = pgSchema("shorty");
 
 // ============================================================================
+// JSON Types for JSONB Columns
+// ============================================================================
+
+export interface SubtitleSettingsJson {
+	globalSize: "small" | "medium" | "large";
+	globalPosition: "top" | "center" | "bottom";
+	displayMode: "segment" | "word" | "karaoke";
+	// Map of segment ID to custom color (segments not in this map use 'white')
+	segmentColors: Record<
+		string,
+		"white" | "red" | "blue" | "yellow" | "green" | "orange"
+	>;
+}
+
+// ============================================================================
 // Enums
 // ============================================================================
 
@@ -83,6 +98,9 @@ export const stories = shortySchema.table("stories", {
 	hasExportedVideo: boolean("has_exported_video").default(false),
 	exportVideoUrl: text("export_video_url"), // Supabase Storage URL for exported video
 	exportedVideoId: text("exported_video_id"), // Reference to videos table for exported video
+
+	// Subtitle editor settings (persisted for re-export)
+	subtitleSettings: jsonb("subtitle_settings").$type<SubtitleSettingsJson>(),
 
 	// Director Assistant conversation history (for director-mode stories)
 	conversationHistory: jsonb("conversation_history").$type<
