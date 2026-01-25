@@ -77,7 +77,9 @@ const IMAGE_ENGINES: { id: DirectorImageEngine; label: string; description?: str
 ];
 
 const VIDEO_ENGINES: { id: DirectorVideoEngine; label: string; description?: string }[] = [
-	{ id: "sora-2", label: "Sora 2", description: "OpenAI Sora 2 via FAL AI, high quality video generation (recommended)" },
+	{ id: "kling-video", label: "Kling v1.6", description: "Kling Video v1.6 Pro, high quality image-to-video" },
+	{ id: "kling-video-v2.5-turbo", label: "Kling v2.5 Turbo", description: "Kling Video v2.5 Turbo, fast generation (recommended)" },
+	{ id: "sora-2", label: "Sora 2", description: "OpenAI Sora 2 via FAL AI, high quality video generation" },
 	{ id: "ltx-2-19b", label: "LTX-2 19B", description: "Fast generation with good motion quality" },
 	{ id: "wan-pro", label: "Wan Pro (6s)", description: "Fixed 6 second duration, 1080p at 30fps" },
 ];

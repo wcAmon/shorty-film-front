@@ -79,6 +79,8 @@ export type VoiceId =
 
 // Video engine options for FAL-AI (no audio output)
 export type VideoEngine =
+	| "kling-video"
+	| "kling-video-v2.5-turbo"
 	| "sora-2"
 	| "ltx-2-19b"
 	| "wan-pro";
