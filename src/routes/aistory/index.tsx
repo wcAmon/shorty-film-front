@@ -125,11 +125,6 @@ const VOICE_OPTIONS: { id: VoiceId; label: string; description: string }[] = [
 const VIDEO_ENGINES: { id: VideoEngine; label: string; description: string }[] =
 	[
 		{
-			id: "kling-video",
-			label: "Kling v1.6",
-			description: "Kling Video v1.6 Pro, high quality image-to-video",
-		},
-		{
 			id: "kling-video-v2.5-turbo",
 			label: "Kling v2.5 Turbo",
 			description: "Kling Video v2.5 Turbo, fast generation (recommended)",

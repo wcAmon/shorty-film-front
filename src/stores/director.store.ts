@@ -13,7 +13,6 @@ export type DirectorImageEngine =
 	| "flux-schnell-i2i";
 
 export type DirectorVideoEngine =
-	| "kling-video"
 	| "kling-video-v2.5-turbo"
 	| "sora-2"
 	| "ltx-2-19b"

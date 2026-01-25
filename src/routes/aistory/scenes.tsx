@@ -69,7 +69,6 @@ const IMAGE_ENGINES: { id: ImageEngine; label: string }[] = [
 
 // Video engine options (no audio output)
 const VIDEO_ENGINES: { id: VideoEngine; label: string }[] = [
-	{ id: "kling-video", label: "Kling v1.6" },
 	{ id: "kling-video-v2.5-turbo", label: "Kling v2.5 Turbo" },
 	{ id: "sora-2", label: "Sora 2" },
 	{ id: "ltx-2-19b", label: "LTX-2 19B" },
