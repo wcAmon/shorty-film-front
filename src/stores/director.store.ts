@@ -16,7 +16,8 @@ export type DirectorVideoEngine =
 	| "kling-video-v2.5-turbo"
 	| "sora-2"
 	| "ltx-2-19b"
-	| "wan-pro";
+	| "wan-pro"
+	| "veo3.1-fast";
 
 export type DirectorAvatarEngine =
 	| "kling-avatar-v2-standard"

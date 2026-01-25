@@ -81,6 +81,7 @@ const VIDEO_ENGINES: { id: DirectorVideoEngine; label: string; description?: str
 	{ id: "sora-2", label: "Sora 2", description: "OpenAI Sora 2 via FAL AI, high quality video generation" },
 	{ id: "ltx-2-19b", label: "LTX-2 19B", description: "Fast generation with good motion quality" },
 	{ id: "wan-pro", label: "Wan Pro (6s)", description: "Fixed 6 second duration, 1080p at 30fps" },
+	{ id: "veo3.1-fast", label: "Veo 3.1 Fast", description: "Google Veo 3.1 fast model, no audio" },
 ];
 
 const AVATAR_ENGINES: { id: DirectorAvatarEngine; label: string; description?: string }[] = [

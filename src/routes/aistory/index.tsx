@@ -144,6 +144,11 @@ const VIDEO_ENGINES: { id: VideoEngine; label: string; description: string }[] =
 			label: "Wan Pro (6s)",
 			description: "Fixed 6 second duration, 1080p at 30fps",
 		},
+		{
+			id: "veo3.1-fast",
+			label: "Veo 3.1 Fast",
+			description: "Google Veo 3.1 fast model, no audio",
+		},
 	];
 
 // LLM engine options for prompt generation

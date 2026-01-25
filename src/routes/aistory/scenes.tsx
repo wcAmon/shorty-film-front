@@ -73,6 +73,7 @@ const VIDEO_ENGINES: { id: VideoEngine; label: string }[] = [
 	{ id: "sora-2", label: "Sora 2" },
 	{ id: "ltx-2-19b", label: "LTX-2 19B" },
 	{ id: "wan-pro", label: "Wan Pro (6s)" },
+	{ id: "veo3.1-fast", label: "Veo 3.1 Fast" },
 ];
 
 // Voice options

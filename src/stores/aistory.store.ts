@@ -82,7 +82,8 @@ export type VideoEngine =
 	| "kling-video-v2.5-turbo"
 	| "sora-2"
 	| "ltx-2-19b"
-	| "wan-pro";
+	| "wan-pro"
+	| "veo3.1-fast";
 
 // LLM engine options for prompt generation
 export type LLMEngine = "gpt-4.1" | "claude-opus-4-5" | "gemini-2.5-pro";
